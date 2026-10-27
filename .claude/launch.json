@@ -1,0 +1,65 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "kite",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "C:/Apps/kite",
+        "dev"
+      ],
+      "port": 3100
+    },
+    {
+      "name": "kite-scratch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "C:/Apps/kite",
+        "dev:scratch"
+      ],
+      "port": 3101
+    },
+    {
+      "name": "kite-scratch-gmail",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "C:/Apps/kite",
+        "dev:scratch",
+        "--data=data-scratch-gmail",
+        "--port=3104"
+      ],
+      "port": 3104
+    },
+    {
+      "name": "kite-demo",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "C:/Apps/kite",
+        "dev:scratch",
+        "--data=data-demo"
+      ],
+      "port": 3101
+    },
+    {
+      "name": "imap-test-server",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Apps/kite/scripts/imap-test-server.mjs"
+      ],
+      "port": 1143
+    },
+    {
+      "name": "kite-perf-copy",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/perf/quick.mjs",
+        "--serve"
+      ],
+      "port": 3196
+    }
+  ]
+}

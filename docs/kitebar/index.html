@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Kite bar API · Kite</title>
+<meta name="description" content="Put your own builds, deploys, timers and alerts in the Kite bar at the top of your screen. Send JSON from any script on your PC; Kite draws it and tells you what was clicked.">
+<meta property="og:title" content="The Kite bar API · Kite">
+<meta property="og:description" content="Send JSON, get a bar. Progress, codes, countdowns and buttons at the top of your screen, from any script on your PC.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/lenis@1/dist/lenis.css">
+<link rel="stylesheet" href="../site.css">
+<style>
+  /* the hero's window holds a desktop with the Kite bar on it, not a screenshot */
+  .hero { background: #2c3354 url('../images/sky-dusk.jpg') no-repeat; background-size: cover; background-position: center 60%; }
+  .hero::before { background: linear-gradient(180deg, rgba(14, 12, 30, 0.45) 0%, rgba(14, 12, 30, 0.12) 40%, transparent 62%); }
+  .desktop { position: relative; height: 100%; overflow: hidden; background: #8f78c8 url('../images/sky-violet.jpg') no-repeat; background-size: cover; background-position: center 75%; }
+  .desktop .kitebar { scale: 1.3; transform-origin: top center; }
+  .desktop .desk { inset: auto auto 10% 6%; width: min(240px, 30%); }
+  .desktop .win { position: absolute; right: 6%; bottom: 0; width: 46%; height: 52%; border-radius: 14px 14px 0 0; background: rgba(255, 255, 255, 0.82); box-shadow: 0 -10px 40px -20px rgba(20, 10, 40, 0.5); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .desktop .win::before { content: ''; position: absolute; left: 16px; right: 40%; top: 18px; height: 10px; border-radius: 99px; background: var(--paper-2); box-shadow: 0 22px 0 var(--paper-2), 0 44px 0 var(--paper-2), 0 66px 0 var(--paper-2); }
+  .nav .brand img { width: 24px; height: 24px; border-radius: 6px; }
+
+  /* ---- what shows up: a card each, the Kite bar on a sky, what it carries underneath ---- */
+  .kinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .kind { display: flex; flex-direction: column; overflow: hidden; border-radius: 24px; background: var(--card); border: 1px solid var(--line); }
+  .kind .screen { aspect-ratio: 16 / 10; border-radius: 0; }
+  .kind .screen .kitebar { scale: 0.92; transform-origin: top center; }
+  .kind .body { display: flex; flex-direction: column; gap: 10px; padding: 24px 26px 26px; }
+  .kind h3 { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 20px; letter-spacing: -0.03em; }
+  .kind h3 code { font-size: 12.5px; color: var(--ink-3); }
+  .kind p { color: var(--ink-2); font-size: 14.5px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .chips span { height: 26px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; background: var(--paper); font-size: 12.5px; color: var(--ink-2); }
+  .chips span.live { background: var(--lilac); color: var(--violet-ink); }
+
+  /* ---- the API: the request on dark, what the Kite bar does with it above ---- */
+  .stage .window { display: flex; flex-direction: column; }
+  .stage .strip { position: relative; aspect-ratio: 16 / 3.4; overflow: hidden; background: #b98bb8 url('../images/sky-rose.jpg') no-repeat; background-size: cover; background-position: center 65%; }
+  .stage .strip .kitebar { scale: 1.05; transform-origin: top center; }
+  .stage pre { margin: 0; height: 290px; overflow: auto; padding: 22px 24px; background: var(--night); color: rgba(255, 255, 255, 0.86); font: 400 13.5px/1.65 var(--sans); font-variant-numeric: tabular-nums; white-space: pre; tab-size: 2; scrollbar-width: thin; }
+  pre .k { color: #b3a9ff; }
+  pre .s { color: var(--peach); }
+  pre .n { color: #7fe0b4; }
+  pre .p { color: rgba(255, 255, 255, 0.38); }
+  pre .v { color: #fff; font-weight: 500; }
+
+  /* ---- reference: six tiles ---- */
+  .coverage { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .coverage .tile { display: flex; flex-direction: column; gap: 10px; padding: 26px; }
+  .coverage h3 { font-size: 18px; letter-spacing: -0.025em; }
+  .coverage p { color: var(--ink-2); font-size: 14.5px; }
+  .coverage .tile span { font: 400 12px/1.5 var(--sans); color: var(--ink-3); }
+
+  @media (max-width: 960px) {
+    .kinds, .coverage { grid-template-columns: 1fr; }
+    .desktop .win { display: none; }
+    .desktop .kitebar { scale: 1; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nav" id="nav">
+  <div class="side">
+    <a class="brand" href="#top" aria-label="The Kite bar API home">
+      <svg class="mark" width="24" height="27" viewBox="0 0 32 36" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <g class="flyer">
+          <path class="sail" d="M16 3 26 13 16 27 6 13Z" stroke-width="2.2"/>
+          <path class="spar" d="M6 13h20M16 3v24" stroke-width="1.4"/>
+          <path class="tail" d="M16 27c-3 2.6 3 4.2 0 7.5" stroke-width="1.6"/>
+        </g>
+      </svg>
+      Kite bar API
+    </a>
+    <span class="badge">API v1</span>
+  </div>
+  <div class="side">
+    <nav class="links" aria-label="Sections">
+      <a href="#kinds">Built in</a>
+      <a href="#api">API</a>
+      <a href="#rules">Rules</a>
+      <a href="#reference">Reference</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="to-other" href="../">Kite</a>
+    <span class="btn btn-sm dl soon" aria-disabled="true">Coming soon</span>
+  </div>
+</header>
+
+<main id="top">
+  <!-- hero -->
+  <section class="hero-wrap">
+    <div class="hero">
+      <svg class="kite-fly" aria-hidden="true">
+        <g class="flyer-big">
+          <path class="sail" d="M0-34 22-6 0 26Z"/>
+          <path class="sail-2" d="M0-34-22-6 0 26Z"/>
+          <path class="spar" d="M-22-6H22M0-34V26"/>
+        </g>
+        <path class="string"/>
+        <path class="tail"/>
+        <g class="bows"><path/><path/><path/></g>
+      </svg>
+      <div class="hero-copy">
+        <h1>Your apps, <em>in the Kite bar.</em></h1>
+        <p class="lead">Send JSON from any script on your PC. Kite draws it at the top of your screen, in its own look, and tells you what was clicked.</p>
+        <div class="ctas">
+          <a class="btn btn-lg btn-light" href="#api">Read the API</a>
+          <a class="btn btn-lg glass" href="../">Get Kite</a>
+        </div>
+      </div>
+      <div class="hero-shot">
+        <div class="rim">
+          <div class="window">
+            <div class="window-bar"><i></i><i></i><i></i><span>Your desktop</span></div>
+            <div class="desktop" aria-label="the Kite bar at the top of a desktop, showing a deploy, a sign-in code and a meeting in turn">
+              <div class="kitebar" id="hero-kitebar"></div>
+              <div class="desk"><i></i><i></i><i></i></div>
+              <div class="win"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- what kite puts there -->
+  <section class="block" id="kinds">
+    <div class="wrap">
+      <div class="head reveal">
+        <span class="badge">Built in</span>
+        <h2>Three things Kite puts there, <em>then yours.</em></h2>
+        <p>One queue for all of it. One thing shows at a time; the rest wait beside it as chips, one click to bring one forward.</p>
+      </div>
+      <div class="kinds">
+        <article class="kind reveal">
+          <div class="screen violet" aria-hidden="true">
+            <div class="kitebar" data-kitebar='{"icon":"key","title":"Sign-in code","sub":"Microsoft","code":"731904","actions":["Copy"]}'></div>
+          </div>
+          <div class="body">
+            <h3>Sign-in codes <code>code</code></h3>
+            <p>Read from mail arriving now and dropped in over whatever you're doing, ready to copy. When a code could be two things, the part you pick is remembered for that sender.</p>
+            <div class="chips"><span class="live">Steps in front</span><span>Copy</span><span>Sign-in links</span><span>Kept a day</span></div>
+          </div>
+        </article>
+        <article class="kind reveal">
+          <div class="screen" aria-hidden="true">
+            <div class="kitebar" data-kitebar='{"icon":"calendar","tint":"warning","title":"Design review","sub":"Boardroom 2","val":"2:00","ring":1,"tick":120,"actions":["Join"]}'></div>
+          </div>
+          <div class="body">
+            <h3>Meetings <code>meeting</code></h3>
+            <p>Two minutes before it starts, from your calendar or the invites in your mail. It counts down by itself and Join opens the call.</p>
+            <div class="chips"><span class="live">Steps in front</span><span>Countdown</span><span>Join</span></div>
+          </div>
+        </article>
+        <article class="kind reveal">
+          <div class="screen rose" aria-hidden="true">
+            <div class="kitebar" data-kitebar='{"avatar":"TN","hue":18,"title":"Thandi Nkosi","sub":"Can we move to Thursday?","actions":["Archive","Reply"]}'></div>
+          </div>
+          <div class="body">
+            <h3>Mail that matters <code>mail</code></h3>
+            <p>Only when an automation says notify now, and only when Kite isn't in front. Reply opens right there in the Kite bar, files and Undo send included.</p>
+            <div class="chips"><span>Quick reply</span><span>Archive with Undo</span><span>Open</span></div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- the api -->
+  <section class="block" id="api">
+    <div class="wrap">
+      <div class="head reveal">
+        <span class="badge">The API</span>
+        <h2>Send JSON, <em>get a bar.</em></h2>
+        <p>Make a token in Kite → Settings → Kite bar, then call it from anything that speaks HTTP. You never ship UI.</p>
+      </div>
+      <div class="sky-panel dusk showcase reveal">
+        <div class="tabs" role="tablist" aria-label="The API" id="tabs"></div>
+        <div class="stage rim">
+          <div class="window">
+            <div class="window-bar"><i></i><i></i><i></i><span id="stage-title">Kite bar API</span></div>
+            <div class="strip"><div class="kitebar" id="stage-kitebar"></div></div>
+            <pre class="swap" id="stage-code"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- rules -->
+  <section class="block" id="rules">
+    <div class="wrap">
+      <div class="head reveal">
+        <span class="badge">House rules</span>
+        <h2>Your words, <em>Kite's look.</em></h2>
+        <p>Kite draws every activity from its fields, so a bar from a script feels like one from Kite and nothing can hijack your screen.</p>
+      </div>
+      <div class="split reveal">
+        <div class="half yes">
+          <h3>What Kite handles <span class="badge">For you</span></h3>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><div class="txt"><b>The motion and the queue</b><span>grows out of the edge, rests as a pill, takes turns</span></div></div>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><div class="txt"><b>The pointer and the keyboard</b><span>click-through except over the shape, never steals focus</span></div></div>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><div class="txt"><b>Updates in place</b><span>same key, same bar: progress, status, countdown</span></div></div>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><div class="txt"><b>Quiet when you want it</b><span>one switch makes everything arrive as the pill</span></div></div>
+        </div>
+        <div class="half no">
+          <h3>What it never does <span class="badge">Ever</span></h3>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg></span><div class="txt"><b>Run or load what you send</b><span>no HTML, no scripts, no pictures from the internet</span></div></div>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg></span><div class="txt"><b>Answer the internet</b><span>127.0.0.1 only, and web pages are refused</span></div></div>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg></span><div class="txt"><b>Cover a reply you're writing</b><span>arrivals wait until you've sent or closed it</span></div></div>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg></span><div class="txt"><b>Keep a token you took back</b><span>pause or remove an integration and it stops at once</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- reference -->
+  <section class="block" id="reference">
+    <div class="wrap">
+      <div class="head reveal">
+        <span class="badge">Reference</span>
+        <h2>Small API, <em>no surprises.</em></h2>
+        <p>Point your AI assistant at <code>127.0.0.1:3100/api/bar</code>: it answers with all of this and the exact JSON Schema.</p>
+      </div>
+      <div class="coverage">
+        <div class="tile reveal"><h3>Values</h3><p>Text, a code with its own Copy button, a progress bar with a label, or a countdown that ticks by itself.</p><span>text · code · progress · countdown</span></div>
+        <div class="tile reveal"><h3>Actions</h3><p>Up to three buttons, the last one the main one. Open a page, copy some text, or tell your script.</p><span>open_url · copy · callback</span></div>
+        <div class="tile reveal"><h3>Priority</h3><p>Passive arrives as one quiet line, normal drops open for a moment, high goes ahead of whatever is waiting.</p><span>passive · normal · high</span></div>
+        <div class="tile reveal"><h3>Events</h3><p>One server-sent stream per integration: which button was pressed, what was closed, what ran out.</p><span>ready · action · dismissed · expired</span></div>
+        <div class="tile reveal"><h3>Limits</h3><p>60 calls a minute and 20 live activities each. For something busy, update one key instead of sending new ones.</p><span>429 says what to do</span></div>
+        <div class="tile reveal"><h3>Errors</h3><p>A bad request lists every mistake and where it is, so you fix them all in one go.</p><span>actions.0.url: Use an https:// address</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- faq -->
+  <section class="block" id="faq">
+    <div class="wrap">
+      <div class="head reveal">
+        <span class="badge">Questions</span>
+        <h2>Before you <em>ship it.</em></h2>
+      </div>
+      <div class="faq reveal">
+        <details><summary>Do I need Kite running?<span class="plus"></span></summary><div class="a">Yes. The Kite bar is part of the Kite desktop app, and the API lives on the same computer at <code>127.0.0.1:3100</code>. Activities live in Kite's memory: they end when they expire, when you close them, or when Kite restarts.</div></details>
+        <details><summary>What can I build with it?<span class="plus"></span></summary><div class="a">Anything that finishes, changes or needs a click: builds and deploys, test runs, timers, a song, a price alert, a long training run. <code>node scripts/bar-demo.mjs &lt;token&gt;</code> runs a pretend deploy and is the template for your own.</div></details>
+        <details><summary>Which languages work?<span class="plus"></span></summary><div class="a">Any that can make an HTTP request: curl, PowerShell, Node with plain <code>fetch</code>, Python's standard library. No SDK, no packages.</div></details>
+        <details><summary>Can a web page use it?<span class="plus"></span></summary><div class="a">No. Requests carrying an <code>Origin</code> header are refused, so a site you visit can't put anything on your screen. Only programs on your computer with a token can.</div></details>
+        <details><summary>Does anything I send leave my computer?<span class="plus"></span></summary><div class="a">No. Kite draws it from the fields and keeps it in memory. Links open in your browser only when you click them.</div></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- closing -->
+  <section class="closing">
+    <div class="sky-panel dusk reveal">
+      <span class="badge">API v1</span>
+      <h2>Put it where <em>you'll see it.</em></h2>
+      <p>Free with Kite for Windows. Tell me what you put in yours.</p>
+      <div class="ctas">
+        <span class="btn btn-lg btn-light soon" aria-disabled="true">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.1 10.4 4v7.2H3V5.1Zm0 13.8 7.4 1.1v-7.1H3v6Zm8.2 1.2L21 21.5v-8.6h-9.8v7.2ZM11.2 3.9v7.3H21V2.5l-9.8 1.4Z"/></svg>
+          Coming soon
+        </span>
+        <a class="btn btn-lg glass" href="https://github.com/TheeHappyCoder/kite/blob/main/docs/bar.md">Full docs</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>The Kite bar API</span>
+    <a href="../">Kite</a>
+    <a href="https://github.com/TheeHappyCoder/kite/blob/main/docs/bar.md">Docs</a>
+    <a href="https://github.com/TheeHappyCoder/kite/blob/main/scripts/bar-demo.mjs">Example</a>
+    <a href="https://github.com/TheeHappyCoder/kite/issues">Report a problem</a>
+    <span class="spacer"></span>
+    <span class="by">Built by Mark Steyn <span class="social"><a href="https://github.com/TheeHappyCoder/kite" aria-label="Kite on GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.290 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg></a><a href="https://www.linkedin.com/in/mark-steyn-b71894139/" aria-label="Mark Steyn on LinkedIn" title="LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13ZM7.12 20.45H3.56V9h3.56v11.45ZM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0Z"/></svg></a><a href="https://x.com/theehappycoder" aria-label="Mark Steyn on X" title="X"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg></a></span></span>
+  </div>
+  <div class="wrap credits">
+    <span>Sky photos by Mila Young, Ingmar and Andres Perez on Unsplash.</span>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/lenis@1/dist/lenis.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+<script src="../kitebar.js"></script>
+<script src="../motion.js"></script>
+<script>
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  // ---- smooth scroll (Lenis); the in-page links glide too, landing clear of the fixed nav ----
+  if (!reduce && window.Lenis) {
+    const lenis = new Lenis({ autoRaf: true, anchors: { offset: -90 } })
+    if (window.ScrollTrigger) lenis.on('scroll', ScrollTrigger.update)
+  }
+
+  // ---- the Kite bar is drawn by ../kitebar.js ----
+  const { set: setKiteBar, update: updateKiteBar, press, waiting, wait, mmss } = KiteBar
+  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+  // ---- the hero: a deploy that updates in place, then a code, then a meeting, resting as one line between ----
+  const hero = document.getElementById('hero-kitebar')
+  ;(async function heroLoop() {
+    const deploy = { icon: 'deploy', title: 'Deploying kite-web', sub: 'GitHub Actions', progress: 0.08, val: 'Step 1 of 5', actions: ['Cancel'] }
+    if (reduce) { setKiteBar(hero, { ...deploy, progress: 0.6, val: 'Step 3 of 5' }); return }
+    for (;;) {
+      setKiteBar(hero, deploy)
+      waiting(hero, 0)
+      await wait(1400)
+      for (let s = 2; s <= 5; s++) {
+        updateKiteBar(hero, { progress: s / 5 - 0.04, val: `Step ${s} of 5` })
+        if (s === 3) waiting(hero, 1) // a code arrived meanwhile: it waits its turn
+        await wait(1100)
+      }
+      setKiteBar(hero, { icon: 'check', tint: 'success', title: 'Deployed', sub: 'kite-web · 2m 14s', progress: 1, actions: ['View logs'] })
+      await wait(2400)
+      setKiteBar(hero, { icon: 'check', tint: 'success', val: 'Deployed' }, { pill: true })
+      await wait(1400)
+      waiting(hero, 0)
+      setKiteBar(hero, { icon: 'key', title: 'Sign-in code', sub: 'Microsoft', code: '731904', actions: ['Copy'] })
+      await wait(2000)
+      press(hero, 0, 'Copied')
+      await wait(1400)
+      let left = 30
+      setKiteBar(hero, { icon: 'calendar', tint: 'warning', title: 'Standup', sub: 'Starts soon · Teams', val: mmss(left), ring: 1, actions: ['Join'] })
+      for (let k = 0; k < 4; k++) { await wait(1000); left--; updateKiteBar(hero, { val: mmss(left), ring: left / 30 }) }
+      setKiteBar(hero, { icon: 'calendar', tint: 'warning', val: mmss(left), ring: left / 30 }, { pill: true })
+      for (let k = 0; k < 2; k++) { await wait(1000); left--; updateKiteBar(hero, { val: mmss(left), ring: left / 30 }) }
+    }
+  })()
+
+  // ---- the API: each tab is one request, the Kite bar above shows what it does ----
+  const API = [
+    ['Show something', 'POST /activities', 'A title and an icon is enough. The answer is the id, your key and when it expires.',
+      `<span class="v">curl</span> -X POST http://127.0.0.1:3100/api/bar/activities \\
+  -H <span class="s">"Authorization: Bearer $KITE_BAR_TOKEN"</span> \\
+  -H <span class="s">"content-type: application/json"</span> \\
+  -d <span class="s">'{"title":"Coffee is ready","icon":"bell"}'</span>`,
+      { icon: 'bell', title: 'Coffee is ready', sub: 'Kitchen bot' }],
+    ['Update it in place', 'key', 'Send the same key again and the Kite bar updates where it is: progress, status, countdown.',
+      { key: 'deploy-482', title: 'Deploying kite-web', icon: 'deploy', value: { type: 'progress', progress: 0.6, label: 'Step 3 of 5' }, duration: 900 },
+      { icon: 'deploy', title: 'Deploying kite-web', sub: 'GitHub Actions', progress: 0.6, val: 'Step 3 of 5' }],
+    ['Add buttons', 'actions', 'Up to three. Open a page, copy text, or have Kite tell your script which one was pressed.',
+      { key: 'build-482', title: 'Build failed', icon: 'bug', tint: 'danger', body: '2 tests failed in sync.test.ts', actions: [{ type: 'open_url', label: 'View logs', url: 'https://ci.example.com/482' }, { type: 'callback', label: 'Retry', id: 'retry' }] },
+      { icon: 'bug', tint: 'danger', title: 'Build failed', sub: 'GitHub builds', body: '2 tests failed in sync.test.ts', actions: ['View logs', 'Retry'] }],
+    ['Codes and countdowns', 'value', 'A code gets its own Copy button. A countdown ticks by itself; you never update it.',
+      { title: 'Tea', icon: 'timer', priority: 'passive', value: { type: 'countdown', until: '2026-10-27T14:30:00+02:00', label: 'Rooibos' } },
+      { icon: 'timer', title: 'Tea', sub: 'Rooibos', val: '3:00', countdown: 180 }],
+    ['Hear what was clicked', 'GET /events', 'Keep one stream open. Retry is yours to act on; closed and expired tell you to stop updating.',
+      `<span class="v">GET</span> http://127.0.0.1:3100/api/bar/events
+Authorization: Bearer kite_bar_…
+
+<span class="p">data:</span> {<span class="k">"type"</span>:<span class="s">"ready"</span>,<span class="k">"integration"</span>:<span class="s">"GitHub builds"</span>}
+<span class="p">data:</span> {<span class="k">"type"</span>:<span class="s">"action"</span>,<span class="k">"key"</span>:<span class="s">"build-482"</span>,<span class="k">"action"</span>:<span class="s">"retry"</span>}
+<span class="p">data:</span> {<span class="k">"type"</span>:<span class="s">"dismissed"</span>,<span class="k">"key"</span>:<span class="s">"build-482"</span>}`,
+      { icon: 'refresh', title: 'Retrying build 482', sub: 'GitHub builds', progress: 0.15, val: 'Queued' }],
+  ]
+  // JSON bodies are pretty-printed and coloured here, so each sample stays one readable object above
+  const json = (o) => `<span class="v">POST</span> /api/bar/activities\n\n` + esc(JSON.stringify(o, null, 2))
+    .replace(/("(?:[^"\\]|\\.)*")(\s*:)?|\b(\d+(?:\.\d+)?)\b|([{}\[\],])/g, (m, str, colon, num, p) =>
+      str ? (colon ? `<span class="k">${str}</span><span class="p">:</span>` : `<span class="s">${str}</span>`)
+        : num ? `<span class="n">${num}</span>` : `<span class="p">${p}</span>`)
+  const SECS = 7
+  const tabs = document.getElementById('tabs')
+  const stageKiteBar = document.getElementById('stage-kitebar')
+  const stageCode = document.getElementById('stage-code')
+  const stageTitle = document.getElementById('stage-title')
+  let current = -1
+  let timer = null
+  let ticker = null
+  const buttons = API.map(([t, api, d], i) => {
+    const b = document.createElement('button')
+    b.className = 'tab glass'
+    b.type = 'button'
+    b.setAttribute('role', 'tab')
+    b.setAttribute('aria-selected', 'false')
+    b.innerHTML = `<span class="row"><span class="t">${t}</span><span class="api">${api}</span></span><span class="d"><p>${d}</p></span><span class="bar"><i></i></span>`
+    b.addEventListener('click', () => show(i))
+    tabs.appendChild(b)
+    return b
+  })
+  function show(i) {
+    if (i === current) return
+    current = i
+    const [t, , , code, look] = API[i]
+    buttons.forEach((b, k) => b.setAttribute('aria-selected', String(k === i)))
+    stageTitle.textContent = `Kite bar API · ${t}`
+    stageCode.classList.add('fade')
+    setTimeout(() => {
+      stageCode.innerHTML = typeof code === 'string' ? code : json(code)
+      stageCode.scrollTop = 0
+      stageCode.classList.remove('fade')
+    }, 160)
+    setKiteBar(stageKiteBar, look)
+    clearInterval(ticker)
+    if (look.countdown && !reduce) {
+      let left = look.countdown
+      ticker = setInterval(() => updateKiteBar(stageKiteBar, { val: mmss(--left) }), 1000)
+    }
+    for (const b of buttons) {
+      const bar = b.querySelector('.bar i')
+      bar.style.transition = 'none'
+      bar.style.width = '0'
+    }
+    clearTimeout(timer)
+    if (reduce) return
+    const bar = buttons[i].querySelector('.bar i')
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      bar.style.transition = `width ${SECS}s linear`
+      bar.style.width = '100%'
+    }))
+    timer = setTimeout(() => show((i + 1) % API.length), SECS * 1000)
+  }
+  show(0)
+  new IntersectionObserver(([e], obs) => { if (e.isIntersecting) { obs.disconnect(); current = -1; show(0) } }, { threshold: 0.25 }).observe(tabs)
+
+
+  // ---- reveal on scroll ----
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) }
+  }, { rootMargin: '0px 0px -6% 0px', threshold: 0.06 })
+  const stagger = new Map()
+  document.querySelectorAll('.reveal').forEach((el) => {
+    const n = stagger.get(el.parentElement) ?? 0
+    stagger.set(el.parentElement, n + 1)
+    el.style.transitionDelay = `${Math.min(n, 6) * 70}ms`
+    io.observe(el)
+  })
+
+  // ---- the nav: a bar once scrolling starts, out of the way over the closing sky ----
+  const nav = document.getElementById('nav')
+  const closingPanel = document.querySelector('.closing .sky-panel')
+  const onScroll = () => {
+    nav.classList.toggle('solid', scrollY > 8)
+    nav.classList.toggle('away', closingPanel.getBoundingClientRect().top < 90)
+  }
+  addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
+</script>
+</body>
+</html>

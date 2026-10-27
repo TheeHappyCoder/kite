@@ -1,0 +1,41 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Kite",
+  "version": "0.1.0",
+  "identifier": "app.kite.desktop",
+  "build": {
+    "devUrl": "http://127.0.0.1:3100",
+    "beforeDevCommand": "node scripts/desktop-dev.mjs",
+    "frontendDist": "splash"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJEOUUxOTU1QkZDODk3RjYKUldUMmw4aS9WUm1ldlFTSFVyY1ZwbmpzNC9aL2prVGFlTmpvY1JVbFNJTWdYSUVRUDIwSlN2L3cK",
+      "endpoints": [
+        "https://github.com/TheeHappyCoder/kite/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

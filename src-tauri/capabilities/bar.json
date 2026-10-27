@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "bar",
+  "description": "The Kite bar page calls the app's `bar` command (ready / shape / hidden / copy / fill / open / join / reply / focus / release). No plugin permissions.",
+  "windows": ["bar"],
+  "remote": { "urls": ["http://127.0.0.1:3100/*"] },
+  "permissions": ["allow-bar"]
+}

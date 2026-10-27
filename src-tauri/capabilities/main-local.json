@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-local",
+  "description": "The same `update` command for `pnpm desktop`, where the devUrl counts as local.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "allow-update"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "bar-local",
+  "description": "The same `bar` command for `pnpm desktop`, where the devUrl (127.0.0.1:3100) counts as local rather than remote.",
+  "windows": ["bar"],
+  "permissions": ["allow-bar"]
+}

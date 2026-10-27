@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kite · Email that flies</title>
+<meta name="description" content="A fast, keyboard-first email client for Windows. Your mail lives on your computer, so lists and search never wait. Automations built by example, sign-in codes in the Kite bar, and AI only when you click it.">
+<meta property="og:title" content="Kite · Email that flies">
+<meta property="og:description" content="Keyboard-first email with your mail on your own computer. Gmail, Outlook, iCloud and any IMAP. AI only when you ask.">
+<meta property="og:image" content="https://theehappycoder.github.io/kite/images/shots/inbox.webp">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/lenis@1/dist/lenis.css">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+
+<header class="nav" id="nav">
+  <div class="side">
+    <a class="brand" href="#top" aria-label="Kite home">
+      <svg class="mark" width="24" height="27" viewBox="0 0 32 36" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <g class="flyer">
+          <path class="sail" d="M16 3 26 13 16 27 6 13Z" stroke-width="2.2"/>
+          <path class="spar" d="M6 13h20M16 3v24" stroke-width="1.4"/>
+          <path class="tail" d="M16 27c-3 2.6 3 4.2 0 7.5" stroke-width="1.6"/>
+        </g>
+      </svg>
+      Kite
+    </a>
+    <span class="badge">v0.1.0</span>
+  </div>
+  <div class="side">
+    <nav class="links" aria-label="Sections">
+      <a href="#features">Features</a>
+      <a href="#search">Search</a>
+      <a href="#automations">Automations</a>
+      <a href="#kitebar">Kite bar</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <span class="btn btn-sm dl soon" aria-disabled="true">Coming soon</span>
+  </div>
+</header>
+
+<main id="top">
+  <!-- hero -->
+  <section class="hero-wrap">
+    <div class="hero">
+      <svg class="kite-fly" aria-hidden="true">
+        <g class="flyer-big">
+          <path class="sail" d="M0-34 22-6 0 26Z"/>
+          <path class="sail-2" d="M0-34-22-6 0 26Z"/>
+          <path class="spar" d="M-22-6H22M0-34V26"/>
+        </g>
+        <path class="string"/>
+        <path class="tail"/>
+        <g class="bows"><path/><path/><path/></g>
+      </svg>
+      <div class="hero-copy">
+        <h1>Email that <em>flies.</em></h1>
+        <p class="lead">A fast, keyboard-first email client. Your mail lives on your computer, so lists and search never wait on the network.</p>
+        <div class="ctas">
+          <span class="btn btn-lg btn-light soon" aria-disabled="true">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.1 10.4 4v7.2H3V5.1Zm0 13.8 7.4 1.1v-7.1H3v6Zm8.2 1.2L21 21.5v-8.6h-9.8v7.2ZM11.2 3.9v7.3H21V2.5l-9.8 1.4Z"/></svg>
+            Coming soon to Windows
+          </span>
+          <a class="btn btn-lg glass" href="#features">See it work</a>
+        </div>
+      </div>
+      <div class="hero-shot">
+        <div class="rim">
+          <div class="window">
+            <div class="window-bar"><i></i><i></i><i></i><span>Kite</span></div>
+            <img src="images/shots/inbox.webp" alt="Kite's inbox: every account in one list on the left, the conversation open on the right" width="1600" height="1000">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- features -->
+  <section class="block" id="features">
+    <div class="wrap">
+      <div class="head reveal">
+        <span class="badge">Features</span>
+        <h2>Your whole day, <em>one key away.</em></h2>
+        <p>Every view has its own shortcut, and every shortcut is yours to change. Nothing here is mocked up: it's the app.</p>
+      </div>
+      <div class="sky-panel showcase reveal">
+        <div class="tabs" role="tablist" aria-label="Features" id="tabs"></div>
+        <div class="stage rim">
+          <div class="window">
+            <div class="window-bar"><i></i><i></i><i></i><span id="stage-title">Kite</span></div>
+            <img id="stage-img" alt="" width="1600" height="1000">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- story -->
+  <section class="block">
+    <div class="wrap">
+      <div class="head reveal">
+        <span class="badge">Why it exists</span>
+        <h2>Your mail, <em>on your machine.</em></h2>
+      </div>
+      <div class="bento">
+        <div class="tile sky reveal">
+          <div class="big"><span data-count="4">4</span><small>sec</small></div>
+          <p class="big-k">between checks for new mail, whether Kite is in front or not. Lists and search never wait for one.</p>
+        </div>
+        <div class="tile text reveal">
+          <p>I wanted email that keeps up with my keyboard, and doesn't need someone else's server to read my own mail.</p>
+          <p>So Kite keeps a copy of your mail on your computer and answers from it. The things I do every morning became views and automations, and AI stays a layer on top: it only runs when you click it.</p>
+          <div>
+            <span class="sig">Yes, it's yet another email client.</span>
+            <div class="byline" style="margin-top:14px"><span class="who">Built by <b>Mark Steyn</b></span><span class="social"><a href="https://github.com/TheeHappyCoder/kite" aria-label="Kite on GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg></a><a href="https://www.linkedin.com/in/mark-steyn-b71894139/" aria-label="Mark Steyn on LinkedIn" title="LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13ZM7.12 20.45H3.56V9h3.56v11.45ZM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0Z"/></svg></a><a href="https://x.com/theehappycoder" aria-label="Mark Steyn on X" title="X"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg></a></span></div>
+          </div>
+        </div>
+        <div class="tile facts reveal">
+          <div class="fact"><b>1<small>file</small></b><span>All your mail, searchable, on your own PC.</span></div>
+          <div class="fact dark"><b>0<small>AI calls</small></b><span>That you didn't click. Everything works without it.</span></div>
+          <div class="fact"><b>10<small>min</small></b><span>To undo any move, even after a restart.</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- search -->
+  <section class="block" id="search">
+    <div class="wrap">
+      <div class="head reveal">
+        <span class="badge">Search</span>
+        <h2>Ask like Gmail. <em>Answer from disk.</em></h2>
+        <p>The same search words in every account, Outlook and IMAP too. A capital <code>OR</code> joins two terms, a <code>-</code> leaves one out.</p>
+      </div>
+      <div class="console reveal" id="qlist">
+        <div class="console-bar" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <span class="typed"><span id="typed"></span><span class="caret"></span></span>
+          <span class="hits" id="hits">4,812 conversations</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- automations -->
+  <section class="block" id="automations">
+    <div class="wrap">
+      <div class="head reveal">
+        <span class="badge">Automations</span>
+        <h2>It does the chores. <em>You decide.</em></h2>
+        <p>Build one by example: click what to read in a real email, then switch on what happens. No AI, no rules language, and Undo for every run.</p>
+      </div>
+      <div class="split reveal">
+        <div class="half yes">
+          <h3>What Kite does for you <span class="badge">By itself</span></h3>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><div class="txt"><b>Strips tracking pixels</b><span>from every email, and cleans tracking from links</span></div></div>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><div class="txt"><b>Finds sign-in codes as they arrive</b><span>one click to copy, kept for a day</span></div></div>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><div class="txt"><b>Files invoices into a collection</b><span>amount, due date and the PDF, totalled by month</span></div></div>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><div class="txt"><b>Remembers who owes you a reply</b><span>and has the nudge ready when they go quiet</span></div></div>
+        </div>
+        <div class="half no ink">
+          <h3>What waits for you <span class="badge">When you say</span></h3>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><div class="txt"><b>Summarise, Draft, Rewrite</b><span>your own AI key, only the emails you picked</span></div></div>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><div class="txt"><b>Every send, with Undo</b><span>send later, send separately, follow up if no reply</span></div></div>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><div class="txt"><b>Unsubscribe and block</b><span>from Cleanup, one sender or a hundred at once</span></div></div>
+          <div class="op"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><div class="txt"><b>Images from strangers</b><span>held until you load them, so nobody sees you opened it</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- the Kite bar -->
+  <section class="block" id="kitebar">
+    <div class="wrap">
+      <div class="sky-panel rose duo reveal">
+        <div class="duo-copy">
+          <span class="badge">Desktop app</span>
+          <h2>Codes, meetings, mail. <em>Up top.</em></h2>
+          <p>A strip of Kite's sky floats at the top of your screen. A sign-in code drops in ready to copy, a meeting counts down with Join, and the mail you said matters comes with a quick reply. Any script on your PC can use it too.</p>
+          <div class="ctas">
+            <a class="btn btn-lg btn-light" href="kitebar/">Meet the Kite bar</a>
+            <a class="btn btn-lg glass" href="kitebar/#api">Build for it</a>
+          </div>
+        </div>
+        <div class="showroom">
+          <div class="rim">
+            <div class="desktop" role="img" aria-label="the Kite bar at the top of a desktop: a sign-in code copied, a meeting counting down, then a reply written in the Kite bar">
+              <div class="kitebar" id="duo-kitebar"></div>
+              <div class="win"></div>
+            </div>
+          </div>
+          <div class="legend" id="duo-legend">
+            <span class="glass" data-k="code">Sign-in codes<i></i></span>
+            <span class="glass" data-k="meeting">Meetings<i></i></span>
+            <span class="glass" data-k="mail">Mail with a reply<i></i></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- faq -->
+  <section class="block" id="faq">
+    <div class="wrap">
+      <div class="head reveal">
+        <span class="badge">Questions</span>
+        <h2>Before you <em>take off.</em></h2>
+      </div>
+      <div class="faq reveal">
+        <details><summary>Which email accounts work?<span class="plus"></span></summary><div class="a">Gmail and Google Workspace, Outlook and Microsoft 365, iCloud, Yahoo, Fastmail, Zoho, GMX, AOL and any IMAP server. Type your address and Kite works out the rest, with an app password walkthrough where one is needed. Add as many accounts as you like and see them in one list.</div></details>
+        <details><summary>Where does my mail live?<span class="plus"></span></summary><div class="a">In a local database on your computer, next to its attachments. Your provider still keeps the original; Kite keeps a copy so lists and search answer instantly, and Disconnect removes everything tied to that account.</div></details>
+        <details><summary>Do I need AI to use it?<span class="plus"></span></summary><div class="a">No. Everything works without it. Connect your own key (Claude, OpenAI or a local model) and Summarise, Draft and Rewrite appear as buttons. They only see the emails you picked, every call is listed in Settings → Privacy, and you can set a daily and monthly spend limit.</div></details>
+        <details><summary>"Windows protected your PC". Is it safe?<span class="plus"></span></summary><div class="a">That's SmartScreen, shown for apps without a paid code-signing certificate. Click <b>More info</b>, then <b>Run anyway</b>.</div></details>
+        <details><summary>What about Mac?<span class="plus"></span></summary><div class="a">The desktop app is Windows for now. <a href="https://github.com/TheeHappyCoder/kite/issues">Tell me</a> if you'd use it on a Mac.</div></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- closing -->
+  <section class="closing">
+    <div class="sky-panel reveal">
+      <span class="badge">v0.1.0</span>
+      <h2>Let your inbox <em>catch the wind.</em></h2>
+      <p>Connect an account in a minute. Your mail stays yours.</p>
+      <div class="ctas">
+        <span class="btn btn-lg btn-light soon" aria-disabled="true">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.1 10.4 4v7.2H3V5.1Zm0 13.8 7.4 1.1v-7.1H3v6Zm8.2 1.2L21 21.5v-8.6h-9.8v7.2ZM11.2 3.9v7.3H21V2.5l-9.8 1.4Z"/></svg>
+          Coming soon to Windows
+        </span>
+        <a class="btn btn-lg glass" href="https://github.com/TheeHappyCoder/kite">View on GitHub</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Kite 0.1.0</span>
+    <a href="kitebar/">The Kite bar API</a>
+    <a href="https://github.com/TheeHappyCoder/kite/issues">Report a problem</a>
+    <span class="spacer"></span>
+    <span class="by">Built by Mark Steyn <span class="social"><a href="https://github.com/TheeHappyCoder/kite" aria-label="Kite on GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg></a><a href="https://www.linkedin.com/in/mark-steyn-b71894139/" aria-label="Mark Steyn on LinkedIn" title="LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13ZM7.12 20.45H3.56V9h3.56v11.45ZM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0Z"/></svg></a><a href="https://x.com/theehappycoder" aria-label="Mark Steyn on X" title="X"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg></a></span></span>
+  </div>
+  <div class="wrap credits">
+    <span>Sky photos by Andres Perez, Ingmar and Mila Young on Unsplash.</span>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/lenis@1/dist/lenis.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+<script src="kitebar.js"></script>
+<script src="motion.js"></script>
+<script>
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  // ---- smooth scroll (Lenis); the in-page links glide too, landing clear of the fixed nav. ScrollTrigger follows it ----
+  if (!reduce && window.Lenis) {
+    const lenis = new Lenis({ autoRaf: true, anchors: { offset: -90 } })
+    if (window.ScrollTrigger) lenis.on('scroll', ScrollTrigger.update)
+  }
+
+  // ---- features: the tabs on the left show their view on the right, then move on to the next ----
+  // [title, keys, description, screenshot]
+  const FEATURES = [
+    ['Every inbox, one list', ['J', 'K'], 'Mail from every account, straight from your disk. Move with J and K, archive with E, undo with Z.', 'inbox'],
+    ['Today', ['T'], "Who's waiting on your reply, who you're waiting on, and what's coming up. Nudge in one tap.", 'today'],
+    ['Calendar', ['W'], 'Your week beside your mail. Answer an invite from the email, add an event from the text you selected.', 'calendar'],
+    ['Chat view', ['Chat'], 'Any conversation as bubbles, with quotes and signatures folded away.', 'chat'],
+    ['All files', ['Files'], 'Every attachment from every conversation, by name, sender or type, previewed in place. Fill and sign PDFs too.', 'files'],
+    ['Command palette', ['Ctrl', 'K'], 'Every action, label, person and setting a few letters away.', 'palette'],
+    ['Privacy', ['Shield'], 'Tracking pixels stripped from every email, images held until you load them, links cleaned.', 'privacy'],
+  ]
+  const SECS = 7
+  const tabs = document.getElementById('tabs')
+  const stageImg = document.getElementById('stage-img')
+  const stageTitle = document.getElementById('stage-title')
+  let current = -1
+  let timer = null
+  const buttons = FEATURES.map(([t, keys, d], i) => {
+    const b = document.createElement('button')
+    b.className = 'tab glass'
+    b.type = 'button'
+    b.setAttribute('role', 'tab')
+    b.setAttribute('aria-selected', 'false')
+    b.innerHTML = `<span class="row"><span class="t">${t}</span><span class="api">${keys.map((k) => `<kbd>${k}</kbd>`).join('')}</span></span><span class="d"><p>${d}</p></span><span class="bar"><i></i></span>`
+    b.addEventListener('click', () => show(i))
+    tabs.appendChild(b)
+    return b
+  })
+  for (const f of FEATURES) new Image().src = `images/shots/${f[3]}.webp` // so switching never waits on a download
+  function show(i) {
+    if (i === current) return
+    current = i
+    const [t, , d, src] = FEATURES[i]
+    buttons.forEach((b, k) => b.setAttribute('aria-selected', String(k === i)))
+    stageTitle.textContent = `Kite · ${t}`
+    stageImg.classList.add('fade')
+    setTimeout(() => {
+      stageImg.onload = () => stageImg.classList.remove('fade')
+      stageImg.src = `images/shots/${src}.webp`
+      stageImg.alt = d
+    }, 160)
+    for (const b of buttons) {
+      const bar = b.querySelector('.bar i')
+      bar.style.transition = 'none'
+      bar.style.width = '0'
+    }
+    clearTimeout(timer)
+    if (reduce) return
+    const bar = buttons[i].querySelector('.bar i')
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      bar.style.transition = `width ${SECS}s linear`
+      bar.style.width = '100%'
+    }))
+    timer = setTimeout(() => show((i + 1) % FEATURES.length), SECS * 1000)
+  }
+  show(0)
+  new IntersectionObserver(([e], obs) => { if (e.isIntersecting) { obs.disconnect(); current = -1; show(0) } }, { threshold: 0.25 }).observe(tabs)
+
+  // ---- search cookbook: Kite's search words, coloured as the search box would ----
+  const QUERIES = [
+    ['Unread from one person', 'from:thandi is:unread', '#6d5efc'],
+    ['Invoices with a PDF', 'invoice OR receipt has:attachment filename:pdf', '#12a46b'],
+    ['Statements this year', 'from:fnb subject:statement after:2026/01/01', '#ffc9b0'],
+    ['Sign-in codes today', '"verification code" newer_than:1d', '#f9eb57'],
+    ['Old files to clear out', 'has:attachment older_than:1y -is:starred', '#e5484d'],
+    ["What you sent and they didn't answer", 'in:sent to:johan newer_than:2w', '#83e7ee'],
+  ]
+  const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const highlight = (q) =>
+    (q.match(/"[^"]*"?|\s+|[^\s"]+/g) || []).map((t) => {
+      if (t.startsWith('"')) return `<span class="s">${esc(t)}</span>`
+      if (t === 'OR') return `<span class="o">OR</span>`
+      const m = /^(-?)([a-z_]+:)(.*)$/.exec(t)
+      if (m) return `${m[1] ? '<span class="o">-</span>' : ''}<span class="k">${m[2]}</span>${esc(m[3])}`
+      return esc(t)
+    }).join('')
+  const qlist = document.getElementById('qlist')
+  for (const [what, q, dot] of QUERIES) {
+    const el = document.createElement('div')
+    el.className = 'qrow'
+    el.innerHTML = `<span class="what"><i style="background:${dot}"></i>${what}</span><code title="${q.replace(/"/g, '&quot;')}">${highlight(q)}</code><button class="copy" type="button">Copy</button>`
+    el.querySelector('.copy').addEventListener('click', async (e) => {
+      const b = e.currentTarget
+      try { await navigator.clipboard.writeText(q) } catch {}
+      b.textContent = 'Copied'
+      b.classList.add('done')
+      setTimeout(() => { b.textContent = 'Copy'; b.classList.remove('done') }, 1400)
+    })
+    qlist.appendChild(el)
+  }
+
+  // the search box at the top types the queries itself and shows what they found
+  const typed = document.getElementById('typed')
+  const hits = document.getElementById('hits')
+  const TOTAL = '4,812 conversations'
+  const DEMO = [['from:thandi is:unread', '3 of 4,812'], ['invoice OR receipt has:attachment', '41 of 4,812'], ['"verification code" newer_than:1d', '2 of 4,812'], ['braai saturday', '6 of 4,812']]
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+  ;(async function loop() {
+    if (reduce) { typed.innerHTML = highlight(DEMO[0][0]); hits.textContent = DEMO[0][1]; hits.classList.add('on'); return }
+    for (let i = 0; ; i = (i + 1) % DEMO.length) {
+      const [q, n] = DEMO[i]
+      hits.textContent = TOTAL; hits.classList.remove('on')
+      for (let k = 1; k <= q.length; k++) { typed.innerHTML = highlight(q.slice(0, k)); await wait(36 + Math.random() * 36) }
+      await wait(220) // answered from disk: barely a pause
+      hits.textContent = n; hits.classList.add('on')
+      await wait(2200)
+      for (let k = q.length; k >= 0; k--) { typed.innerHTML = highlight(q.slice(0, k)); await wait(11) }
+      await wait(280)
+    }
+  })()
+
+  // ---- the Kite bar: Kite's own three played out on one desktop, the legend following along ----
+  const duo = document.getElementById('duo-kitebar')
+  const legend = [...document.querySelectorAll('#duo-legend span')]
+  const lit = (k, secs) => legend.forEach((s) => {
+    const on = s.dataset.k === k, bar = s.querySelector('i')
+    s.classList.toggle('on', on)
+    bar.style.transition = 'none'
+    bar.style.width = '0'
+    if (on && !reduce) requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.transition = `width ${secs}s linear`; bar.style.width = '100%' }))
+  })
+  const CODE = { icon: 'key', title: 'Sign-in code', sub: 'GitHub', code: '482193', actions: ['Copy'] }
+  KiteBar.set(duo, CODE)
+  lit('code', 0)
+  async function duoLoop() {
+    const { set, update, press, waiting, type, mmss } = KiteBar
+    for (;;) {
+      // a code drops in, gets copied, rests as one line; two more wait beside it as chips
+      lit('code', 5.6)
+      set(duo, CODE)
+      waiting(duo, 2)
+      await wait(2000)
+      press(duo, 0, 'Copied')
+      await wait(1600)
+      set(duo, { icon: 'check', tint: 'success', val: 'Copied' }, { pill: true })
+      await wait(1800)
+      // a meeting steps in with its ring running out
+      lit('meeting', 6.6)
+      waiting(duo, 1)
+      let left = 30
+      set(duo, { icon: 'calendar', tint: 'warning', title: 'Design review', sub: 'Boardroom 2 · Teams', val: mmss(left), ring: 1, actions: ['Join'] })
+      for (let k = 0; k < 4; k++) { await wait(1000); left--; update(duo, { val: mmss(left), ring: left / 30 }) }
+      set(duo, { icon: 'calendar', tint: 'warning', val: mmss(left), ring: left / 30 }, { pill: true })
+      for (let k = 0; k < 2; k++) { await wait(1000); left--; update(duo, { val: mmss(left), ring: left / 30 }) }
+      // mail a rule said matters: Reply opens right there, typed, sent with Undo
+      lit('mail', 9.4)
+      waiting(duo, 0)
+      set(duo, { avatar: 'TN', hue: 18, title: 'Thandi Nkosi', sub: 'Q4 planning: can we move to Thursday?', body: 'Something came up on Wednesday. Can we move the session to Thursday 10:00?', actions: ['Archive', 'Reply'] })
+      await wait(2400)
+      press(duo, 1)
+      await wait(350)
+      set(duo, { avatar: 'TN', hue: 18, title: 'Reply to Thandi', sub: 'Q4 planning', reply: '', actions: ['Send'] })
+      await wait(700)
+      await type(duo, 'Thursday 10:00 works. See you there.')
+      await wait(500)
+      press(duo, 0, 'Sent')
+      await wait(1100)
+      set(duo, { icon: 'send', tint: 'success', val: 'Sent · Undo' }, { pill: true })
+      await wait(1800)
+    }
+  }
+  if (!reduce) new IntersectionObserver(([e], obs) => { if (e.isIntersecting) { obs.disconnect(); duoLoop() } }, { threshold: 0.3 }).observe(duo.closest('.duo'))
+
+  // ---- reveal on scroll ----
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) }
+  }, { rootMargin: '0px 0px -6% 0px', threshold: 0.06 })
+  const stagger = new Map()
+  document.querySelectorAll('.reveal').forEach((el) => {
+    const n = stagger.get(el.parentElement) ?? 0
+    stagger.set(el.parentElement, n + 1)
+    el.style.transitionDelay = `${Math.min(n, 6) * 70}ms`
+    io.observe(el)
+  })
+
+  // ---- the nav: a bar once scrolling starts, out of the way over the closing sky ----
+  const nav = document.getElementById('nav')
+  const closingPanel = document.querySelector('.closing .sky-panel')
+  const onScroll = () => {
+    nav.classList.toggle('solid', scrollY > 8)
+    nav.classList.toggle('away', closingPanel.getBoundingClientRect().top < 90)
+  }
+  addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
+
+  // ---- the count-up on the story number ----
+  const big = document.querySelector('[data-count]')
+  new IntersectionObserver(([e], obs) => {
+    if (!e.isIntersecting) return
+    obs.disconnect()
+    if (reduce) return
+    const end = Number(big.dataset.count)
+    const t0 = performance.now()
+    const tick = (t) => {
+      const p = Math.min(1, (t - t0) / 1300)
+      big.textContent = Math.round(end * (1 - Math.pow(1 - p, 3)))
+      if (p < 1) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }, { threshold: 0.4 }).observe(big)
+</script>
+</body>
+</html>

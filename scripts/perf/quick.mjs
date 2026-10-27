@@ -1,0 +1,601 @@
+// `node scripts/perf/quick.mjs`: one browser scenario on the perf build, fast enough to run after
+// every change (fix, test, fix). Not a replacement for `pnpm perf`: no budgets, no baseline.
+//
+// Flags: --build (next build first)   --data=real|demo (default real: a read-only copy of data/,
+// reused between runs; --fresh-copy makes a new one)   --scenario=jk,search,open,load,press,anims (default jk,search)
+// --runs=<n> (default 3)   --profile (CPU profile of each scenario, mapped to source lines; --spike: only
+// the longest busy stretch)   --trace (style/layout/paint totals and what forced layout)   --api (route
+// times and sizes)   --sync (leave sync on)   --serve (just run the server on port 3196 to look at by hand)
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { attributeFiles, chunkPath } from "./bundle.mjs";
+import { apiSuite } from "./api.mjs";
+import { coldLoad, launch, pressAndWaitForReader } from "./browser.mjs";
+import { ROOT, copyRealData, log, median, percentile, round, scratchDir, sleep, startServer } from "./lib.mjs";
+
+const args = Object.fromEntries(
+  process.argv.slice(2).map((a) => {
+    const [k, ...v] = a.replace(/^--/, "").split("=");
+    return [k, v.length ? v.join("=") : true];
+  }),
+);
+const scenarios = String(args.scenario ?? (args.api ? "" : "jk,search")).split(",").filter(Boolean);
+const runs = Number(args.runs ?? 3);
+const data = args.data ?? "real";
+
+if (args.build) {
+  log("building…");
+  const started = Date.now();
+  execFileSync(process.execPath, [path.join(ROOT, "node_modules", "next", "dist", "bin", "next"), "build"], {
+    cwd: ROOT,
+    env: { ...process.env, KITE_PERF_BUILD: "1", NODE_ENV: "production" },
+    stdio: ["ignore", "ignore", "inherit"],
+  });
+  log(`built in ${round((Date.now() - started) / 1000)} s`);
+}
+
+function dataFolder() {
+  if (data === "demo") return scratchDir("quick-demo");
+  const dir = path.join(ROOT, "perf", "results", "tmp", "quick");
+  if (!args["fresh-copy"] && fs.existsSync(path.join(dir, "kite.sqlite"))) return dir;
+  const copy = copyRealData("quick");
+  if (!copy) throw new Error("No connected account in data/: use --data=demo.");
+  return copy;
+}
+
+// ---- Source-mapped CPU profiles -------------------------------------------------------------
+
+const B64 = Object.fromEntries([..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"].map((c, i) => [c, i]));
+const maps = new Map();
+
+/** Per generated line: sorted [column, source, originalLine, name] segments. */
+function loadMap(url) {
+  if (maps.has(url)) return maps.get(url);
+  let parsed = null;
+  try {
+    // Turbopack names maps after their content: follow the chunk's sourceMappingURL comment.
+    // Browser chunks by URL; server chunks (server profiles) by file URL.
+    const chunk = url.startsWith("file:") ? fileURLToPath(url) : chunkPath(url);
+    const ref = fs.existsSync(chunk) ? fs.readFileSync(chunk, "utf8").slice(-300).match(/sourceMappingURL=(\S+)/)?.[1] : null;
+    const file = ref ? path.join(path.dirname(chunk), ref) : `${chunk}.map`;
+    if (fs.existsSync(file)) {
+      const raw = JSON.parse(fs.readFileSync(file, "utf8"));
+      const map = raw.sections ? null : raw;
+      if (map) {
+        const lines = [];
+        let source = 0, origLine = 0, name = 0;
+        for (const lineText of map.mappings.split(";")) {
+          const segs = [];
+          let column = 0;
+          for (const seg of lineText ? lineText.split(",") : []) {
+            if (!seg) continue;
+            const values = [];
+            let value = 0, shift = 0;
+            for (const ch of seg) {
+              const digit = B64[ch];
+              value += (digit & 31) << shift;
+              if (digit & 32) shift += 5;
+              else {
+                values.push(value & 1 ? -(value >>> 1) : value >>> 1);
+                value = 0;
+                shift = 0;
+              }
+            }
+            column += values[0];
+            if (values.length > 1) {
+              source += values[1];
+              origLine += values[2];
+            }
+            if (values.length > 4) name += values[4];
+            segs.push([column, values.length > 1 ? source : -1, origLine, values.length > 4 ? name : -1]);
+          }
+          lines.push(segs);
+        }
+        parsed = { lines, sources: map.sources, names: map.names ?? [] };
+      } else {
+        // Index maps (sections): flatten each section with its offset.
+        const lines = [];
+        const sources = [];
+        const names = [];
+        for (const section of raw.sections) {
+          const sub = section.map;
+          const base = sources.length;
+          const nameBase = names.length;
+          sources.push(...sub.sources);
+          names.push(...(sub.names ?? []));
+          let source = 0, origLine = 0, name = 0, lineNo = section.offset.line;
+          for (const lineText of sub.mappings.split(";")) {
+            let column = lineNo === section.offset.line ? section.offset.column : 0;
+            const segs = (lines[lineNo] ??= []);
+            let rel = 0;
+            for (const seg of lineText ? lineText.split(",") : []) {
+              if (!seg) continue;
+              const values = [];
+              let value = 0, shift = 0;
+              for (const ch of seg) {
+                const digit = B64[ch];
+                value += (digit & 31) << shift;
+                if (digit & 32) shift += 5;
+                else {
+                  values.push(value & 1 ? -(value >>> 1) : value >>> 1);
+                  value = 0;
+                  shift = 0;
+                }
+              }
+              rel += values[0];
+              if (values.length > 1) {
+                source += values[1];
+                origLine += values[2];
+              }
+              if (values.length > 4) name += values[4];
+              segs.push([column + rel, values.length > 1 ? base + source : -1, origLine, values.length > 4 ? nameBase + name : -1]);
+            }
+            lineNo++;
+          }
+        }
+        for (const segs of lines) segs?.sort((a, b) => a[0] - b[0]);
+        parsed = { lines, sources, names };
+      }
+    }
+  } catch {}
+  maps.set(url, parsed);
+  return parsed;
+}
+
+const cleanSource = (s) => s.replace(/^turbopack:\/\/\/?(\[project\]\/)?/, "").replace(/.*node_modules\/(\.pnpm\/[^/]+\/node_modules\/)?/, "").replace(/^next\/dist\/compiled\//, "");
+
+function locate(frame) {
+  const fallback = `${frame.functionName || "(anon)"} ${frame.url ? path.basename(frame.url) : "(native)"}`;
+  if (!frame.url?.includes("/_next/static/") && !frame.url?.includes(".next-perf/server/")) return { fn: fallback, file: frame.url ? "(other)" : "(native/gc)" };
+  const map = loadMap(frame.url);
+  const segs = map?.lines[frame.lineNumber];
+  if (!segs?.length) return { fn: fallback, file: path.basename(frame.url) };
+  let lo = 0, hi = segs.length - 1, hit = segs[0];
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (segs[mid][0] <= frame.columnNumber) {
+      hit = segs[mid];
+      lo = mid + 1;
+    } else hi = mid - 1;
+  }
+  if (hit[1] < 0) return { fn: fallback, file: path.basename(frame.url) };
+  const file = cleanSource(map.sources[hit[1]]);
+  const name = hit[3] >= 0 ? map.names[hit[3]] : frame.functionName || "(anon)";
+  return { fn: `${name} ${file}:${hit[2] + 1}`, file };
+}
+
+/** The longest stretch of main-thread work (samples not idle, gaps under 4 ms): where a slow input went. */
+function longestBusy(profile) {
+  const idle = new Set(profile.nodes.filter((n) => n.callFrame.functionName === "(idle)").map((n) => n.id));
+  let t = profile.startTime;
+  let best = { from: 0, to: 0, ms: 0 };
+  let from = -1, lastBusy = 0, startAt = 0;
+  for (let i = 0; i < profile.samples.length; i++) {
+    t += profile.timeDeltas[i] ?? 0;
+    if (idle.has(profile.samples[i])) {
+      if (from >= 0 && t - lastBusy > 4000) {
+        if (lastBusy - startAt > best.ms * 1000) best = { from, to: i, ms: (lastBusy - startAt) / 1000 };
+        from = -1;
+      }
+      continue;
+    }
+    if (from < 0) {
+      from = i;
+      startAt = t;
+    }
+    lastBusy = t;
+  }
+  return best;
+}
+
+function summarizeProfile(profile, top = 25, window = null) {
+  const byId = new Map(profile.nodes.map((n) => [n.id, n]));
+  const self = new Map();
+  for (let i = 0; i < profile.samples.length; i++) {
+    if (window && (i < window.from || i > window.to)) continue;
+    self.set(profile.samples[i], (self.get(profile.samples[i]) ?? 0) + (profile.timeDeltas[i + 1] ?? 0) / 1000);
+  }
+  const parent = new Map();
+  for (const n of profile.nodes) for (const c of n.children ?? []) parent.set(c, n.id);
+  const fnSelf = new Map();
+  const fileSelf = new Map();
+  const fnTotal = new Map();
+  for (const [id, ms] of self) {
+    const node = byId.get(id);
+    const { fn, file } = locate(node.callFrame);
+    fnSelf.set(fn, (fnSelf.get(fn) ?? 0) + ms);
+    fileSelf.set(file, (fileSelf.get(file) ?? 0) + ms);
+    // Inclusive: credit each distinct function on the stack once.
+    const seen = new Set();
+    for (let cur = id; cur != null; cur = parent.get(cur)) {
+      const loc = locate(byId.get(cur).callFrame).fn;
+      if (seen.has(loc)) continue;
+      seen.add(loc);
+      fnTotal.set(loc, (fnTotal.get(loc) ?? 0) + ms);
+    }
+  }
+  const sorted = (m) => [...m].sort((a, b) => b[1] - a[1]).slice(0, top).map(([k, v]) => ({ ms: round(v), where: k }));
+  const total = [...self.values()].reduce((a, b) => a + b, 0);
+  const idle = [...self].filter(([id]) => byId.get(id).callFrame.functionName === "(idle)").reduce((a, [, v]) => a + v, 0);
+  const app = new Map([...fnTotal].filter(([k]) => k.includes(" src/")));
+  // --who=<function>: the call stacks (outermost app frames) that led to that function.
+  const who = new Map();
+  if (args.who) {
+    for (const [id, ms] of self) {
+      if (!locate(byId.get(id).callFrame).fn.startsWith(String(args.who))) continue;
+      const chain = [];
+      for (let cur = parent.get(id); cur != null && chain.length < 40; cur = parent.get(cur)) chain.push(locate(byId.get(cur).callFrame).fn);
+      const key = chain.filter((f) => f.includes(" src/") || f.includes("framer-motion") || f.includes("motion-dom")).slice(0, 8).join(" < ");
+      who.set(key, (who.get(key) ?? 0) + ms);
+    }
+  }
+  return { busyMs: round(total - idle), selfByFunction: sorted(fnSelf), selfByFile: sorted(fileSelf, 15), inclusive: sorted(fnTotal, 30), app: sorted(app, 30), who: [...who].sort((a, b) => b[1] - a[1]).slice(0, 6) };
+}
+
+// ---- Rendering traces (style, layout, paint) ------------------------------------------------
+
+async function startTrace(cdp) {
+  await cdp.send("Tracing.start", { traceConfig: { includedCategories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "disabled-by-default-devtools.timeline.stack", "blink"] }, transferMode: "ReturnAsStream" });
+}
+
+async function stopTrace(cdp) {
+  const done = new Promise((resolve) => cdp.once("Tracing.tracingComplete", resolve));
+  await cdp.send("Tracing.end");
+  const { stream } = await done;
+  let text = "";
+  for (;;) {
+    const chunk = await cdp.send("IO.read", { handle: stream });
+    text += chunk.base64Encoded ? Buffer.from(chunk.data, "base64").toString() : chunk.data;
+    if (chunk.eof) break;
+  }
+  await cdp.send("IO.close", { handle: stream });
+  const events = JSON.parse(text).traceEvents ?? JSON.parse(text);
+  // Main-thread complete events of the renderer: totals by name, plus the biggest style/layout passes.
+  const main = events.filter((e) => e.ph === "X" && e.dur);
+  const thread = main.find((e) => e.name === "UpdateLayoutTree" || e.name === "Layout")?.tid;
+  const totals = new Map();
+  const big = [];
+  // Style and layout that JavaScript forced (it read geometry after a change), by the first app or package frame.
+  const forcedBy = new Map();
+  for (const e of main) {
+    if (e.tid !== thread) continue;
+    totals.set(e.name, (totals.get(e.name) ?? 0) + e.dur / 1000);
+    const stack = e.args?.beginData?.stackTrace ?? e.args?.data?.stackTrace;
+    if ((e.name === "Layout" || e.name === "UpdateLayoutTree") && stack?.length) {
+      const frame = stack.find((f) => f.url?.includes("/_next/static/")) ?? stack[0];
+      const where = locate({ url: frame.url, functionName: frame.functionName, lineNumber: frame.lineNumber - 1, columnNumber: frame.columnNumber - 1 }).fn;
+      const entry = forcedBy.get(where) ?? { ms: 0, count: 0 };
+      entry.ms += e.dur / 1000;
+      entry.count++;
+      forcedBy.set(where, entry);
+    }
+    if ((e.name === "Layout" || e.name === "UpdateLayoutTree") && e.dur > 8000) {
+      big.push({ name: e.name, ms: round(e.dur / 1000), elements: e.args?.elementCount ?? e.args?.beginData?.dirtyObjects ?? null, forced: !!e.args?.beginData?.stackTrace });
+    }
+  }
+  const counts = (n) => main.filter((e) => e.tid === thread && e.name === n).length;
+  return {
+    byName: [...totals].filter(([n]) => !/^(ThreadControllerImpl|RunTask|SequenceManager|TaskQueue|ThreadPool|MessageLoop|Scheduler)/.test(n)).sort((a, b) => b[1] - a[1]).slice(0, 25).map(([n, ms]) => ({ name: n, ms: round(ms), count: counts(n) })),
+    biggest: big.sort((a, b) => b.ms - a.ms).slice(0, 12),
+    forced: [...forcedBy].sort((a, b) => b[1].ms - a[1].ms).slice(0, 15).map(([where, v]) => ({ ms: round(v.ms), count: v.count, where })),
+  };
+}
+
+// ---- Scenarios ------------------------------------------------------------------------------
+
+const keyEvents = (page) => page.evaluate(() => window.__perf.events.filter((e) => e.interactionId).map((e) => ({ name: e.name, ms: Math.round(e.duration), start: Math.round(e.start) })));
+
+/** Main-thread tasks of one trace in order: what one input actually cost, step by step. */
+function taskTimeline(events) {
+  const tasks = events.filter((e) => e.ph === "X" && e.name === "RunTask" && e.dur > 1500);
+  const thread = events.find((e) => e.name === "EventDispatch")?.tid;
+  const own = tasks.filter((t) => t.tid === thread).sort((a, b) => a.ts - b.ts);
+  if (!own.length) return [];
+  const t0 = own[0].ts;
+  return own.map((task) => {
+    const inside = events.filter((e) => e.ph === "X" && e.tid === thread && e.ts >= task.ts && e.ts + e.dur <= task.ts + task.dur && e !== task);
+    const top = new Map();
+    for (const e of inside) {
+      if (!["EventDispatch", "FunctionCall", "TimerFire", "FireAnimationFrame", "UpdateLayoutTree", "Layout", "Paint", "Layerize", "ParseHTML", "MessagePort::Accept", "XHRReadyStateChange", "ResourceReceivedData", "HitTest"].includes(e.name)) continue;
+      top.set(e.name, (top.get(e.name) ?? 0) + e.dur / 1000);
+    }
+    return { atMs: round((task.ts - t0) / 1000), ms: round(task.dur / 1000), parts: [...top].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([n, ms]) => `${n} ${round(ms)}`).join(", ") };
+  });
+}
+
+const SCENARIOS = {
+  async load() {
+    return {};
+  },
+  /** When each request of the cold load started and ended, and when the list appeared. */
+  async waterfall(page) {
+    const rows = await page.evaluate(() =>
+      performance
+        .getEntriesByType("resource")
+        .filter((r) => r.name.includes("/api/") || r.name.includes("/_next/static/chunks/"))
+        .map((r) => ({ what: new URL(r.name).pathname.replace(/^\/_next\/static\/chunks\//, "js "), start: Math.round(r.startTime), end: Math.round(r.responseEnd), kb: Math.round(r.decodedBodySize / 1024) })),
+    );
+    const nav = await page.evaluate(() => Math.round(performance.getEntriesByType("navigation")[0].responseEnd));
+    console.log(`\nwaterfall: document at ${nav} ms`);
+    console.table(rows.sort((a, b) => a.start - b.start).slice(0, 40));
+    return {};
+  },
+  /** Animations still running once the app has settled (each costs a frame of work). */
+  async anims(page) {
+    await page.locator("[data-thread]").first().click();
+    await sleep(3000);
+    const running = await page.evaluate(() =>
+      document.getAnimations().map((a) => {
+        const el = a.effect?.target;
+        return {
+          name: a.animationName ?? a.transitionProperty ?? a.constructor.name,
+          state: a.playState,
+          iterations: a.effect?.getTiming().iterations,
+          target: el ? `${el.tagName.toLowerCase()}.${String(el.className?.baseVal ?? el.className).split(" ").slice(0, 4).join(".")}` : "",
+        };
+      }),
+    );
+    // Who keeps asking for frames once things are still: rAF callers over one second, by stack.
+    const callers = await page.evaluate(async () => {
+      const counts = new Map();
+      const original = window.requestAnimationFrame;
+      window.requestAnimationFrame = (cb) => {
+        const stack = (new Error().stack ?? "").split("\n").slice(2, 5).map((l) => l.trim().replace(/^at /, "")).join(" < ");
+        counts.set(stack, (counts.get(stack) ?? 0) + 1);
+        return original.call(window, cb);
+      };
+      await new Promise((r) => setTimeout(r, 1000));
+      window.requestAnimationFrame = original;
+      return [...counts].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    });
+    console.log("\nrequestAnimationFrame calls in 1 s after settling:");
+    for (const [stack, n] of callers) console.log(n, stack);
+    console.log(`\nanims: ${running.length} running after 3 s`);
+    console.table(running.slice(0, 30));
+    return { running: running.length };
+  },
+  /** One j press, traced on its own: every main-thread task in the next second. */
+  async press(page, cdp) {
+    await page.locator("[data-thread]").first().click();
+    await page.waitForSelector("[data-message-id]", { timeout: 15_000 }).catch(() => {});
+    await sleep(1500);
+    await cdp.send("Tracing.start", { traceConfig: { includedCategories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "blink", "toplevel"] }, transferMode: "ReturnAsStream" });
+    const ms = await pressAndWaitForReader(page, "j");
+    await sleep(1000);
+    const done = new Promise((resolve) => cdp.once("Tracing.tracingComplete", resolve));
+    await cdp.send("Tracing.end");
+    const { stream } = await done;
+    let text = "";
+    for (;;) {
+      const chunk = await cdp.send("IO.read", { handle: stream });
+      text += chunk.base64Encoded ? Buffer.from(chunk.data, "base64").toString() : chunk.data;
+      if (chunk.eof) break;
+    }
+    await cdp.send("IO.close", { handle: stream });
+    const parsed = JSON.parse(text);
+    console.log(`\npress: reader showed the next thread in ${round(ms)} ms`);
+    console.table(taskTimeline(parsed.traceEvents ?? parsed));
+    return { readerMs: round(ms) };
+  },
+  async open(page) {
+    // Click a few threads in turn: the reader's first paint for a conversation.
+    const times = [];
+    // From the second row: the first is already shown (peeked) when the list loads.
+    for (let i = 1; i <= 8; i++) {
+      const shown = () => [...document.querySelectorAll("[data-message-id]")].map((e) => e.getAttribute("data-message-id")).join();
+      const previous = await page.evaluate(shown);
+      const before = Date.now();
+      await page.locator("[data-thread]").nth(i).click();
+      await page.waitForFunction((previous) => {
+        const now = [...document.querySelectorAll("[data-message-id]")].map((e) => e.getAttribute("data-message-id")).join();
+        return now && now !== previous;
+      }, previous, { timeout: 10_000 }).catch(() => {});
+      times.push(Date.now() - before);
+      await sleep(150);
+    }
+    return { openMedianMs: median(times), openMaxMs: Math.max(...times) };
+  },
+  async jk(page, cdp) {
+    await page.locator("[data-thread]").first().click();
+    await page.waitForSelector("[data-message-id]", { timeout: 15_000 }).catch(() => {});
+    await sleep(500);
+    await page.evaluate(() => (window.__perf.events = []));
+    // Main-thread work per press from the browser's own counters: steadier than latency on a busy machine.
+    const counters = async () => Object.fromEntries((await cdp.send("Performance.getMetrics")).metrics.map((m) => [m.name, m.value]));
+    const before = await counters();
+    const reader = [];
+    const down = Math.min(15, (await page.locator("[data-thread]").count()) - 1);
+    for (let i = 0; i < down; i++) {
+      reader.push(await pressAndWaitForReader(page, "j"));
+      await sleep(120);
+    }
+    for (let i = 0; i < down; i++) {
+      reader.push(await pressAndWaitForReader(page, "k"));
+      await sleep(120);
+    }
+    const after = await counters();
+    const presses = reader.length;
+    const per = (name) => round(((after[name] - before[name]) * 1000) / presses, 1);
+    // Back at the top: the selected row must be in view (the list scrolls to follow the selection).
+    const selectedVisible = await page.evaluate(() => {
+      const row = document.querySelector(".bg-pane-selected[data-thread]");
+      const list = row?.closest(".overflow-y-auto");
+      if (!row || !list) return false;
+      const r = row.getBoundingClientRect(), l = list.getBoundingClientRect();
+      return r.top >= l.top - 1 && r.bottom <= l.bottom + 1;
+    });
+    const keys = (await keyEvents(page)).filter((e) => e.name === "keydown").map((e) => e.ms);
+    const valid = reader.filter((v) => v != null);
+    return { nextThreadMedianMs: round(median(valid)), nextThreadP90Ms: round(percentile(valid, 90)), nextThreadMaxMs: round(Math.max(...valid)), keydownP90Ms: percentile(keys, 90) ?? 0, timeouts: reader.length - valid.length, selectedVisible: selectedVisible ? 1 : 0, taskMsPerPress: per("TaskDuration"), scriptMsPerPress: per("ScriptDuration"), layoutMsPerPress: per("LayoutDuration"), styleMsPerPress: per("RecalcStyleDuration") };
+  },
+  async search(page) {
+    await page.keyboard.press("Escape");
+    await page.evaluate(() => (window.__perf.events = []));
+    await page.keyboard.press("/");
+    const input = page.locator('input[placeholder="Search"]');
+    await input.waitFor({ timeout: 5000 });
+    // One key at a time, noting the rows after each: shows which keystroke swaps the list.
+    const rows = [];
+    for (const ch of "the invoice") {
+      await page.keyboard.type(ch);
+      await sleep(60);
+      rows.push(await page.locator("[data-thread]").count());
+    }
+    await sleep(1500);
+    rows.push(await page.locator("[data-thread]").count());
+    const events = await keyEvents(page);
+    const keydowns = events.filter((e) => e.name === "keydown").map((e) => e.ms);
+    await input.fill("");
+    await page.keyboard.press("Escape");
+    await sleep(800);
+    return { keyMaxMs: Math.max(0, ...keydowns), keyMedianMs: median(keydowns) ?? 0, slowKeys: keydowns.filter((m) => m > 100).length, keydowns: keydowns.join(" "), rows: rows.join(" ") };
+  },
+};
+
+// ---- Run ------------------------------------------------------------------------------------
+
+// No sync by default (--sync turns it on): reloads landing mid-measurement made runs noisy.
+const INSPECT = 9339;
+const server = await startServer({
+  port: 3196,
+  dataDir: dataFolder(),
+  label: `quick ${data}`,
+  env: { ...(args.sync ? {} : { KITE_PERF_NO_SYNC: "1" }), ...(args["server-profile"] ? { NODE_OPTIONS: `--inspect=127.0.0.1:${INSPECT}` } : {}) },
+});
+
+// --server-profile=<route>: CPU profile of the server while it answers that route 20 times.
+if (args["server-profile"]) {
+  const route = String(args["server-profile"]);
+  const targets = await (await fetch(`http://127.0.0.1:${INSPECT}/json/list`)).json();
+  const ws = new WebSocket(targets[0].webSocketDebuggerUrl);
+  await new Promise((r) => ws.addEventListener("open", r, { once: true }));
+  let seq = 0;
+  const pending = new Map();
+  ws.addEventListener("message", (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.id && pending.has(msg.id)) pending.get(msg.id)(msg.result);
+  });
+  const send = (method, params = {}) => new Promise((resolve) => { const id = ++seq; pending.set(id, resolve); ws.send(JSON.stringify({ id, method, params })); });
+  for (let i = 0; i < 3; i++) await fetch(server.base + route).then((r) => r.arrayBuffer());
+  await send("Profiler.enable");
+  await send("Profiler.setSamplingInterval", { interval: 100 });
+  await send("Profiler.start");
+  const times = [];
+  for (let i = 0; i < 20; i++) {
+    const t = performance.now();
+    await fetch(server.base + route).then((r) => r.arrayBuffer());
+    times.push(performance.now() - t);
+  }
+  const { profile } = await send("Profiler.stop");
+  ws.close();
+  const sum = summarizeProfile(profile);
+  console.log(`
+${route}: median ${round(median(times))} ms; server busy ${sum.busyMs} ms over 20 requests`);
+  console.table(sum.selfByFunction.slice(0, 20));
+  console.log("-- inclusive");
+  console.table(sum.inclusive.filter((x) => !x.where.startsWith("(")).slice(0, 30));
+  await server.stop();
+  process.exit(0);
+}
+// --serve: keep the perf build running on the copy (read-only, no sync) to look at by hand.
+if (args.serve) {
+  log(`serving the perf build on ${server.base} (read-only copy). Ctrl+C to stop.`);
+  await new Promise(() => {});
+}
+// --api: the local API suite (route times and sizes) on the same server.
+if (args.api) {
+  const api = await apiSuite(server.base);
+  console.table(api.routes.map((r) => ({ route: r.route, medianMs: r.medianMs, maxMs: r.maxMs, rawKB: r.rawKB })));
+  if (!scenarios.length) {
+    await server.stop();
+    process.exit(0);
+  }
+}
+const browser = await launch();
+const results = Object.fromEntries(scenarios.map((s) => [s, []]));
+const profiles = Object.fromEntries(scenarios.map((s) => [s, []]));
+const traces = Object.fromEntries(scenarios.map((s) => [s, []]));
+const loads = [];
+try {
+  // Let the startup catch-up finish so sync doesn't land in the middle of a measurement.
+  await sleep(Number(args.settle ?? (args.sync ? 3000 : 500)));
+  for (let run = 0; run < runs; run++) {
+    const { context, page, cdp, result, jsUrls } = await coldLoad(browser, server.base);
+    // --bundle: which packages the cold load downloaded (all JS, including chunks that load after the list).
+    if (args.bundle && run === 0) console.table(attributeFiles(jsUrls.map((u) => chunkPath(u))).slice(0, 20));
+    loads.push({ listVisibleMs: result.listVisibleMs, totalBlockingMs: result.totalBlockingMs, longestTaskMs: result.longestTaskMs, jsGzipKB: result.jsGzipKB, jsFiles: result.jsFiles, domNodes: result.domNodes });
+    for (const name of scenarios) {
+      if (args.trace) await startTrace(cdp);
+      if (args.profile) {
+        await cdp.send("Profiler.enable");
+        await cdp.send("Profiler.setSamplingInterval", { interval: 200 });
+        await cdp.send("Profiler.start");
+      }
+      // API calls made during the scenario, by route: reloads show up here.
+      const calls = new Map();
+      const onRequest = (req) => {
+        const url = new URL(req.url());
+        if (!url.pathname.startsWith("/api/")) return;
+        const key = url.pathname.replace(/\/api\/mail\/threads\/[^/]+$/, "/api/mail/threads/[id]") + (url.searchParams.get("mailbox") ? "?mailbox" : "");
+        calls.set(key, (calls.get(key) ?? 0) + 1);
+      };
+      page.on("request", onRequest);
+      try {
+        results[name].push(await SCENARIOS[name](page, cdp));
+      } catch (error) {
+        log(`${name} run ${run + 1} failed: ${error.message.split("\n")[0]}`);
+      }
+      page.off("request", onRequest);
+      if (results[name].length) results[name].at(-1).api = [...calls].map(([k, n]) => `${k} x${n}`).join(", ");
+      if (args.profile) profiles[name].push((await cdp.send("Profiler.stop")).profile);
+      if (args.trace) traces[name].push(await stopTrace(cdp));
+    }
+    await context.close();
+  }
+} finally {
+  await browser.close();
+  await server.stop();
+}
+
+const pick = (list) => Object.fromEntries(Object.keys(list[0] ?? {}).map((k) => [k, typeof list[0][k] === "number" ? round(median(list.map((x) => x[k])), 1) : list.map((x) => x[k]).join(" | ")]));
+const out = { at: new Date().toISOString(), data, runs, coldLoad: pick(loads), ...Object.fromEntries(scenarios.map((s) => [s, pick(results[s])])) };
+console.log(JSON.stringify(out, null, 2));
+if (args.profile) {
+  for (const name of scenarios) {
+    // The median run by busy time; --spike looks only at each run's longest busy stretch.
+    const summaries = profiles[name]
+      .map((p) => {
+        const window = args.spike ? longestBusy(p) : null;
+        return { ...summarizeProfile(p, 25, window), window };
+      })
+      .sort((a, b) => a.busyMs - b.busyMs);
+    if (args.spike) console.log(`\n${name}: longest busy stretch per run: ${summaries.map((x) => round(x.window.ms)).join(", ")} ms`);
+    const s = summaries[summaries.length >> 1];
+    if (!s) continue;
+    console.log(`\n== ${name}: ${s.busyMs} ms of main-thread work (median run)`);
+    console.log("-- self time by file");
+    console.table(s.selfByFile);
+    console.log("-- self time by function");
+    console.table(s.selfByFunction);
+    console.log("-- inclusive (on the stack)");
+    console.table(s.inclusive);
+    console.log("-- app code, inclusive");
+    console.table(s.app);
+    if (args.who) for (const [stack, ms] of s.who) console.log(round(ms), "ms:", stack);
+  }
+}
+if (args.trace) {
+  for (const name of scenarios) {
+    const t = traces[name][traces[name].length >> 1];
+    if (!t) continue;
+    console.log(`\n== ${name}: rendering work`);
+    console.table(t.byName);
+    console.table(t.biggest);
+    console.log("-- forced by");
+    console.table(t.forced);
+  }
+}
+fs.mkdirSync(path.join(ROOT, "perf", "results"), { recursive: true });
+fs.writeFileSync(path.join(ROOT, "perf", "results", "quick.json"), JSON.stringify(out, null, 2));
