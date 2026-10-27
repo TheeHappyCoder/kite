@@ -145,8 +145,13 @@ cpSync(path.join(stage, ".next"), path.join(out, ".next"), { recursive: true });
 cpSync(path.join(stage, "server.js"), path.join(out, "server.js"));
 cpSync(path.join(stage, "package.json"), path.join(out, "package.json"));
 if (existsSync(path.join(root, "public"))) cpSync(path.join(root, "public"), path.join(out, "public"), { recursive: true });
-// Kite ships its own OAuth client: the desktop server reads it in production.
-if (existsSync(path.join(root, ".env.local"))) cpSync(path.join(root, ".env.local"), path.join(out, ".env.production.local"));
+// The public installer carries no secrets: only the Microsoft client id (a public PKCE client).
+// `--with-google` bundles the whole .env.local (Google client secret included) for a personal build.
+if (existsSync(path.join(root, ".env.local"))) {
+  const lines = readFileSync(path.join(root, ".env.local"), "utf8").split(/\r?\n/);
+  const keep = process.argv.includes("--with-google") ? lines : lines.filter((l) => /^MICROSOFT_CLIENT_ID=/.test(l));
+  writeFileSync(path.join(out, ".env.production.local"), keep.join("\n") + "\n");
+}
 // The same Node that builds Kite runs it (node:sqlite needs Node 22.5+).
 cpSync(process.execPath, path.join(out, win ? "node.exe" : "node"));
 console.log(`[kite] ${files} package files bundled`);
