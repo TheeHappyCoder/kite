@@ -3,6 +3,7 @@ import { INBOX, TRASH } from "@/lib/mail/mailboxes";
 import { keywordId } from "@/server/providers/imap/folders";
 import { copiesOf } from "@/server/providers/imap/mirror";
 import { runOp } from "@/server/sync";
+import { mailOf } from "@/server/providers/registry";
 import { keyOf, serverCopies, sync, thread, testMailbox } from "./harness";
 
 // A server that doesn't say where moved messages went (no UIDPLUS, so no COPYUID): Kite reads the
@@ -11,6 +12,11 @@ import { keyOf, serverCopies, sync, thread, testMailbox } from "./harness";
 const box = testMailbox({ uidplus: false });
 
 describe("IMAP without UIDPLUS", () => {
+  it("does not offer permanent deletion without targeted expunge", async () => {
+    const mail = mailOf(box.account);
+    expect(await mail.canDeletePermanently!(box.account)).toBe(false);
+    await expect(mail.deletePermanently!(box.account, ["anything"])).rejects.toThrow(/cannot safely delete/);
+  });
   it("moves and moves back without waiting for a check", async () => {
     await sync(box.account);
     const key = keyOf(box.account, thread(box.account, "Invoice INV-2041"));

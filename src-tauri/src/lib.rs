@@ -26,7 +26,13 @@ pub fn run() {
                 })
                 .build(),
         )
-        .plugin(tauri_plugin_opener::init())
+        .plugin(
+            // Let on_new_window below handle links. The plugin's click interceptor otherwise
+            // cancels target="_blank" navigation and calls IPC that this window doesn't allow.
+            tauri_plugin_opener::Builder::new()
+                .open_js_links_on_click(false)
+                .build(),
+        )
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(server::Server::default())
         .manage(codes::Codes::default())

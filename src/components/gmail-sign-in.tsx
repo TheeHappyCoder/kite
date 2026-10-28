@@ -4,6 +4,8 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ClipboardPasteIcon, Key01Icon, LinkSquare02Icon, LockPasswordIcon, Tick01Icon } from "@hugeicons/core-free-icons";
 import type { SignInAsk } from "@/lib/mail/connect";
+import { appPasswordLetters as lettersOf } from "@/lib/mail/app-password";
+import { desktopInvoke, inDesktopApp } from "@/lib/desktop";
 import { blurFade } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { Icon } from "./icon";
@@ -17,7 +19,6 @@ import { Tooltip } from "./ui/tooltip";
 const google = (path: string, email: string) => `https://myaccount.google.com/${path}?authuser=${encodeURIComponent(email)}`;
 
 /** Google's app passwords are 16 letters, shown in groups of four. */
-const lettersOf = (value: string) => value.replace(/\s+/g, "");
 const isAppPassword = (value: string) => /^[a-z]{16}$/i.test(lettersOf(value));
 
 /** Brings an error into view in a short window (the card scrolls). Stable, so it runs once per error. */
@@ -115,10 +116,19 @@ export function GmailSignIn({ email, workspace, onConnected }: { email: string; 
   };
 
   const paste = async () => {
-    const text = await navigator.clipboard?.readText().catch(() => "");
-    if (!text) return;
-    setPassword(text.trim());
-    setError(null);
+    try {
+      const text = inDesktopApp()
+        ? await desktopInvoke("plugin:clipboard-manager|read_text") as string
+        : await navigator.clipboard.readText();
+      if (!text?.trim()) {
+        setError({ text: "Copy the app password from Google first, then press Paste.", ask: null });
+        return;
+      }
+      setPassword(lettersOf(text));
+      setError(null);
+    } catch {
+      setError({ text: "Kite couldn't read the clipboard. Click the password field and paste with Ctrl+V (Command+V on Mac).", ask: null });
+    }
   };
 
   return (
@@ -146,7 +156,7 @@ export function GmailSignIn({ email, workspace, onConnected }: { email: string; 
           warn={error?.ask === "app_password"}
           detail={
             <>
-              Name it Kite and press Create. Google shows it once.
+              Name it Kite and press Create. Copy all 16 letters, then paste below. Spaces are removed automatically.
               {workspace ? " Not available? Your admin has turned app passwords off: ask them to allow them." : " Not available? Do step 1 first."}
             </>
           }
@@ -167,7 +177,7 @@ export function GmailSignIn({ email, workspace, onConnected }: { email: string; 
               spellCheck={false}
               value={password}
               onChange={(e) => {
-                setPassword(e.target.value);
+                setPassword(lettersOf(e.target.value));
                 setError(null);
               }}
               placeholder="abcd efgh ijkl mnop"

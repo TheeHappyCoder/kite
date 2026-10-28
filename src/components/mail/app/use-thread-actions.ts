@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { patchOverride, withoutOverride, type OverridePatch, type ThreadOverride } from "@/lib/mail/overrides";
 import { shownThread, type MailAction, type MailState } from "@/lib/mail/store";
 import { threadKey } from "@/lib/mail/threads";
+import { mailChanges } from "@/lib/mail/pending-changes";
 import type { Account, Thread } from "@/lib/mail/types";
 import type { BulkAction } from "../bulk-panel";
 import { postJson, tomorrowMorning, type Reload, type SetToast, type ThreadOp, type Toast } from "./util";
@@ -27,6 +28,7 @@ export function useThreadActions({
   serviceOf,
   setToast,
   reload,
+  onPermanentDelete,
 }: {
   live: boolean;
   state: MailState;
@@ -39,6 +41,7 @@ export function useThreadActions({
   serviceOf: (accountIds: string[]) => string;
   setToast: SetToast;
   reload: Reload;
+  onPermanentDelete: (threads: Thread[]) => void;
 }) {
   // Bulk select: ticked threads belong to one list and drop out when they leave it.
   const [checked, setChecked] = useState<Checked>(NO_CHECKED);
@@ -73,8 +76,11 @@ export function useThreadActions({
   const remote = useCallback(
     (thread: Thread, op: ThreadOp, until?: string) => {
       if (!live || !thread.remoteId) return;
+      const finish = mailChanges.begin();
       postJson(`/api/mail/threads/${threadKey(thread)}`, { account: thread.accountId, op, until }).catch(() => {
         setToast({ message: `${serviceOf([thread.accountId])} didn't accept that change. Refreshing.` });
+      }).finally(() => {
+        finish();
         reload();
       });
     },
@@ -86,14 +92,17 @@ export function useThreadActions({
     (list: Thread[], op: ThreadOp, until?: string) => {
       const items = live ? list.filter((t) => t.remoteId).map((t) => ({ account: t.accountId, id: threadKey(t) })) : [];
       if (!items.length) return;
+      const finish = mailChanges.begin();
       postJson<{ done: number; failed: number }>("/api/mail/threads", { op, until, threads: items })
         .then((res) => {
           if (!res.failed) return;
           setToast({ message: `${serviceOf(list.map((t) => t.accountId))} didn't accept ${res.failed} of those changes. Refreshing.` });
-          reload();
         })
         .catch(() => {
           setToast({ message: `${serviceOf(list.map((t) => t.accountId))} didn't accept that change. Refreshing.` });
+        })
+        .finally(() => {
+          finish();
           reload();
         });
     },
@@ -177,10 +186,18 @@ export function useThreadActions({
 
   const actions = useMemo(
     () => ({
-      archive: (id = state.selectedId ?? undefined) => moveThread(id, { mailbox: "archive", reminder: undefined }, "Archived", ["archive", "unarchive"]),
-      remove: (id = state.selectedId ?? undefined) => moveThread(id, { mailbox: "archive" }, "Moved to trash", ["trash", "untrash"]),
+      archive: (id = state.selectedId ?? undefined) => {
+        const trash = state.threads.find((t) => t.id === id)?.mailbox === "trash";
+        moveThread(id, { mailbox: trash ? "inbox" : "archive", reminder: undefined }, trash ? "Moved to inbox" : "Archived", trash ? ["untrash", "trash"] : ["archive", "unarchive"]);
+      },
+      remove: (id = state.selectedId ?? undefined) => {
+        const thread = state.threads.find((t) => t.id === id);
+        if (thread?.mailbox === "trash") { onPermanentDelete([thread]); return; }
+        moveThread(id, { mailbox: "trash" }, "Moved to Trash", ["trash", "untrash"]);
+      },
       spam: (id = state.selectedId ?? undefined) => moveThread(id, { mailbox: "archive" }, "Reported as spam", ["spam", "unspam"]),
       snooze: (id = state.selectedId ?? undefined) => {
+        if (state.threads.find((t) => t.id === id)?.mailbox === "trash") return;
         const until = tomorrowMorning();
         moveThread(id, { mailbox: "snoozed", snoozedUntil: until }, "Snoozed until tomorrow 08:00", ["snooze", "unsnooze"], until);
       },
@@ -199,7 +216,7 @@ export function useThreadActions({
         remote(thread, thread.unread ? "read" : "unread");
       },
     }),
-    [moveThread, senderAction, state.selectedId, state.threads, remote, dispatch],
+    [moveThread, senderAction, state.selectedId, state.threads, remote, dispatch, onPermanentDelete],
   );
 
   /** Ticks a thread, or (shift) every thread between the anchor and it. */
@@ -231,6 +248,16 @@ export function useThreadActions({
     (action: BulkAction, others: { label: (list: Thread[]) => void; merge: (list: Thread[]) => void }) => {
       const targets = checkedThreads.filter((t) => !t.scheduled);
       if (!targets.length) return;
+      if (targets.some((t) => t.mailbox === "trash")) {
+        if (targets.every((t) => t.mailbox === "trash") && action === "delete") onPermanentDelete(targets);
+        else if (targets.every((t) => t.mailbox === "trash") && action === "archive") {
+          targets.forEach((t) => dispatch({ type: "patch", id: t.id, patch: { mailbox: "inbox" } }));
+          remoteMany(targets, "untrash");
+          setToast({ message: "Moved to inbox", undo: targets, undoOp: "trash" });
+          setChecked(NO_CHECKED);
+        } else setToast({ message: "Select Trash conversations separately to restore or permanently delete them." });
+        return;
+      }
       const count = (n: number) => `${n} ${n === 1 ? "conversation" : "conversations"}`;
       if (action === "label") {
         others.label(targets);
@@ -257,7 +284,7 @@ export function useThreadActions({
       const until = action === "snooze" ? tomorrowMorning() : undefined;
       const moves: Record<typeof action, { patch: Partial<Thread>; ops: [ThreadOp, ThreadOp]; message: string }> = {
         archive: { patch: { mailbox: "archive", reminder: undefined }, ops: ["archive", "unarchive"], message: `Archived ${count(targets.length)}` },
-        delete: { patch: { mailbox: "archive" }, ops: ["trash", "untrash"], message: `Moved ${count(targets.length)} to trash` },
+        delete: { patch: { mailbox: "trash" }, ops: ["trash", "untrash"], message: `Moved ${count(targets.length)} to Trash` },
         spam: { patch: { mailbox: "archive" }, ops: ["spam", "unspam"], message: `Reported ${count(targets.length)} as spam` },
         snooze: { patch: { mailbox: "snoozed", snoozedUntil: until }, ops: ["snooze", "unsnooze"], message: `Snoozed ${count(targets.length)} until tomorrow 08:00` },
       };
@@ -272,7 +299,7 @@ export function useThreadActions({
       remoteMany(targets, move.ops[0], until);
       setToast({ message: move.message, undo: targets, undoOp: move.ops[1] });
     },
-    [checkedThreads, threads, state.selectedId, remoteMany, selectThread, dispatch, setToast],
+    [checkedThreads, threads, state.selectedId, remoteMany, selectThread, dispatch, setToast, onPermanentDelete],
   );
 
   /** The toast's Undo (and `z`). */

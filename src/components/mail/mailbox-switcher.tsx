@@ -11,6 +11,7 @@ import {
   Folder01Icon,
   InboxIcon,
   Mailbox01Icon,
+  Delete02Icon,
   Search01Icon,
   SentIcon,
   Settings02Icon,
@@ -42,6 +43,7 @@ const MAILBOXES: { id: Mailbox; label: string; icon: IconData }[] = [
   { id: "sent", label: "Sent", icon: SentIcon },
   { id: "drafts", label: "Drafts", icon: FileEditIcon },
   { id: "archive", label: "All mail", icon: Mailbox01Icon },
+  { id: "trash", label: "Trash", icon: Delete02Icon },
 ];
 
 /** Counts worth showing: mail that needs you, not totals. */

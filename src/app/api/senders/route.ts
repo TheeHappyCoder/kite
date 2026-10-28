@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 }
 
 const Body = z.discriminatedUnion("action", [
-  z.object({ action: z.enum(["allow", "block", "archive", "unsubscribe", "keep", "unkeep"]), email: z.string().trim().toLowerCase().max(320) }),
+  z.object({ action: z.enum(["allow", "block", "archive", "unsubscribe", "keep", "unkeep"]), email: z.string().trim().toLowerCase().max(320), account: z.string().min(1).max(4000).default("all") }),
   /** Undo of Cleanup archives: the ids "archive" and "block" returned. */
   z.object({ action: z.literal("undo"), undo: z.array(z.uuid()).min(1).max(500) }),
 ]);
@@ -50,11 +50,11 @@ export async function POST(request: Request) {
         keep(email, body.action === "keep");
         return NextResponse.json({ ok: true });
       case "block":
-        return NextResponse.json({ ok: true, ...(await block(email)) });
+        return NextResponse.json({ ok: true, ...(await block(email, body.account)) });
       case "archive":
-        return NextResponse.json({ ok: true, ...(await archiveAllFrom(email)) });
+        return NextResponse.json({ ok: true, ...(await archiveAllFrom(email, body.account)) });
       case "unsubscribe":
-        return NextResponse.json({ ok: true, result: await unsubscribe(email) });
+        return NextResponse.json({ ok: true, result: await unsubscribe(email, body.account) });
     }
   } catch (error) {
     if (error instanceof CleanupError) return NextResponse.json({ error: error.message }, { status: 410 });

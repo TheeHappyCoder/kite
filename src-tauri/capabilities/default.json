@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The Kite web app talks to the shell over HTTP, not IPC, so windows get no plugin permissions.",
+  "description": "Core window permissions; main-specific IPC permissions are in main and main-local.",
   "windows": ["main"],
   "permissions": ["core:default"]
 }

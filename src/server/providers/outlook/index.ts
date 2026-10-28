@@ -31,7 +31,7 @@ const notFound = (error: unknown) => error instanceof GraphError && error.status
 /** Folders whose mail Kite leaves out of lists unless asked (like Gmail's spam and trash). */
 const outOfSight = (f: Folders, m: GraphMessage) => m.parentFolderId === f.ids.junkemail || m.parentFolderId === f.ids.deleteditems;
 
-const FOLDER_OF = { inbox: "inbox", sent: "sentitems", drafts: "drafts" } as const;
+const FOLDER_OF = { inbox: "inbox", sent: "sentitems", drafts: "drafts", trash: "deleteditems" } as const;
 
 type Listing = { path: string; keep?: (m: GraphMessage) => boolean };
 
@@ -69,6 +69,8 @@ async function listing(account: AccountRow, list: ThreadList): Promise<Listing> 
     }
     case "inboxFrom":
       return { path: `/me/mailFolders/inbox/messages?$filter=from/emailAddress/address eq ${encodeURIComponent(odata(list.email))}&$select=${select}&$top=100` };
+    case "sender":
+      return { path: `/me/messages?$filter=from/emailAddress/address eq ${encodeURIComponent(odata(list.email))}&$select=${select}&$top=100`, keep: (m) => !outOfSight(f, m) };
   }
 }
 
@@ -114,7 +116,7 @@ function destination(account: AccountRow, m: GraphMessage, change: LabelChange, 
   // Inbox means Inbox, even for mail from yourself (a note to self lives there, not in Sent Items).
   if (change.add.includes(INBOX)) return filedApart || at === f.ids.inbox ? null : f.ids.inbox;
   if (change.remove.includes(INBOX) && at === f.ids.inbox) return archive();
-  if (change.remove.includes(TRASH) && at === f.ids.deleteditems) return home;
+  if (change.remove.includes(TRASH) && at === f.ids.deleteditems) return change.remove.includes(INBOX) ? archive() : home;
   if (change.remove.includes(SPAM) && at === f.ids.junkemail) return home;
   const out = change.remove.find(isFolder);
   if (out && at === out) return archive();
@@ -236,6 +238,19 @@ const mail: MailAdapter = {
     });
   },
   send: compose.send,
+  canDeletePermanently: async () => true,
+  async deletePermanently(account, ids) {
+    const f = await folders(account);
+    for (const id of ids) {
+      try {
+        const m = await graph<GraphMessage>(account.id, `/me/messages/${id}?$select=id,parentFolderId`);
+        if (m.parentFolderId !== f.ids.deleteditems) throw new Error("A message is no longer in Trash. Refresh and try again.");
+        await graph(account.id, `/me/messages/${id}/permanentDelete`, { method: "POST" });
+      } catch (error) {
+        if (!notFound(error)) throw error;
+      }
+    }
+  },
   saveDraft: compose.saveDraft,
   async deleteDraft(account, draftId) {
     try {

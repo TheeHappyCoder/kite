@@ -68,7 +68,7 @@ function destination(copy: Folder | undefined, change: LabelChange, f: Folders, 
   if (into) return filedApart ? null : (f.byId.get(into) ?? null);
   if (change.add.includes(INBOX)) return filedApart || at === "inbox" ? null : (f.role.inbox ?? null);
   if (change.remove.includes(INBOX) && at === "inbox") return "archive";
-  if (change.remove.includes(TRASH) && at === "trash") return home ?? null;
+  if (change.remove.includes(TRASH) && at === "trash") return change.remove.includes(INBOX) ? "archive" : home ?? null;
   if (change.remove.includes(SPAM) && at === "junk") return f.role.inbox ?? null;
   const out = change.remove.find(isFolderId);
   if (out && copy?.id === out) return "archive";
@@ -189,6 +189,7 @@ async function gmailModify(account: AccountRow, ids: string[], change: LabelChan
 /** Applies a change to messages: flags on every copy, then moves, a folder at a time. The index follows. */
 async function modify(account: AccountRow, ids: string[], change: LabelChange) {
   const f = await folders(account);
+  if (change.add.includes(TRASH) && !f.role.trash) throw new ImapError("This account has no Trash folder. Create one in your mail service first.", 400, serviceName(account.id));
   if (f.gmail) return gmailModify(account, ids, change, f);
   const flags = flagChange(change);
   const me = account.email.toLowerCase();
@@ -305,6 +306,19 @@ const mail: MailAdapter = {
   },
   modifyMessages: (account, messageIds, change) => modify(account, messageIds, change),
   send: compose.send,
+  canDeletePermanently: (account) => onConnection(account, (client) => Promise.resolve(client.capabilities.has("UIDPLUS"))),
+  async deletePermanently(account, ids) {
+    const f = await folders(account);
+    const trash = f.role.trash;
+    if (!trash) throw new ImapError("This account has no Trash folder.", 400, serviceName(account.id));
+    await inFolder(account, trash.path, async (client) => {
+      if (!client.capabilities.has("UIDPLUS")) throw new ImapError("Empty Trash in your mail service; this server cannot safely delete individual messages permanently.", 400, serviceName(account.id));
+      const copies = ids.flatMap((id) => copiesOf(account.id, id).filter((c) => c.folder === trash.path));
+      if (!copies.length) return;
+      await client.messageDelete(copies.map((c) => c.uid).join(","), { uid: true });
+      for (const c of copies) getDb().prepare("DELETE FROM imap_copies WHERE account_id = ? AND folder = ? AND uid = ?").run(account.id, trash.path, c.uid);
+    });
+  },
   saveDraft: compose.saveDraft,
   deleteDraft: compose.deleteDraft,
   getDraft: compose.getDraft,

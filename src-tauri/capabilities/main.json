@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "The main window (served from 127.0.0.1:3100, remote in a release build) calls the app's `update` command: status / check / install. No plugin permissions.",
+  "description": "The main window can check/install updates and read clipboard text for Paste actions.",
   "windows": [
     "main"
   ],
@@ -11,6 +11,7 @@
     ]
   },
   "permissions": [
-    "allow-update"
+    "allow-update",
+    "clipboard-manager:allow-read-text"
   ]
 }

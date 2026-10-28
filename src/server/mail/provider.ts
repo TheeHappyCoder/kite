@@ -120,6 +120,10 @@ export type MailAdapter = {
   attachment(account: AccountRow, messageId: string, partId: string, name?: string): Promise<AttachmentFile | null>;
   modifyThreads(account: AccountRow, threadIds: string[], change: LabelChange): Promise<void>;
   modifyMessages(account: AccountRow, messageIds: string[], change: LabelChange): Promise<void>;
+  /** Whether this account permits targeted permanent deletion. Never emulate with an unscoped expunge. */
+  canDeletePermanently?(account: AccountRow): Promise<boolean>;
+  /** Deletes only the given messages, rechecking that each is still in Trash. */
+  deletePermanently?(account: AccountRow, messageIds: string[]): Promise<void>;
   send(account: AccountRow, message: OutgoingMessage, rendered: RenderedMessage): Promise<Sent>;
   /** Creates a draft, or replaces `draftId`. Throws ProviderError 400/404 when that draft is gone. */
   saveDraft(account: AccountRow, message: OutgoingMessage, rendered: RenderedMessage, draftId?: string): Promise<SavedDraft>;

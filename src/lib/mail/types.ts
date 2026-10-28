@@ -104,7 +104,7 @@ export type Message = {
   invite?: Invite;
 };
 
-export type Mailbox = "inbox" | "screener" | "snoozed" | "scheduled" | "starred" | "sent" | "drafts" | "archive";
+export type Mailbox = "inbox" | "screener" | "snoozed" | "scheduled" | "starred" | "sent" | "drafts" | "archive" | "trash";
 
 export type Category = "important" | "other" | "newsletters" | "notifications";
 

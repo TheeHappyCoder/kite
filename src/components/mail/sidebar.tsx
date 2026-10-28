@@ -6,6 +6,7 @@ import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import {
   AiMagicIcon,
   Mailbox01Icon,
+  Delete02Icon,
   Clock01Icon,
   FileEditIcon,
   InboxIcon,
@@ -67,6 +68,7 @@ const MAILBOXES: MailboxItem[] = [
   { id: "sent", label: "Sent", icon: SentIcon },
   { id: "drafts", label: "Drafts", icon: FileEditIcon },
   { id: "archive", label: "All mail", icon: Mailbox01Icon },
+  { id: "trash", label: "Trash", icon: Delete02Icon },
 ];
 
 /** Counts worth showing: mail that needs you, not totals. */

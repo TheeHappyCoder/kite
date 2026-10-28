@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Mailbox, Thread } from "@/lib/mail/types";
 import { THREAD_KEY } from "@/lib/mail/threads";
+import { messagesInMailbox } from "@/lib/mail/trash";
 import { resolveInlineImages } from "@/server/attachments";
 import { withInvites } from "@/server/calendar";
 import { getAccount } from "@/server/db";
@@ -29,7 +30,8 @@ export async function GET(request: Request, { params }: Context) {
     const row = await loadFullThread(account, id);
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const stored = JSON.parse(row.data) as Thread;
-    const messages = await withInvites(account, row.id, await Promise.all(stored.messages.map((m) => resolveInlineImages(account.id, m))));
+    const visible = messagesInMailbox(stored.messages, search.get("mailbox") === "trash");
+    const messages = await withInvites(account, row.id, await Promise.all(visible.map((m) => resolveInlineImages(account.id, m))));
     const thread = { ...stored, messages, mailbox: (search.get("mailbox") as Mailbox) ?? "inbox" };
     // A reply a rule prepared waits in the quick-reply box (never sent by itself).
     return NextResponse.json({ thread, prepared: getPrepared(row.id) });

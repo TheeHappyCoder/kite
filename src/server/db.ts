@@ -699,7 +699,7 @@ export function saveToken(token: TokenRow) {
 const UNDO_MS = 10 * 60_000;
 
 /** Keeps the way back from a move (folder moves, Cleanup's archives), so Undo survives a restart. Each step names its `accountId`. */
-export function saveUndo(kind: "move" | "cleanup", steps: { accountId: string }[]) {
+export function saveUndo(kind: "move" | "cleanup" | "mail-preview" | "mail-undo", steps: { accountId: string }[]) {
   const d = getDb();
   d.prepare("DELETE FROM undos WHERE at < ?").run(new Date(Date.now() - UNDO_MS).toISOString());
   const id = crypto.randomUUID();
@@ -708,7 +708,7 @@ export function saveUndo(kind: "move" | "cleanup", steps: { accountId: string }[
 }
 
 /** The way back saved under `id` (gone once taken, or after UNDO_MS), or null. */
-export function takeUndo<T>(kind: "move" | "cleanup", id: string): T[] | null {
+export function takeUndo<T>(kind: "move" | "cleanup" | "mail-preview" | "mail-undo", id: string): T[] | null {
   const d = getDb();
   const row = d.prepare("DELETE FROM undos WHERE id = ? AND kind = ? RETURNING at, steps").get(id, kind) as { at: string; steps: string } | undefined;
   if (!row || Date.now() - new Date(row.at).getTime() > UNDO_MS) return null;

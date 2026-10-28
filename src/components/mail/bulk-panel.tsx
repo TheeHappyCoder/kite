@@ -27,6 +27,10 @@ type ActionDef = { id: BulkAction; icon: IconData; label: string; shortcut: Shor
 
 /** Labels follow the selection: Star becomes Unstar when every thread is starred, and so on. */
 function bulkActions(threads: Thread[]): ActionDef[] {
+  if (threads.length && threads.every((t) => t.mailbox === "trash")) return [
+    { id: "archive", icon: Mail01Icon, label: "Move to inbox", shortcut: "archive" },
+    { id: "delete", icon: Delete02Icon, label: "Delete permanently…", shortcut: "delete" },
+  ];
   const allStarred = threads.length > 0 && threads.every((t) => t.starred);
   const anyUnread = threads.some((t) => t.unread);
   return [

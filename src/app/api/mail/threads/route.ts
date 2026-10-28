@@ -15,7 +15,7 @@ import { ensureSyncLoop, runLabelChange, runOps, syncProgress, undoMove } from "
 
 export const runtime = "nodejs";
 
-const MAILBOXES: Mailbox[] = ["inbox", "screener", "snoozed", "scheduled", "starred", "sent", "drafts", "archive"];
+const MAILBOXES: Mailbox[] = ["inbox", "screener", "snoozed", "scheduled", "starred", "sent", "drafts", "archive", "trash"];
 
 const Targets = z.array(z.object({ account: z.string(), id: z.string().regex(THREAD_KEY) })).min(1).max(1000);
 const LabelIds = z.array(z.string().min(1).max(200)).max(50);

@@ -559,7 +559,7 @@ export function SettingsView(props: Props) {
               />
             </Group>
             <TranslateGroup preferences={preferences} onPreferences={props.onPreferences} />
-            <Group title="Swipe" description="On a touch screen, swipe a conversation in the list. The Screener always swipes to Allow and Block.">
+            <Group title="Touch-screen swipes" description="These gestures need a touch screen. With a mouse, hover over a conversation for Delete, Mark as unread and other actions. The Screener always swipes to Allow and Block.">
               {(["right", "left"] as SwipeSide[]).map((side) => (
                 <Row
                   key={side}

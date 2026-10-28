@@ -267,7 +267,7 @@ export async function scanList(account: AccountRow, list: ThreadList, max: numbe
   switch (list.kind) {
     case "mailbox": {
       if (list.mailbox === "starred") return collect(visible(f).map((folder) => [folder, { flagged: true }]), max);
-      const folder = f.role[list.mailbox === "inbox" ? "inbox" : list.mailbox === "sent" ? "sent" : "drafts"];
+      const folder = f.role[list.mailbox];
       return folder ? newestOf(account, folder, max, onIds) : [];
     }
     case "recent": {
@@ -291,6 +291,8 @@ export async function scanList(account: AccountRow, list: ThreadList, max: numbe
       const inbox = f.role.inbox;
       return inbox ? collect([[inbox, { from: list.email }]], max) : [];
     }
+    case "sender":
+      return collect(visible(f).map((folder) => [folder, { from: list.email }]), max);
   }
 }
 
@@ -302,6 +304,7 @@ async function gmailList(account: AccountRow, f: Folders, list: ThreadList, max:
   if (!all) return [];
   switch (list.kind) {
     case "mailbox": {
+      if (list.mailbox === "trash") return f.role.trash ? collect([[f.role.trash, { all: true }]], max) : [];
       if (list.mailbox !== "inbox") return collect([[all, { gmraw: RAW[list.mailbox] }]], max);
       // The Inbox is sorted into tabs as it's read, so a first sync files each conversation in its tab from the start.
       const ids = await searchIn(account, all, { gmraw: RAW.inbox }, max, (client, uids) => sortIntoTabs(client, account.id, all.path, uids));
@@ -332,6 +335,8 @@ async function gmailList(account: AccountRow, f: Folders, list: ThreadList, max:
     }
     case "inboxFrom":
       return collect([[all, { gmraw: `in:inbox from:${list.email}` }]], max);
+    case "sender":
+      return collect([[all, { gmraw: `from:${list.email} -in:trash -in:spam` }]], max);
   }
 }
 

@@ -25,7 +25,7 @@ export type LabelChange = { add: string[]; remove: string[] };
 
 /** Lists of threads (or messages) the engine asks a provider for. Each adapter translates them to its own query. */
 export type ThreadList =
-  | { kind: "mailbox"; mailbox: "inbox" | "sent" | "starred" | "drafts" }
+  | { kind: "mailbox"; mailbox: "inbox" | "sent" | "starred" | "drafts" | "trash" }
   /** Everything from the last `days` days, spam and trash left out. */
   | { kind: "recent"; days: number }
   /** Conversations with attachments, spam and trash left out. */
@@ -33,7 +33,8 @@ export type ThreadList =
   | { kind: "label"; id: string }
   | { kind: "search"; terms: SearchTerm[] }
   /** Inbox mail from one sender (Cleanup's "Archive all"). */
-  | { kind: "inboxFrom"; email: string };
+  | { kind: "inboxFrom"; email: string }
+  | { kind: "sender"; email: string };
 
 export type OutgoingMessage = {
   to: Recipient[];

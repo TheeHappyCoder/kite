@@ -195,9 +195,9 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
             <span className="mx-1 h-5 w-px shrink-0 bg-pane-border" />
           </>
         ) : null}
-        <CircleButton icon={Archive02Icon} label="Archive" shortcut="archive" onClick={props.onArchive} />
-        <CircleButton icon={Clock01Icon} label="Snooze until tomorrow" shortcut="snooze" onClick={props.onSnooze} />
-        <CircleButton icon={Delete02Icon} label="Delete" shortcut="delete" onClick={props.onDelete} />
+        <CircleButton icon={Archive02Icon} label={thread.mailbox === "trash" ? "Move to inbox" : "Archive"} shortcut="archive" onClick={props.onArchive} />
+        {thread.mailbox !== "trash" ? <CircleButton icon={Clock01Icon} label="Snooze until tomorrow" shortcut="snooze" onClick={props.onSnooze} /> : null}
+        <CircleButton icon={Delete02Icon} label={thread.mailbox === "trash" ? "Delete permanently…" : "Delete"} shortcut="delete" onClick={props.onDelete} />
         {thread.scheduled || narrow ? null : (
           <>
             <span className="mx-1.5 h-5 w-px shrink-0 bg-pane-border" />
@@ -266,6 +266,10 @@ const NARROW_READER = 520;
 /** The "More" menu: conversation actions without a toolbar button of their own (`narrow`: the toolbar's writing and view buttons too). */
 function menuItems(props: Props, narrow: boolean): ThreadMenuItem[] {
   const thread = props.thread!;
+  if (thread.mailbox === "trash") return [
+    { id: "restore", icon: Mail01Icon, label: "Move to inbox", onSelect: props.onArchive },
+    { id: "delete", icon: Delete02Icon, label: "Delete permanently…", danger: true, onSelect: props.onDelete },
+  ];
   const moved: ThreadMenuItem[] = narrow
     ? [
         { id: "replyAll", icon: MailReplyAll01Icon, label: "Reply all", shortcut: "replyAll", onSelect: () => props.onCompose("replyAll") },

@@ -6,6 +6,7 @@ import { attachmentKind, inferMimeType } from "@/lib/mail/attachments";
 import { labelNamed, parseSearch, type SearchTerm } from "@/lib/mail/search";
 import { freshPreview, htmlToText, snippetFresh, splitMessage } from "@/lib/mail/quotes";
 import { homeRemote, remotesOf } from "@/lib/mail/threads";
+import { messagesInMailbox } from "@/lib/mail/trash";
 import { getDb, type AccountRow } from "./db";
 import { categoryFrom, DRAFT, INBOX, SENT, UNREAD } from "@/lib/mail/mailboxes";
 import { scopeIds, scopeSql, type AccountScope } from "@/lib/mail/scope";
@@ -28,6 +29,7 @@ type ThreadRow = {
   unsubscribe: string | null;
   full: number;
   data: string;
+  message_labels?: string | null;
 };
 
 type SenderStatus = "allowed" | "pending" | "blocked";
@@ -445,20 +447,28 @@ export function updateMessageLabels(id: string, messageIds: string[], add: strin
 
 /** A thread's slim copy (db.ts `listCopy`: everything but bodies), for lists, search filters and files. */
 const LIST_DATA = "t.list_data";
-const LIST_COLUMNS = `t.id, t.account_id, t.remote_id, t.last_date, t.labels, t.sender_email, t.sender_name, t.unsubscribe, t.full, ${LIST_DATA} AS data`;
+const LIST_COLUMNS = `t.id, t.account_id, t.remote_id, t.last_date, t.labels, t.sender_email, t.sender_name, t.unsubscribe, t.full, ${LIST_DATA} AS data,
+  CASE WHEN EXISTS (SELECT 1 FROM json_each(t.labels) WHERE value IN ('TRASH', 'SPAM')) THEN
+    (SELECT json_group_object(json_extract(m.value, '$.id'), json_extract(m.value, '$.labels')) FROM json_each(t.data, '$.messages') m)
+  END AS message_labels`;
 
 /** The thread's key (its id after the account), which snoozes are stored under. */
 const KEY = "substr(t.id, length(t.account_id) + 2)";
 const HAS = (label: string) => `EXISTS (SELECT 1 FROM json_each(t.labels) WHERE value = '${label}')`;
-const NOT_HIDDEN = `NOT ${HAS("TRASH")} AND NOT ${HAS("SPAM")}`;
+const NOT_HIDDEN = `((NOT ${HAS("TRASH")} AND NOT ${HAS("SPAM")}) OR EXISTS (
+  SELECT 1 FROM json_each(t.data, '$.messages') m WHERE NOT EXISTS (
+    SELECT 1 FROM json_each(m.value, '$.labels') l WHERE l.value IN ('TRASH', 'SPAM')
+  )
+))`;
 const SENDER_STATUS = "COALESCE((SELECT status FROM senders s WHERE s.email = t.sender_email), 'allowed')";
 
 const MAILBOX_SQL: Record<Exclude<Mailbox, "snoozed" | "scheduled">, string> = {
+  trash: HAS("TRASH"),
   inbox: `${HAS("INBOX")} AND ${NOT_HIDDEN} AND ${SENDER_STATUS} = 'allowed'`,
   screener: `${HAS("INBOX")} AND ${NOT_HIDDEN} AND ${SENDER_STATUS} = 'pending'`,
   starred: `${HAS("STARRED")} AND ${NOT_HIDDEN}`,
   sent: `${HAS("SENT")} AND ${NOT_HIDDEN}`,
-  drafts: `${HAS("DRAFT")}`,
+  drafts: `${HAS("DRAFT")} AND ${NOT_HIDDEN}`,
   // "All mail" (the mailbox keeps the id `archive`): everything but Trash, Spam and drafts, like Gmail's All Mail.
   archive: `${NOT_HIDDEN} AND NOT ${HAS("DRAFT")}`,
 };
@@ -469,6 +479,12 @@ function hydrate(rows: (ThreadRow & { until?: string | null; reminder?: string |
   const userLabels = userLabelFilter();
   return rows.map((row) => {
     const thread = JSON.parse(row.data) as Thread;
+    if (row.message_labels) {
+      const byId = JSON.parse(row.message_labels) as Record<string, string[] | null>;
+      thread.messages = messagesInMailbox(thread.messages.map((m) => ({ ...m, labels: byId[m.id] ?? [] })), mailbox === "trash");
+      thread.unread = thread.messages.some((m) => m.unread);
+      thread.starred = thread.messages.some((m) => m.labels?.includes("STARRED"));
+    }
     const labels = userLabels(row.account_id, JSON.parse(row.labels) as string[]);
     return {
       ...thread,
@@ -536,7 +552,7 @@ export function queryThreads(mailbox: Mailbox, scope: AccountScope, limit = 1000
       .prepare(
         `SELECT ${LIST_COLUMNS}, s.until AS until, NULL AS reminder FROM threads t
          JOIN snoozes s ON s.account_id = t.account_id AND s.thread_id = ${KEY}
-         WHERE ${accountFilter} ORDER BY s.until ASC LIMIT ${limit}`,
+         WHERE ${accountFilter} AND ${NOT_HIDDEN} ORDER BY s.until ASC LIMIT ${limit}`,
       )
       .all(...args) as (ThreadRow & { until: string })[];
     return hydrate(rows, "snoozed");
@@ -559,7 +575,7 @@ export function countThreads(mailbox: Exclude<Mailbox, "scheduled">, scope: Acco
   if (unread) where.push(HAS("UNREAD"));
   const sql =
     mailbox === "snoozed"
-      ? `SELECT COUNT(*) AS n FROM threads t JOIN snoozes s ON s.account_id = t.account_id AND s.thread_id = ${KEY} WHERE ${where.join(" AND ")}`
+      ? `SELECT COUNT(*) AS n FROM threads t JOIN snoozes s ON s.account_id = t.account_id AND s.thread_id = ${KEY} WHERE ${where.join(" AND ")} AND ${NOT_HIDDEN}`
       : `SELECT COUNT(*) AS n FROM threads t WHERE ${MAILBOX_SQL[mailbox]} AND ${where.join(" AND ")}`;
   return (getDb().prepare(sql).get(...args) as { n: number }).n;
 }
@@ -703,7 +719,7 @@ export function searchThreads(query: string, scope: AccountScope, limit = 100, o
 /** A search hit: its mailbox comes from its labels, since results span every mailbox. */
 function hydrateFound(row: ThreadRow) {
   const labels = JSON.parse(row.labels) as string[];
-  const mailbox: Mailbox = labels.includes("INBOX") ? "inbox" : labels.includes("DRAFT") ? "drafts" : labels.includes("SENT") && !row.sender_email ? "sent" : "archive";
+  const mailbox: Mailbox = labels.includes("TRASH") ? "trash" : labels.includes("INBOX") ? "inbox" : labels.includes("DRAFT") ? "drafts" : labels.includes("SENT") && !row.sender_email ? "sent" : "archive";
   return hydrate([row], mailbox)[0];
 }
 
@@ -812,10 +828,11 @@ export function senderRecent(email: string, scope: AccountScope, limit = 6): Sen
   return rows.map((r) => ({ subject: r.subject || "(no subject)", date: r.date, unread: !!r.unread, inInbox: !!r.inInbox }));
 }
 
-export function latestUnsubscribe(email: string) {
+export function latestUnsubscribe(email: string, scope: AccountScope = "all") {
+  const filter = scopeSql(scope, "account_id");
   const row = getDb()
-    .prepare("SELECT unsubscribe, account_id FROM threads WHERE sender_email = ? AND unsubscribe IS NOT NULL ORDER BY last_date DESC LIMIT 1")
-    .get(email.toLowerCase()) as { unsubscribe: string; account_id: string } | undefined;
+    .prepare(`SELECT unsubscribe, account_id FROM threads WHERE sender_email = ? AND unsubscribe IS NOT NULL AND ${filter.sql} ORDER BY last_date DESC LIMIT 1`)
+    .get(email.toLowerCase(), ...filter.args) as { unsubscribe: string; account_id: string } | undefined;
   return row ? { ...(JSON.parse(row.unsubscribe) as { http?: string; mailto?: string; oneClick: boolean }), accountId: row.account_id } : null;
 }
 

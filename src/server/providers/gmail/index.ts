@@ -22,14 +22,14 @@ import { getAccessToken, gmailAccess, googleAuth } from "./oauth";
 // translation of lists into Gmail queries and the trash endpoints.
 
 const notSpamOrTrash = "-in:spam -in:trash";
-const MAILBOX_LABEL = { inbox: "INBOX", sent: "SENT", starred: "STARRED", drafts: "DRAFT" } as const;
+const MAILBOX_LABEL = { inbox: "INBOX", sent: "SENT", starred: "STARRED", drafts: "DRAFT", trash: "TRASH" } as const;
 
 /** A Kite list as Gmail list parameters. */
 function listParams(list: ThreadList) {
   const q = (query: string) => `q=${encodeURIComponent(query)}`;
   switch (list.kind) {
     case "mailbox":
-      return `labelIds=${MAILBOX_LABEL[list.mailbox]}`;
+      return `labelIds=${MAILBOX_LABEL[list.mailbox]}${list.mailbox === "trash" ? "&includeSpamTrash=true" : ""}`;
     case "recent":
       return q(`newer_than:${list.days}d ${notSpamOrTrash}`);
     case "attachments":
@@ -40,6 +40,8 @@ function listParams(list: ThreadList) {
       return q(toGmailQuery(list.terms));
     case "inboxFrom":
       return q(`from:(${list.email}) in:inbox`);
+    case "sender":
+      return q(`from:(${list.email}) ${notSpamOrTrash}`);
   }
 }
 

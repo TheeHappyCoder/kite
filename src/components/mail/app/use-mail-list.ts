@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MailAction, MailState } from "@/lib/mail/store";
 import type { Mailbox, Thread } from "@/lib/mail/types";
 import { sideOf } from "@/lib/mail/sides";
+import { mailChanges } from "@/lib/mail/pending-changes";
+import { postJson } from "./util";
 import type { TodayTarget } from "../../home/day";
 import type { RemoteSearch } from "../message-list";
 import { useDebounced, withRemoteResults, type ListResponse, type Reload, type SetToast, type SyncInfo } from "./util";
@@ -51,6 +53,13 @@ export function useMailList({
         : null;
   const viewKey = `${listSource}:${state.accountId}:${query}`;
   const requestKey = `${viewKey}:${reloadKey}`;
+  const trash = state.view.kind === "mailbox" && state.view.mailbox === "trash";
+  useEffect(() => {
+    if (!live || !trash) return;
+    void postJson("/api/mail/batch", { kind: "refresh", account: state.accountId })
+      .then(reload)
+      .catch(() => setToast({ message: "Couldn't refresh Trash. Showing the local copy; try Refresh." }));
+  }, [live, trash, state.accountId, reload, setToast]);
   // The search box is debounced: a query not yet sent counts as loading too.
   const loading = live && listSource != null && (!doneKey.startsWith(`${viewKey}:`) || state.query.trim() !== query.trim());
 
@@ -91,11 +100,13 @@ export function useMailList({
     activeKey.current = requestKey;
     if (!live || !listSource) return;
     const controller = new AbortController();
+    const current = mailChanges.snapshot();
     const q = query.trim() ? `&q=${encodeURIComponent(query.trim())}` : "";
     fetch(`/api/mail/threads?${listSource}${q}`, { signal: controller.signal })
       .then(async (res) => {
         const data = (await res.json()) as ListResponse;
         if (!res.ok || !data.threads) throw new Error(data.error ?? "Couldn't load mail");
+        if (controller.signal.aborted || !current()) return;
         setPage({ key: viewKey, next: data.nextOffset ?? null });
         const found = remoteFound.current;
         const searching = query.trim();
@@ -122,11 +133,16 @@ export function useMailList({
   const searchRemote = useCallback(async () => {
     const q = state.query.trim();
     if (!live || !q) return;
+    const current = mailChanges.snapshot();
     setRemoteSearch({ query: q, status: "loading", found: 0 });
     try {
       const res = await fetch(`/api/mail/search?q=${encodeURIComponent(q)}&account=${state.accountId}`);
       const data = (await res.json()) as { threads?: Thread[]; error?: string };
       if (!res.ok || !data.threads) throw new Error(data.error);
+      if (!current()) {
+        setRemoteSearch(null);
+        return;
+      }
       const before = new Set(state.threads.map((t) => t.id));
       remoteFound.current = { query: q, threads: data.threads };
       dispatch({ type: "replace", threads: withRemoteResults(state.threads, data.threads) });
@@ -139,12 +155,13 @@ export function useMailList({
   const loadMore = async () => {
     if (paging || page.key !== viewKey || page.next == null) return;
     const key = requestKey;
+    const current = mailChanges.snapshot();
     setPaging(true);
     try {
       const res = await fetch(`/api/mail/threads?${listSource}&q=${encodeURIComponent(query.trim())}&offset=${page.next}`);
       const data = await res.json() as ListResponse;
       if (!res.ok || !data.threads) throw new Error(data.error ?? "Could not load more results.");
-      if (activeKey.current !== key) return;
+      if (activeKey.current !== key || !current()) return;
       dispatch({ type: "replace", threads: withRemoteResults(state.threads, data.threads), listQuery: query.trim() });
       setPage({ key: viewKey, next: data.nextOffset ?? null });
     } catch (error) { setToast({ message: error instanceof Error ? error.message : "Could not load more results." }); }

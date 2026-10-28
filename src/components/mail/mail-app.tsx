@@ -61,6 +61,7 @@ import { usePeople } from "./app/use-people";
 import { useRegroup } from "./app/use-regroup";
 import { useSending } from "./app/use-sending";
 import { useThreadActions } from "./app/use-thread-actions";
+import { useMailBatch } from "./mail-batch-dialog";
 import { useToday } from "./app/use-today";
 import { HomeView } from "../home/home-view";
 import type { ExpectAction } from "../home/day";
@@ -197,6 +198,11 @@ export function MailApp() {
   const listVisible = state.view.kind === "mailbox" || state.view.kind === "label";
   const selected = useMemo(() => shownThread(state, state.selectedId), [state]);
 
+  const mailBatch = useMailBatch(setToast, reload);
+  const permanentDelete = (targets: Thread[]) => {
+    if (!live) { setToast({ message: "Permanent deletion is available for connected mail accounts." }); return; }
+    mailBatch.open({ account: state.accountId, action: "permanent", threads: targets.map((t) => ({ account: t.accountId, id: threadKey(t) })) });
+  };
   const {
     checkedSet,
     checkedThreads,
@@ -217,7 +223,7 @@ export function MailApp() {
     overrideWithUndo,
     togglePin,
     toggleMute,
-  } = useThreadActions({ live, state, dispatch, threads, listKey, listVisible, accounts, serviceOf, setToast, reload });
+  } = useThreadActions({ live, state, dispatch, threads, listKey, listVisible, accounts, serviceOf, setToast, reload, onPermanentDelete: permanentDelete });
   /** Opening a conversation from the list: with one pane at a time, the reader takes the screen. */
   const openThread = useCallback(
     (id: string | null) => {
@@ -467,7 +473,7 @@ export function MailApp() {
   });
 
   // Cleanup: the sender table comes straight from the local store.
-  const cleanupState = useCleanup({ open: cleanup, live, accountId: state.accountId, reloadKey, onToast: setToast });
+  const cleanupState = useCleanup({ open: cleanup, live, accountId: state.accountId, reloadKey, onToast: setToast, onBatch: mailBatch.open });
 
   const { todayData, todayNow, todayCount } = useToday({
     ready: mode !== "loading",
@@ -487,7 +493,7 @@ export function MailApp() {
   useEffect(() => {
     if (!live || !selected || selected.loaded || !selected.remoteId) return;
     const controller = new AbortController();
-    const mailbox = state.view.kind === "mailbox" ? state.view.mailbox : "inbox";
+    const mailbox = selected.mailbox;
     fetch(`/api/mail/threads/${threadKey(selected)}?account=${selected.accountId}&mailbox=${mailbox}`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Couldn't open that conversation"))))
       .then((data: { thread: Thread; prepared?: PreparedReply | null }) => {
@@ -1092,6 +1098,7 @@ export function MailApp() {
                   onMute={(id) => toggleMute(id)}
                   onToggleRead={(id) => actions.toggleRead(id)}
                   onTrash={(id) => actions.remove(id)}
+                  onEmptyTrash={() => live ? mailBatch.open({ account: state.accountId, action: "permanent" }) : setToast({ message: "Connect an account to manage its Trash." })}
                   swipe={preferences.swipe}
                   onMarkAllRead={markAllRead}
                   onCompose={() => openCompose()}
@@ -1182,6 +1189,7 @@ export function MailApp() {
           markAllRead={inboxTab && sideCounts[state.side] ? { label: tabLabel, onSelect: markAllRead } : null}
         />
 
+        {mailBatch.dialog}
         <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
         <LabelPicker

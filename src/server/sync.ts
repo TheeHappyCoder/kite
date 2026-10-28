@@ -966,7 +966,13 @@ export async function runOp(account: AccountRow, key: string, op: ThreadOp, unti
   const id = `${account.id}:${key}`;
   const targets = opTargets(account.id, id);
   const mail = mailOf(account);
-  if (op === "unread") await markUnread(account, key);
+  if (op === "untrash") {
+    const row = getThreadRow(id);
+    const messages = row ? (JSON.parse(row.data) as Thread).messages.filter((m) => m.labels?.includes("TRASH")).map((m) => m.id) : [];
+    await mail.modifyMessages(account, messages, LABEL_OPS.untrash);
+    updateMessageLabels(id, messages, LABEL_OPS.untrash.add, LABEL_OPS.untrash.remove);
+  }
+  else if (op === "unread") await markUnread(account, key);
   else {
     await mail.modifyThreads(account, targets.threads, LABEL_OPS[op]);
     await mail.modifyMessages(account, targets.messages, LABEL_OPS[op]);

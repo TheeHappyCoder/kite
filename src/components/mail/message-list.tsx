@@ -75,6 +75,7 @@ const VIEW_TITLES: Record<string, string> = {
   sent: "Sent",
   drafts: "Drafts",
   archive: "All mail",
+  trash: "Trash",
 };
 
 type Props = {
@@ -100,6 +101,7 @@ type Props = {
   onMute: (id: string) => void;
   onToggleRead: (id: string) => void;
   onTrash: (id: string) => void;
+  onEmptyTrash?: () => void;
   /** What swiping a row does, per direction (Settings → Appearance). */
   swipe: SwipePrefs;
   /** Marks every unread conversation in the current inbox tab read. */
@@ -238,6 +240,8 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
       select: (id) => latest.current.onSelect(id),
       check: (id, mode) => latest.current.onCheck(id, mode),
       archive: (id) => latest.current.onArchive(id),
+      trash: (id) => latest.current.onTrash(id),
+      toggleRead: (id) => latest.current.onToggleRead(id),
       star: (id) => latest.current.onStar(id),
       snooze: (id) => latest.current.onSnooze(id),
       allow: (id) => latest.current.onAllow(id),
@@ -267,7 +271,7 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
           // Out of the Inbox: elsewhere there's nothing to archive.
           return thread.mailbox === "inbox" ? make("Archive", Archive02Icon, "success", p.onArchive) : undefined;
         case "trash":
-          return make("Trash", Delete02Icon, "danger", p.onTrash);
+          return thread.mailbox === "trash" ? undefined : make("Delete", Delete02Icon, "danger", p.onTrash);
         case "snooze":
           return make("Snooze", Clock01Icon, "warning", p.onSnooze);
         case "read":
@@ -446,6 +450,12 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
         ) : null}
         </div>
 
+        {props.view.kind === "mailbox" && props.view.mailbox === "trash" && !props.checked.size ? (
+          <div className="flex items-center gap-3 pb-2 text-xs text-pane-muted">
+            <p className="flex-1">Your mail service controls how long deleted mail stays here.</p>
+            <button onClick={props.onEmptyTrash} className="shrink-0 rounded-full border border-pane-border px-3 py-1.5 text-pane-fg">Empty Trash…</button>
+          </div>
+        ) : null}
         {props.checked.size ? (
           <BulkBar
             threads={threads.filter((t) => props.checked.has(t.id))}
@@ -587,6 +597,8 @@ type RowActions = {
   select: (id: string) => void;
   check: (id: string, mode: "toggle" | "range") => void;
   archive: (id: string) => void;
+  trash: (id: string) => void;
+  toggleRead: (id: string) => void;
   star: (id: string) => void;
   snooze: (id: string) => void;
   allow: (id: string) => void;
@@ -633,13 +645,15 @@ const ThreadRow = memo(function ThreadRow({
   compact?: boolean;
 }) {
   const id = thread.id;
-  // The hover actions (five buttons with tooltips) mount only under the pointer: most rows never need them.
+  // The hover actions mount only under the pointer: most rows never need them.
   // The hover actions mount on first hover, then show and hide with the lit row in CSS (no render per hover).
   const [armed, setArmed] = useState(false);
   const actions = {
     onSelect: () => rowActions.select(id),
     onCheck: (mode: "toggle" | "range") => rowActions.check(id, mode),
     onArchive: () => rowActions.archive(id),
+    onTrash: () => rowActions.trash(id),
+    onToggleRead: () => rowActions.toggleRead(id),
     onStar: () => rowActions.star(id),
     onSnooze: () => rowActions.snooze(id),
     onAllow: () => rowActions.allow(id),
@@ -829,12 +843,18 @@ const ThreadRow = memo(function ThreadRow({
 
       {armed && !screener && !thread.scheduled ? (
         <div className="invisible absolute right-2 top-1.5 group-data-[lit]:visible flex items-center gap-0.5 rounded-full border border-pane-border bg-pane p-0.5 shadow-sm">
-          <RowAction label="Archive" shortcut="archive" onClick={actions.onArchive}>
+          <RowAction label={thread.mailbox === "trash" ? "Delete permanently…" : "Delete"} shortcut="delete" onClick={actions.onTrash}>
+            <Icon icon={Delete02Icon} size={14} />
+          </RowAction>
+          <RowAction label={thread.unread ? "Mark as read" : "Mark as unread"} shortcut="toggleRead" onClick={actions.onToggleRead}>
+            <Icon icon={thread.unread ? MailOpen01Icon : Mail01Icon} size={14} />
+          </RowAction>
+          <RowAction label={thread.mailbox === "trash" ? "Move to inbox" : "Archive"} shortcut="archive" onClick={actions.onArchive}>
             <Icon icon={Archive02Icon} size={14} />
           </RowAction>
-          <RowAction label="Snooze until tomorrow" shortcut="snooze" onClick={actions.onSnooze}>
+          {thread.mailbox !== "trash" ? <RowAction label="Snooze until tomorrow" shortcut="snooze" onClick={actions.onSnooze}>
             <Icon icon={Clock01Icon} size={14} />
-          </RowAction>
+          </RowAction> : null}
           <RowAction label={thread.starred ? "Unstar" : "Star"} shortcut="star" onClick={actions.onStar}>
             <Icon icon={StarIcon} size={14} className={cn(thread.starred && "fill-warning text-warning")} />
           </RowAction>

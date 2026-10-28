@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   Alert02Icon,
   Archive02Icon,
+  Delete02Icon,
   BrushCleaningIcon,
   Cancel01Icon,
   LinkSquare02Icon,
@@ -32,6 +33,7 @@ import {
 } from "@/lib/mail/cleanup";
 import { gmailFilterFor } from "@/lib/rules/gmail";
 import type { Account } from "@/lib/mail/types";
+import type { MailBatchRequest } from "@/lib/mail/batch";
 import { blurFade, spring } from "@/lib/motion";
 import { cn, formatListDate } from "@/lib/utils";
 import { Icon, type IconData } from "../icon";
@@ -53,7 +55,7 @@ import { formatBytes, plural } from "@/lib/format";
 type Toast = { message: string; onUndo?: () => void };
 
 /** What a queue does to each sender: unsubscribe + archive, archive only, or block (which archives too). */
-type Run = "clean" | "archive" | "block";
+type Run = "clean" | "archive" | "block" | "unsubscribe";
 
 type QueueItem = { email: string; name: string; state: "waiting" | "running" | "done" | "failed" | "skipped"; note?: string; url?: string };
 
@@ -71,7 +73,7 @@ async function post<T>(body: unknown, url = "/api/senders", method = "POST"): Pr
 const nameOf = (s: Pick<SenderSummary, "name" | "email">) => s.name || s.email;
 
 /** Cleanup's state: the sender table, the picked and ticked senders, one sender's detail and the running queue. */
-export function useCleanup({ open, live, accountId, reloadKey, onToast }: { open: boolean; live: boolean; accountId: string; reloadKey: number; onToast: (toast: Toast) => void }) {
+export function useCleanup({ open, live, accountId, reloadKey, onToast, onBatch }: { open: boolean; live: boolean; accountId: string; reloadKey: number; onToast: (toast: Toast) => void; onBatch: (request: MailBatchRequest) => void }) {
   const [own, setOwn] = useState(0);
   const key = `${accountId}:${reloadKey}:${own}`;
   const [data, setData] = useState<{ key: string; senders: SenderSummary[]; at: number } | null>(null);
@@ -182,8 +184,8 @@ export function useCleanup({ open, live, accountId, reloadKey, onToast }: { open
       const notes: string[] = [];
       let url: string | undefined;
       try {
-        if (kind === "clean" && sender.canUnsubscribe && !sender.unsubscribedAt) {
-          const { result } = await post<{ result: UnsubscribeResult }>({ action: "unsubscribe", email: sender.email });
+        if ((kind === "clean" || kind === "unsubscribe") && sender.canUnsubscribe && !sender.unsubscribedAt) {
+          const { result } = await post<{ result: UnsubscribeResult }>({ action: "unsubscribe", email: sender.email, account: accountId });
           if (result.done) {
             unsubscribed++;
             notes.push("Unsubscribed");
@@ -192,7 +194,8 @@ export function useCleanup({ open, live, accountId, reloadKey, onToast }: { open
             notes.push("Finish on their page");
           } else notes.push("No way to unsubscribe");
         }
-        const res = await post<{ archived: number; undo?: string }>({ action: kind === "block" ? "block" : "archive", email: sender.email });
+        if (kind === "unsubscribe") { update(i, { state: "done", note: notes.join(" · "), url }); continue; }
+        const res = await post<{ archived: number; undo?: string }>({ action: kind === "block" ? "block" : "archive", email: sender.email, account: accountId });
         if (res.undo) undo.push(res.undo);
         archived += res.archived;
         if (kind === "block") notes.push("Blocked");
@@ -209,7 +212,7 @@ export function useCleanup({ open, live, accountId, reloadKey, onToast }: { open
     const parts = [
       kind === "block" ? `${plural(items.filter((i) => i.state === "done").length, "sender")} blocked` : null,
       unsubscribed ? `${unsubscribed} unsubscribed` : null,
-      `${archived} archived`,
+      kind === "unsubscribe" ? null : `${archived} archived`,
       failed ? `${failed} didn't go through` : null,
     ].filter(Boolean);
     const onUndo = undo.length ? () => void undoArchives(undo) : undefined;
@@ -227,10 +230,10 @@ export function useCleanup({ open, live, accountId, reloadKey, onToast }: { open
               ? `${only.name} is blocked`
               : unsubscribed
                 ? `Unsubscribed from ${only.name}`
-                : kind === "clean"
+                : kind === "clean" || kind === "unsubscribe"
                   ? `${only.name} doesn't offer a way to unsubscribe`
                   : null;
-      onToast({ message: [lead, only.state === "failed" ? null : `${archived} archived`].filter(Boolean).join(" · "), onUndo });
+      onToast({ message: [lead, only.state === "failed" || kind === "unsubscribe" ? null : `${archived} archived`].filter(Boolean).join(" · "), onUndo });
     } else onToast({ message: parts.join(" · "), onUndo });
   };
 
@@ -287,6 +290,8 @@ export function useCleanup({ open, live, accountId, reloadKey, onToast }: { open
     queue,
     busy,
     run,
+    deleteMail: (emails: string[], unsubscribe = false) => onBatch({ account: accountId, action: "trash", senders: emails, inboxOnly: true, unsubscribe }),
+    archiveMail: (emails: string[]) => onBatch({ account: accountId, action: "archive", senders: emails, inboxOnly: true }),
     stopQueue: () => {
       stop.current = true;
     },
@@ -790,19 +795,20 @@ function CleanupDetail({
 
         <div className="mt-4 flex flex-wrap gap-2">
           {unsubscribe ? (
-            <PillButton primary icon={MailRemove01Icon} busy={running === "clean"} disabled={!!running} onClick={() => void cleanup.run("clean", [sender.email])}>
-              Unsubscribe{sender.inInbox ? ` and archive ${sender.inInbox}` : ""}
+            <PillButton icon={MailRemove01Icon} busy={running === "unsubscribe"} disabled={!!running} onClick={() => void cleanup.run("unsubscribe", [sender.email])}>
+              Unsubscribe
             </PillButton>
           ) : null}
           <PillButton
-            primary={!unsubscribe}
             icon={Archive02Icon}
             busy={running === "archive"}
             disabled={!sender.inInbox || !!running}
-            onClick={() => void cleanup.run("archive", [sender.email])}
+            onClick={() => cleanup.archiveMail([sender.email])}
           >
             {sender.inInbox ? `Archive ${sender.inInbox} in inbox` : "Inbox clear"}
           </PillButton>
+          <PillButton primary icon={Delete02Icon} disabled={!!running} onClick={() => cleanup.deleteMail([sender.email])}>Delete…</PillButton>
+          {unsubscribe ? <PillButton icon={MailRemove01Icon} disabled={!!running} onClick={() => cleanup.deleteMail([sender.email], true)}>Unsubscribe and delete…</PillButton> : null}
           {detail?.archiveRule ? null : (
             <PillButton icon={WorkflowSquare03Icon} disabled={ruleOpen} onClick={() => setRuleOpen(true)}>
               Archive future mail
@@ -1001,11 +1007,13 @@ function BulkPanel({ cleanup, senders }: { cleanup: CleanupState; senders: Sende
             ) : (
               <motion.div key="actions" {...blurFade({ y: -4 })} className="flex flex-col gap-2">
                 {canUnsubscribe ? (
-                  <ActionButton primary icon={MailRemove01Icon} onClick={() => setConfirm("clean")}>
-                    Unsubscribe and archive all
+                  <ActionButton icon={MailRemove01Icon} onClick={() => void cleanup.run("unsubscribe", emails)}>
+                    Unsubscribe
                   </ActionButton>
                 ) : null}
-                <ActionButton primary={!canUnsubscribe} icon={Archive02Icon} disabled={!inInbox} onClick={() => void cleanup.run("archive", emails)}>
+                <ActionButton primary icon={Delete02Icon} onClick={() => cleanup.deleteMail(emails)}>Delete…</ActionButton>
+                {canUnsubscribe ? <ActionButton icon={MailRemove01Icon} onClick={() => cleanup.deleteMail(emails, true)}>Unsubscribe and delete…</ActionButton> : null}
+                <ActionButton icon={Archive02Icon} disabled={!inInbox} onClick={() => cleanup.archiveMail(emails)}>
                   {inInbox ? `Archive all ${inInbox} in inbox` : "Nothing left in your inbox"}
                 </ActionButton>
                 <div className="grid grid-cols-2 gap-2">
@@ -1034,6 +1042,7 @@ function BulkPanel({ cleanup, senders }: { cleanup: CleanupState; senders: Sende
 }
 
 const RUN_TITLES: Record<Run, [string, string]> = {
+  unsubscribe: ["Unsubscribing", "Unsubscribed"],
   clean: ["Unsubscribing and archiving", "Cleaned up"],
   archive: ["Archiving", "Archived"],
   block: ["Blocking", "Blocked"],

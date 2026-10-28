@@ -6,6 +6,7 @@ import { plainRendering } from "./mail/mime";
 import { mailAccounts, mailOf } from "./providers/registry";
 import type { SenderDetail } from "@/lib/mail/cleanup";
 import type { AccountScope } from "@/lib/mail/scope";
+import { inScope } from "@/lib/mail/scope";
 import { listRules } from "./rules";
 import { inboxThreadsFromSender, latestUnsubscribe, markUnsubscribed, senderRecent, setSenderKept, setSenderStatus, updateLabels } from "./store";
 import { notifyChanged } from "./sync";
@@ -29,10 +30,10 @@ export function isSenderEmail(value: string) {
 type ArchiveStep = { accountId: string; ids: string[]; threads: string[] };
 
 /** Archives every inbox message from a sender, across all connected accounts. `undo` names the way back. */
-export async function archiveAllFrom(email: string) {
+export async function archiveAllFrom(email: string, scope: AccountScope = "all") {
   let archived = 0;
   const steps: ArchiveStep[] = [];
-  for (const account of mailAccounts()) {
+  for (const account of mailAccounts().filter((a) => inScope(scope, a.id))) {
     const mail = mailOf(account);
     const ids = await mail.listMessages(account, { kind: "inboxFrom", email }, 2000);
     if (!ids.length) continue;
@@ -99,8 +100,8 @@ type UnsubscribeResult =
  * through the user's own mailbox, so the sender learns nothing new), then the RFC 8058 one-click POST (which shows
  * the sender this computer's IP address), otherwise the sender's page for the user to finish.
  */
-export async function unsubscribe(email: string): Promise<UnsubscribeResult> {
-  const info = latestUnsubscribe(email);
+export async function unsubscribe(email: string, scope: AccountScope = "all"): Promise<UnsubscribeResult> {
+  const info = latestUnsubscribe(email, scope);
   if (!info) return { method: "none", done: false };
 
   if (info.mailto) {
@@ -142,9 +143,9 @@ async function oneClickUnsubscribe(url: string) {
 }
 
 /** Blocked: the "Blocked senders" rule archives their new mail; what's in the inbox goes now (with Undo). */
-export async function block(email: string) {
+export async function block(email: string, scope: AccountScope = "all") {
   setSenderStatus(email, "blocked");
-  return archiveAllFrom(email);
+  return archiveAllFrom(email, scope);
 }
 
 export function allow(email: string) {

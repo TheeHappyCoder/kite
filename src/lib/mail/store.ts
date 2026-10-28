@@ -66,7 +66,7 @@ export function inView(thread: Thread, view: View) {
   if (view.kind === "cleanup" || view.kind === "settings" || view.kind === "files" || view.kind === "notes" || view.kind === "contacts" || view.kind === "automations" || view.kind === "calendar") return false;
   if (view.kind === "label") return thread.accountId === view.accountId && !!thread.labels?.includes(view.labelId);
   if (view.kind === "home") return thread.mailbox === "inbox";
-  if (view.mailbox === "starred") return thread.starred && thread.mailbox !== "screener";
+  if (view.mailbox === "starred") return thread.starred && thread.mailbox !== "screener" && thread.mailbox !== "trash";
   // All mail (id `archive`) shows Inbox conversations as well.
   if (view.mailbox === "archive") return thread.mailbox === "archive" || thread.mailbox === "inbox";
   return thread.mailbox === view.mailbox;
