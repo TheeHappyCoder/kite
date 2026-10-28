@@ -52,6 +52,9 @@ import { ringLabel, type AiUsageSummary } from "@/lib/ai-pricing";
 import { accountSpec, labelDepth, leafName, sortLabels, type MailLabel } from "@/lib/mail/providers";
 import { stableHandlers } from "../ui/stable";
 import { DesktopUpdate } from "../desktop/update";
+import { SPACE_COLORS, THREAD_DRAG, spaceTree, type Space } from "@/lib/spaces";
+import { ContextMenu, type MenuItem, type MenuPoint } from "../ui/context-menu";
+import { SpaceDot } from "./space-picker";
 
 type MailboxItem = { id: Mailbox; label: string; icon: IconData };
 
@@ -120,6 +123,13 @@ type Props = {
   mode?: "full" | "rail";
   /** The rail's "Show sidebar": opens the full sidebar as a drawer. */
   onExpand?: () => void;
+  /** Kite's spaces and pockets (lib/spaces.ts). */
+  spaces: Space[];
+  onCreateSpace: (name: string, parentId: string | null) => Promise<Space | null>;
+  onUpdateSpace: (id: string, patch: { name?: string; color?: string; parentId?: string | null }) => void;
+  onDeleteSpace: (id: string) => void;
+  /** Conversations dropped on a space (Shift held: moved out of the Inbox too). */
+  onDropOnSpace: (spaceId: string, threadIds: string[], move: boolean) => void;
   /** Inside the drawer: fills it instead of taking its own width. */
   inDrawer?: boolean;
 };
@@ -484,6 +494,8 @@ function MailColumn(props: Props) {
           <NavItem icon={BrushCleaningIcon} label="Cleanup" active={view.kind === "cleanup"} onClick={() => props.onView({ kind: "cleanup" })} />
         </Section>
 
+        <SpaceSection {...props} />
+
         <LabelSection accounts={props.accounts} labels={props.labels} view={view} onView={props.onView} />
 
         {props.savedSearches.length ? (
@@ -686,5 +698,197 @@ function LabelSection({ accounts, labels, view, onView }: { accounts: Account[];
         </button>
       ) : null}
     </Section>
+  );
+}
+
+type SpaceEdit = { kind: "new"; parentId: string | null } | { kind: "rename"; id: string } | null;
+
+/**
+ * SPACES: Kite's own places for mail, across accounts, with pockets inside them. Drop conversations
+ * on one to add them (Shift: move), right-click for New pocket, Rename, Colour and Delete.
+ */
+function SpaceSection(props: Props) {
+  const rail = useContext(RailContext);
+  const [edit, setEdit] = useState<SpaceEdit>(null);
+  const [menu, setMenu] = useState<{ at: MenuPoint; space: Space } | null>(null);
+  const tree = spaceTree(props.spaces);
+  if (rail && !tree.length) return null;
+  const top = tree.filter((t) => t.depth === 0).map((t) => t.space);
+  const commit = async (name: string | null) => {
+    const current = edit;
+    setEdit(null);
+    if (!name?.trim() || !current) return;
+    if (current.kind === "new") {
+      const made = await props.onCreateSpace(name.trim(), current.parentId);
+      if (made) props.onView({ kind: "space", spaceId: made.id });
+    } else props.onUpdateSpace(current.id, { name: name.trim() });
+  };
+  const items = (space: Space): MenuItem[] => {
+    const depth = tree.find((t) => t.space.id === space.id)?.depth ?? 0;
+    return [
+      { id: "open", label: "Open", icon: ArrowRight01Icon, onSelect: () => props.onView({ kind: "space", spaceId: space.id }) },
+      ...(depth < 3 ? [{ id: "pocket", label: "New pocket inside", icon: Add01Icon, onSelect: () => setEdit({ kind: "new", parentId: space.id }) }] : []),
+      { id: "rename", label: "Rename", icon: PencilEdit02Icon, onSelect: () => setEdit({ kind: "rename", id: space.id }) },
+      {
+        id: "colour",
+        label: "Colour",
+        icon: Folder02Icon,
+        submenu: SPACE_COLORS.map((color) => ({
+          id: color,
+          label: color === space.color ? "This one" : "Use this colour",
+          leading: <span className="size-3 shrink-0 rounded-full" style={{ background: color }} />,
+          checked: color === space.color,
+          onSelect: () => props.onUpdateSpace(space.id, { color }),
+        })),
+      },
+      ...(space.parentId ? [{ id: "lift", label: "Make it a space of its own", icon: ArrowRight01Icon, onSelect: () => props.onUpdateSpace(space.id, { parentId: null }) }] : []),
+      { id: "delete", label: "Delete", icon: Delete02Icon, danger: true, section: true, onSelect: () => props.onDeleteSpace(space.id) },
+    ];
+  };
+  return (
+    <Section
+      id="spaces"
+      title="Spaces"
+      action={
+        <Tooltip label="New space" side="right">
+          <button
+            aria-label="New space"
+            onClick={() => setEdit({ kind: "new", parentId: null })}
+            className="grid size-6 place-items-center rounded-md text-frame-muted opacity-0 transition-opacity hover:bg-frame-hover hover:text-frame-fg focus-visible:opacity-100 group-hover/section:opacity-100 touch:opacity-100"
+          >
+            <Icon icon={Add01Icon} size={13} />
+          </button>
+        </Tooltip>
+      }
+    >
+      {top.map((space) => (
+        <SpaceRow key={space.id} space={space} depth={0} all={props.spaces} props={props} edit={edit} onCommit={commit} onMenu={(at, s) => setMenu({ at, space: s })} />
+      ))}
+      {edit?.kind === "new" && !edit.parentId ? <SpaceInput depth={0} onDone={commit} /> : null}
+      {!tree.length && edit?.kind !== "new" && !rail ? (
+        <button
+          {...FLUID_ITEM}
+          onClick={() => setEdit({ kind: "new", parentId: null })}
+          className="relative flex h-9 items-center gap-3 rounded-[10px] px-2.5 text-left text-[13px] text-frame-fg/50 transition-colors duration-150 data-[lit]:text-frame-fg touch:h-11"
+        >
+          <Icon icon={Add01Icon} size={18} className="shrink-0" />
+          <span className="truncate">Make a space, like a client</span>
+        </button>
+      ) : null}
+      <ContextMenu at={menu?.at ?? null} items={menu ? items(menu.space) : []} label={menu?.space.name} onClose={() => setMenu(null)} />
+    </Section>
+  );
+}
+
+function SpaceRow({
+  space,
+  depth,
+  all,
+  props,
+  edit,
+  onCommit,
+  onMenu,
+}: {
+  space: Space;
+  depth: number;
+  all: Space[];
+  props: Props;
+  edit: SpaceEdit;
+  onCommit: (name: string | null) => void;
+  onMenu: (at: MenuPoint, space: Space) => void;
+}) {
+  const rail = useContext(RailContext);
+  const [collapsed, toggle] = useCollapsed(`space:${space.id}`);
+  const [over, setOver] = useState(false);
+  const pockets = all.filter((s) => s.parentId === space.id).sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+  const active = props.view.kind === "space" && props.view.spaceId === space.id;
+  const making = edit?.kind === "new" && edit.parentId === space.id;
+  const open = !collapsed || making;
+  if (edit?.kind === "rename" && edit.id === space.id && !rail) return <SpaceInput depth={depth} initial={space.name} onDone={onCommit} />;
+  return (
+    <>
+      <div
+        className={cn("group/space relative rounded-[10px] transition-shadow duration-150", over && "shadow-[inset_0_0_0_1.5px_var(--color-lime)]")}
+        style={rail ? undefined : { paddingLeft: depth * 14 }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          onMenu({ x: e.clientX, y: e.clientY }, space);
+        }}
+        onDragOver={(e) => {
+          if (!e.dataTransfer.types.includes(THREAD_DRAG)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = e.shiftKey ? "move" : "copy";
+          if (!over) setOver(true);
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => {
+          setOver(false);
+          const raw = e.dataTransfer.getData(THREAD_DRAG);
+          if (!raw) return;
+          e.preventDefault();
+          try {
+            props.onDropOnSpace(space.id, JSON.parse(raw) as string[], e.shiftKey);
+          } catch {
+            // Not a list of conversations.
+          }
+        }}
+      >
+        <NavItem
+          icon={Folder02Icon}
+          leading={
+            <span className="grid size-[18px] shrink-0 place-items-center">
+              <SpaceDot space={space} className="size-2.5" />
+            </span>
+          }
+          label={space.name}
+          count={space.threads || undefined}
+          active={active}
+          onClick={() => props.onView({ kind: "space", spaceId: space.id })}
+        />
+        {pockets.length && !rail ? (
+          <button
+            {...FLUID_IGNORE}
+            aria-label={open ? `Fold ${space.name}` : `Show the pockets in ${space.name}`}
+            aria-expanded={open}
+            onClick={toggle}
+            className="absolute right-1.5 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-md text-frame-muted opacity-0 transition-opacity hover:bg-white/10 hover:text-frame-fg group-hover/space:opacity-100 touch:opacity-100"
+          >
+            <Icon icon={ArrowDown01Icon} size={12} className={cn("transition-transform", !open && "-rotate-90")} />
+          </button>
+        ) : null}
+      </div>
+      {open && !rail
+        ? pockets.map((pocket) => <SpaceRow key={pocket.id} space={pocket} depth={depth + 1} all={all} props={props} edit={edit} onCommit={onCommit} onMenu={onMenu} />)
+        : null}
+      {making && !rail ? <SpaceInput depth={depth + 1} onDone={onCommit} /> : null}
+    </>
+  );
+}
+
+/** Naming a space or pocket in place: Enter keeps it, Escape lets it go. */
+function SpaceInput({ depth, initial = "", onDone }: { depth: number; initial?: string; onDone: (name: string | null) => void }) {
+  const [name, setName] = useState(initial);
+  return (
+    <div className="flex h-9 items-center gap-3 rounded-[10px] bg-white/[0.06] px-2.5 touch:h-11" style={{ marginLeft: depth * 14 }}>
+      <span className="grid size-[18px] shrink-0 place-items-center">
+        <span className="size-2.5 rounded-full border-2 border-frame-fg/40" />
+      </span>
+      <input
+        autoFocus
+        value={name}
+        maxLength={80}
+        onChange={(e) => setName(e.target.value)}
+        onFocus={(e) => e.currentTarget.select()}
+        onBlur={() => onDone(name.trim() && name.trim() !== initial ? name : null)}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") onDone(name);
+          if (e.key === "Escape") onDone(null);
+        }}
+        placeholder={depth ? "Pocket name" : "Space name"}
+        aria-label={depth ? "New pocket's name" : "New space's name"}
+        className="min-w-0 flex-1 bg-transparent text-[14px] text-frame-fg outline-none placeholder:text-frame-fg/40"
+      />
+    </div>
   );
 }

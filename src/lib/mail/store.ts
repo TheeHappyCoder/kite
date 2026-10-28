@@ -4,6 +4,7 @@ import { inScope, type AccountScope } from "./scope";
 import { matchesSearch, parseSearch } from "./search";
 import { applyOverride, pinnedFirst, type ThreadOverride } from "./overrides";
 import type { SettingsSection } from "@/components/settings/settings-view";
+import { within, type Space } from "../spaces";
 
 export type View =
   /** Home: people and everything else (components/home/home-view.tsx), on the inbox. */
@@ -20,6 +21,8 @@ export type View =
   | { kind: "calendar" }
   /** One of the user's labels/folders (belongs to one account). */
   | { kind: "label"; accountId: string; labelId: string }
+  /** One of Kite's own spaces (lib/spaces.ts): its conversations and its pockets', from every account in view. */
+  | { kind: "space"; spaceId: string }
   | { kind: "settings"; section?: SettingsSection };
 
 export type MailState = {
@@ -39,6 +42,8 @@ export type MailState = {
   listQuery: string;
   /** Local per-thread state (subject, pin, mute, note, chat view), applied on top of the threads. */
   overrides: Record<string, ThreadOverride>;
+  /** Kite's spaces and pockets (lib/spaces.ts). */
+  spaces: Space[];
 };
 
 export type MailAction =
@@ -56,13 +61,16 @@ export type MailAction =
   | { type: "patch"; id: string; patch: Partial<Thread> }
   | { type: "remote"; remote: boolean }
   | { type: "overrides"; overrides: Record<string, ThreadOverride> }
-  | { type: "override"; id: string; override: ThreadOverride | null };
+  | { type: "override"; id: string; override: ThreadOverride | null }
+  | { type: "spaces"; spaces: Space[] };
 
 export function lastMessageDate(thread: Thread) {
   return thread.messages[thread.messages.length - 1].date;
 }
 
-export function inView(thread: Thread, view: View) {
+/** `space`: the space in view and its pockets (lib/spaces.ts `within`), for a space view. */
+export function inView(thread: Thread, view: View, space?: Set<string>) {
+  if (view.kind === "space") return !!space && !!thread.spaces?.some((id) => space.has(id));
   if (view.kind === "cleanup" || view.kind === "settings" || view.kind === "files" || view.kind === "notes" || view.kind === "contacts" || view.kind === "automations" || view.kind === "calendar") return false;
   if (view.kind === "label") return thread.accountId === view.accountId && !!thread.labels?.includes(view.labelId);
   if (view.kind === "home") return thread.mailbox === "inbox";
@@ -86,10 +94,11 @@ export function scopedThreads(state: MailState) {
   // Live search results are already scoped by the server; a search inside a label still keeps to the label.
   if (state.remote && query && state.view.kind === "mailbox") return pinnedFirst(shown);
   const ordered = state.view.kind === "mailbox" && ["scheduled", "snoozed"].includes(state.view.mailbox);
+  const space = state.view.kind === "space" ? within(state.spaces, state.view.spaceId) : undefined;
   const scoped = shown
     .filter((t) => inScope(state.accountId, t.accountId))
     // Searches look in every mailbox, as they do for live accounts.
-    .filter((t) => (query && state.view.kind === "mailbox") || inView(t, state.view))
+    .filter((t) => (query && state.view.kind === "mailbox") || inView(t, state.view, space))
     .filter((t) => state.remote || matchesQuery(t, query));
   return pinnedFirst(ordered ? scoped : scoped.sort((a, b) => lastMessageDate(b).localeCompare(lastMessageDate(a))));
 }
@@ -167,6 +176,8 @@ export function mailReducer(state: MailState, action: MailAction): MailState {
       return { ...state, remote: action.remote };
     case "overrides":
       return { ...state, overrides: action.overrides };
+    case "spaces":
+      return { ...state, spaces: action.spaces };
     case "override": {
       const overrides = { ...state.overrides };
       if (action.override) overrides[action.id] = action.override;
@@ -178,7 +189,7 @@ export function mailReducer(state: MailState, action: MailAction): MailState {
     case "view": {
       const loads =
         state.remote &&
-        (action.view.kind === "mailbox" || action.view.kind === "label") &&
+        (action.view.kind === "mailbox" || action.view.kind === "label" || action.view.kind === "space") &&
         JSON.stringify(action.view) !== JSON.stringify(state.view);
       return { ...state, view: action.view, selectedId: null, threads: loads ? [] : state.threads };
     }

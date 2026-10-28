@@ -48,6 +48,8 @@ import { Thinking } from "../ui/thinking";
 import { Spinner } from "../ui/spinner";
 import { ChecksEditor, FieldsEditor } from "./read-step";
 import { Segmented } from "../settings/settings-ui";
+import { spaceLabel, spaceTree, type Space } from "@/lib/spaces";
+import { SpaceDot } from "../mail/space-picker";
 
 // The automation builder and its companions (Describe an automation, AI drafts, Activity), used by
 // the Automations view (automations-view.tsx). An automation is When → Read → Check → Do
@@ -83,7 +85,11 @@ export function summary(rule: RuleView, collections: CollectionSummary[] = []) {
   // Field keys read as their names ("due date"), collections by name.
   const named = (text: string) => text.replace(/\{([a-z][a-z0-9_]*)\}/g, (whole, key: string) => rule.fields.find((f) => f.key === key)?.name.toLowerCase() ?? (key === "received" ? "arrival" : whole));
   const actions = rule.actions.map((a) =>
-    a.verb === "collect" ? `Add to ${collections.find((c) => c.id === a.collection)?.name ?? "a collection"}` : named(describeAction(a)),
+    a.verb === "collect"
+      ? `Add to ${collections.find((c) => c.id === a.collection)?.name ?? "a collection"}`
+      : a.verb === "space"
+        ? `Put in ${spaceNames.get(a.space) ?? "a space"}`
+        : named(describeAction(a)),
   );
   return `${when} → ${actions.join(", ")}${rule.stop ? ", then stop" : ""}`;
 }
@@ -389,6 +395,7 @@ export function AutomationBuilder({
     const problem = referenceProblem(draft);
     if (problem) return setError(problem);
     if (draft.actions.some((a) => a.verb === "collect" && !a.collection)) return setError("Pick a collection to add to");
+    if (draft.actions.some((a) => a.verb === "space" && !a.space)) return setError("Pick a space to put it in");
     setBusy(true);
     try {
       // A starter's collection ("new:Bills") is made now: one that already has the name is used instead.
@@ -1154,6 +1161,7 @@ function ActionRow({
           ) : null}
         </>
       ) : null}
+      {action.verb === "space" ? <SpacePick value={action.space} onChange={(space) => onChange({ ...action, space })} /> : null}
       {action.verb === "pack" ? (
         <>
           <CollectionPick value={action.collection} collections={collections} onCreate={onCreateCollection} onChange={(collection) => onChange({ ...action, collection })} />
@@ -1524,6 +1532,48 @@ export function CollectionPick({
         { value: "__new", label: "New collection…" },
       ]}
       onChange={(id) => (id === "__new" ? setMaking(true) : id !== "__pick" ? onChange(id) : undefined)}
+    />
+  );
+}
+
+/** Space names for summaries ("Put in Acme / Website"), filled the first time a picker loads them. */
+const spaceNames = new Map<string, string>();
+
+/** "Put in a space": one of Kite's spaces or pockets (made in the sidebar or with `y`). */
+export function SpacePick({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const [spaces, setSpaces] = useState<Space[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/spaces")
+      .then((res) => res.json())
+      .then((data: { spaces?: Space[] }) => {
+        if (!live) return;
+        const list = data.spaces ?? [];
+        for (const s of list) spaceNames.set(s.id, spaceLabel(list, s.id));
+        setSpaces(list);
+      })
+      .catch(() => live && setSpaces([]));
+    return () => {
+      live = false;
+    };
+  }, []);
+  if (!spaces) return <Spinner size={14} className="text-pane-muted" />;
+  if (!spaces.length) return <span className="text-[12px] text-pane-muted">Make a space in the sidebar first (Spaces, +)</span>;
+  const known = spaces.some((s) => s.id === value);
+  return (
+    <Select
+      label="Space"
+      value={known ? value : "__pick"}
+      options={[
+        ...(known ? [] : [{ value: "__pick", label: value ? "That space was deleted" : "Pick a space" }]),
+        ...spaceTree(spaces).map(({ space, depth }) => ({
+          value: space.id,
+          label: `${"\u2003".repeat(depth)}${space.name}`,
+          icon: <SpaceDot space={space} />,
+          detail: depth ? spaceLabel(spaces, space.parentId!) : undefined,
+        })),
+      ]}
+      onChange={(id) => id !== "__pick" && onChange(id)}
     />
   );
 }

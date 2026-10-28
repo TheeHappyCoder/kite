@@ -17,6 +17,7 @@ import { addRow, collectionExists, hasRow, removeRow, restoreRow, upsertRow, typ
 import { addKiteEvent, removeLocalEvent } from "./mail-calendar";
 import { createExpectation, removeExpectation, waitingOn } from "./expectations";
 import type { ExpectPerson } from "@/lib/automations/expect";
+import { moveItems, spaceExists, threadSpaces } from "./spaces";
 
 // One executor per rule verb (lib/rules/spec.ts VERBS). Executors only plan: they turn an action
 // into an Effect without side effects, so the engine (server/rules.ts) can merge every matching
@@ -75,7 +76,9 @@ type Effect =
   /** An event on Kite's own calendar. */
   | { type: "event"; title: string; start: string; allDay: boolean }
   /** Waiting for an answer (server/expectations.ts). */
-  | { type: "expect"; action: Extract<RuleAction, { verb: "expect" }> };
+  | { type: "expect"; action: Extract<RuleAction, { verb: "expect" }> }
+  /** In one of Kite's spaces (server/spaces.ts). */
+  | { type: "space"; space: string };
 
 type Planned = Effect | { skip: string };
 
@@ -124,6 +127,11 @@ const EXECUTORS: Executors = {
     return { type: "expect", action: a };
   },
   pack: () => ({ skip: "Packs run on a schedule" }),
+  space: (a, ctx) => {
+    if (!spaceExists(a.space)) return { skip: "That space was deleted" };
+    if (threadSpaces([ctx.threadId])[ctx.threadId]?.includes(a.space)) return { skip: "Already in that space" };
+    return { type: "space", space: a.space };
+  },
   remind: (a, ctx) => {
     const date = dateOf(ctx, a.field);
     if (!date) return { skip: "The email didn't have that date" };
@@ -159,7 +167,8 @@ export type UndoStep =
   | { type: "uncollect"; id: string }
   | { type: "recollect"; id: string; before: RowBefore }
   | { type: "unevent"; id: string }
-  | { type: "unexpect"; id: string };
+  | { type: "unexpect"; id: string }
+  | { type: "unspace"; space: string };
 
 /** `gmail`: the rule's Gmail filter had already made this change (Kite only logged it, with Undo). */
 export type ActionResult = { verb: Verb; text: string; done: string; ok: boolean; skip?: string; gmail?: boolean };
@@ -398,6 +407,12 @@ export async function applyEffects(ctx: VerbContext, targets: string[], work: Ru
           });
           break;
         }
+        case "space": {
+          const space = effect.space;
+          local.push(() => moveItems({ to: space, from: [], threads: [threadId] }));
+          undo.push({ type: "unspace", space });
+          break;
+        }
         case "event": {
           local.push(() => {
             const id = addKiteEvent(account, { summary: effect.title, start: effect.start, allDay: effect.allDay });
@@ -479,6 +494,9 @@ export async function undoSteps(account: AccountRow, threadId: string, steps: Un
         break;
       case "unevent":
         removeLocalEvent(step.id);
+        break;
+      case "unspace":
+        moveItems({ to: null, from: [step.space], threads: [threadId] });
         break;
     }
   }

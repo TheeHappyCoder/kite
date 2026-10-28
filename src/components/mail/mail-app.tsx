@@ -7,6 +7,7 @@ import { ACCOUNTS, createDemoThreads } from "@/lib/mail/demo-data";
 import { mailReducer, shownThread, visibleThreads, type MailState, type View } from "@/lib/mail/store";
 import { personKey, type PersonPrefs } from "@/lib/mail/person-prefs";
 import { applyOverride, type ThreadOverride } from "@/lib/mail/overrides";
+import type { Space } from "@/lib/spaces";
 import type { Account, Thread } from "@/lib/mail/types";
 import { threadKey } from "@/lib/mail/threads";
 import { inDesktopApp } from "@/lib/desktop";
@@ -62,6 +63,10 @@ import { useRegroup } from "./app/use-regroup";
 import { useSending } from "./app/use-sending";
 import { useThreadActions } from "./app/use-thread-actions";
 import { useMailBatch } from "./mail-batch-dialog";
+import { useSpaces } from "./app/use-spaces";
+import { useThreadMenu } from "./app/use-thread-menu";
+import { SpacePicker } from "./space-picker";
+import type { SpaceHeaderActions } from "./space-header";
 import { useToday } from "./app/use-today";
 import { HomeView } from "../home/home-view";
 import type { ExpectAction } from "../home/day";
@@ -97,6 +102,7 @@ export function MailApp() {
     remote: false,
     listQuery: "",
     overrides: {},
+    spaces: [],
   }));
   const { theme, pref: themePref, setPref: setThemePref, toggle: toggleTheme } = useTheme();
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFERENCES);
@@ -187,15 +193,15 @@ export function MailApp() {
   const { query, loading, sync, pendingSelect } = list;
 
   // Only what the list reads: moving the selection doesn't refilter and resort every thread.
-  const { threads: stateThreads, overrides: stateOverrides, view: stateView, accountId: stateAccount, side: stateSide, query: stateQuery, listQuery: stateListQuery, remote: stateRemote } = state;
+  const { threads: stateThreads, overrides: stateOverrides, view: stateView, accountId: stateAccount, side: stateSide, query: stateQuery, listQuery: stateListQuery, remote: stateRemote, spaces: stateSpaces } = state;
   const threads = useMemo(
-    () => visibleThreads({ threads: stateThreads, overrides: stateOverrides, view: stateView, accountId: stateAccount, side: stateSide, query: stateQuery, listQuery: stateListQuery, remote: stateRemote, selectedId: null, unseen: null }),
-    [stateThreads, stateOverrides, stateView, stateAccount, stateSide, stateQuery, stateListQuery, stateRemote],
+    () => visibleThreads({ threads: stateThreads, overrides: stateOverrides, view: stateView, accountId: stateAccount, side: stateSide, query: stateQuery, listQuery: stateListQuery, remote: stateRemote, selectedId: null, unseen: null, spaces: stateSpaces }),
+    [stateThreads, stateOverrides, stateView, stateAccount, stateSide, stateQuery, stateListQuery, stateRemote, stateSpaces],
   );
   const listKey = `${state.accountId}:${
-    state.view.kind === "mailbox" ? state.view.mailbox : state.view.kind === "label" ? `label:${state.view.accountId}:${state.view.labelId}` : state.view.kind
+    state.view.kind === "mailbox" ? state.view.mailbox : state.view.kind === "label" ? `label:${state.view.accountId}:${state.view.labelId}` : state.view.kind === "space" ? `space:${state.view.spaceId}` : state.view.kind
   }:${state.side}`;
-  const listVisible = state.view.kind === "mailbox" || state.view.kind === "label";
+  const listVisible = state.view.kind === "mailbox" || state.view.kind === "label" || state.view.kind === "space";
   const selected = useMemo(() => shownThread(state, state.selectedId), [state]);
 
   const mailBatch = useMailBatch({ accounts, onToast: setToast, onChanged: reload });
@@ -321,7 +327,7 @@ export function MailApp() {
   useEffect(() => {
     fetch("/api/settings")
       .then((res) => res.json())
-      .then((data: { preferences: Preferences; screener: boolean; overrides?: Record<string, ThreadOverride>; people?: Record<string, PersonPrefs> }) => {
+      .then((data: { preferences: Preferences; screener: boolean; overrides?: Record<string, ThreadOverride>; people?: Record<string, PersonPrefs>; spaces?: Space[] }) => {
         setPreferences(data.preferences);
         // The first time only: open where the user was last (or their fixed choice), unless they've moved already.
         if (!startedRef.current) {
@@ -334,6 +340,7 @@ export function MailApp() {
         if (data.people) setPeople(data.people);
         setScreenerOn(data.screener);
         if (data.overrides) dispatch({ type: "overrides", overrides: data.overrides });
+        if (data.spaces) dispatch({ type: "spaces", spaces: data.spaces });
       })
       .catch(() => {});
   }, [reloadKey, setPeople]);
@@ -547,6 +554,48 @@ export function MailApp() {
     lastSelection.current = null;
     setAddEvent({ subject: thread?.subject ?? "", accountId: thread?.accountId, when: text ? whenFromSelection(text, new Date()) : null });
   };
+
+  // Spaces (lib/spaces.ts): Kite's own places for mail, the picker (`y` / Shift+Y) and the actions menu.
+  const spaces = useSpaces({ state, dispatch, setToast, reload, archiveQuietly });
+  const [spacePick, setSpacePick] = useState<{ threads: Thread[]; move: boolean } | null>(null);
+  const shownThreads = useCallback((ids: string[]) => ids.flatMap((id) => shownThread(state, id) ?? []), [state]);
+  const threadMenu = useThreadMenu({
+    view: state.view,
+    spaces: state.spaces,
+    threads,
+    checked: checkedSet,
+    one: {
+      archive: (id) => actions.archive(id),
+      remove: (id) => actions.remove(id),
+      toggleRead: (id) => actions.toggleRead(id),
+      snooze: (id) => actions.snooze(id),
+      star: (id) => actions.star(id),
+      spam: (id) => actions.spam(id),
+      pin: (id) => togglePin(id),
+      mute: (id) => toggleMute(id),
+      block: (id) => senderAction(id, "block"),
+      merge: (thread) => {
+        selectThread(thread.id);
+        setMergeOpen(true);
+      },
+      addToCalendar: (thread) => openAddEvent(thread),
+    },
+    bulk,
+    labels: openLabels,
+    pickSpace: (list, move) => setSpacePick({ threads: list, move }),
+    put: (list, id, how) => void spaces.put(list, id, how),
+    takeOut: (list, id, deep) => void spaces.takeOut(list, id, deep),
+  });
+  const { create: createSpace, update: updateSpace, remove: removeSpace } = spaces;
+  const spaceActions = useMemo<SpaceHeaderActions>(
+    () => ({
+      open: (id) => dispatch({ type: "view", view: { kind: "space", spaceId: id } }),
+      createPocket: (parentId, name) => void createSpace(name, parentId),
+      update: (id, patch) => void updateSpace(id, patch),
+      remove: (id) => void removeSpace(id),
+    }),
+    [dispatch, createSpace, updateSpace, removeSpace],
+  );
   const mergeCandidates = useMemo(
     () => (mergeOpen ? state.threads.map((t) => applyOverride(t, state.overrides[t.id])) : []),
     [mergeOpen, state.threads, state.overrides],
@@ -717,6 +766,15 @@ export function MailApp() {
       people: selected ? () => setPeopleOpen((open) => !open) : undefined,
       vip: selected && !selecting ? toggleVip : undefined,
       label: selecting ? () => bulk("label") : selected && !selected.scheduled ? () => openLabels([selected]) : undefined,
+      space: listVisible && (selecting || (selected && !selected.scheduled)) ? () => setSpacePick({ threads: selecting ? checkedThreads : [selected!], move: false }) : undefined,
+      moveSpace: listVisible && (selecting || (selected && !selected.scheduled)) ? () => setSpacePick({ threads: selecting ? checkedThreads : [selected!], move: true }) : undefined,
+      actions:
+        listVisible && state.selectedId
+          ? () => {
+              const row = document.querySelector<HTMLElement>(`[data-thread="${CSS.escape(state.selectedId!)}"]`)?.getBoundingClientRect();
+              threadMenu.openFor(state.selectedId!, row ? { x: row.left + 48, y: row.top + row.height / 2 } : { x: window.innerWidth / 2, y: window.innerHeight / 3 });
+            }
+          : undefined,
       screenshot: selecting || calendarOpen || !selected ? undefined : () => void screenshot.take(),
       translate: selecting || calendarOpen || !selected ? undefined : () => translateHandler.current?.(),
       addToCalendar: selecting ? undefined : () => openAddEvent(calendarOpen ? null : selected && !selected.scheduled ? selected : null),
@@ -764,7 +822,7 @@ export function MailApp() {
   };
   useAppKeys({
     locked: lock.locked,
-    blocked: !!(paletteOpen || shortcutsOpen || onboarding || mergeOpen || labelPick || fillSign || drawerOpen || screenshot.shot),
+    blocked: !!(paletteOpen || shortcutsOpen || onboarding || mergeOpen || labelPick || spacePick || threadMenu.open || fillSign || drawerOpen || screenshot.shot),
     onPalette: () => setPaletteOpen((open) => !open),
     onMinimizeCompose: toggleComposer,
     handlers: keyHandlers,
@@ -820,6 +878,14 @@ export function MailApp() {
     activeQuery: state.view.kind === "mailbox" ? query.trim() : "",
     onSearch: runSearch,
     onRemoveSearch: removeSearch,
+    spaces: state.spaces,
+    onCreateSpace: spaces.create,
+    onUpdateSpace: (id: string, patch: { name?: string; color?: string; parentId?: string | null }) => void spaces.update(id, patch),
+    onDeleteSpace: (id: string) => void spaces.remove(id),
+    onDropOnSpace: (id: string, ids: string[], move: boolean) => {
+      const from = state.view.kind === "space" && state.view.spaceId !== id ? [state.view.spaceId] : [];
+      void spaces.put(shownThreads(ids), id, { move, from: move ? from : [] });
+    },
   };
 
   // The reader: beside the list in mailbox views, and as a sheet over Home.
@@ -1078,6 +1144,10 @@ export function MailApp() {
                   ref={searchRef}
                   vips={vips}
                   view={state.view}
+                  spaces={state.spaces}
+                  onRowMenu={threadMenu.openFor}
+                  onOpenSpace={(id) => setView({ kind: "space", spaceId: id })}
+                  spaceActions={spaceActions}
                   threads={threads}
                   accounts={accounts}
                   accountId={state.accountId}
@@ -1219,6 +1289,21 @@ export function MailApp() {
           />
         ) : null}
 
+        {threadMenu.element}
+        <SpacePicker
+          threads={spacePick?.threads ?? null}
+          move={!!spacePick?.move}
+          spaces={state.spaces}
+          recent={spaces.recent}
+          onClose={() => setSpacePick(null)}
+          onCreate={spaces.create}
+          onPick={(id, how) => {
+            const list = spacePick?.threads ?? [];
+            if (how.remove) void spaces.takeOut(list, id);
+            else void spaces.put(list, id, { move: how.move });
+          }}
+        />
+
         <MergePicker
           thread={mergeOpen ? selected : null}
           threads={mergeCandidates}
@@ -1326,7 +1411,7 @@ export function MailApp() {
           ))}
         </FillSignContext>
 
-        <AppToast toast={toast} onUndo={undo} />
+        <AppToast toast={toast} onUndo={undo} setToast={setToast} />
         <ScreenPrivacyBadge on={screenPrivate} onOff={() => setScreenPrivate(false)} />
       </div>
       {lock.locked ? <LockScreen onUnlock={lock.unlock} /> : !lock.lockChecked ? <div aria-hidden className="bg-sky fixed inset-0 z-[200]" /> : null}

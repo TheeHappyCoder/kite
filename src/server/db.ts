@@ -286,6 +286,28 @@ export function getDb() {
       -- "Always load images from this sender".
       images INTEGER NOT NULL DEFAULT 0
     );
+    -- Spaces (lib/spaces.ts): Kite's own places for mail across accounts; a pocket has a parent.
+    -- Only on this computer, never sent to a provider. Sync and "Reset local copy" never touch them.
+    CREATE TABLE IF NOT EXISTS spaces (
+      id TEXT PRIMARY KEY,
+      parent_id TEXT,
+      name TEXT NOT NULL,
+      color TEXT NOT NULL,
+      note TEXT,
+      position INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    -- What a space holds: conversations by Kite thread id (account_id for Disconnect).
+    CREATE TABLE IF NOT EXISTS space_items (
+      space_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      ref TEXT NOT NULL,
+      account_id TEXT,
+      added_at TEXT NOT NULL,
+      PRIMARY KEY (space_id, kind, ref)
+    );
+    CREATE INDEX IF NOT EXISTS space_items_ref ON space_items(kind, ref);
     -- Apps and scripts the user let into the Kite bar (server/bar/integrations.ts). Only a hash of
     -- each token is kept; the token itself is shown once, when it's made.
     CREATE TABLE IF NOT EXISTS bar_integrations (
@@ -629,6 +651,8 @@ export function deleteAccount(id: string) {
   for (const table of ["invite_states", "events", "calendar_sync", "mail_invites", "local_events"]) d.prepare(`DELETE FROM ${table} WHERE account_id = ?`).run(id);
   d.prepare("DELETE FROM ai_jobs WHERE account_id = ?").run(id);
   d.prepare("DELETE FROM thread_overrides WHERE substr(thread_id, 1, length(?) + 1) = ? || ':'").run(id, id);
+  // The account's conversations leave every space (the spaces themselves stay: they may hold other mail).
+  d.prepare("DELETE FROM space_items WHERE account_id = ?").run(id);
   // Codes hold text read from this account's mail.
   d.prepare("DELETE FROM codes WHERE account_id = ?").run(id);
   d.prepare("DELETE FROM accounts WHERE id = ?").run(id);

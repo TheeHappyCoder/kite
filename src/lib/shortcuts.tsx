@@ -26,6 +26,9 @@ export type ShortcutAction =
   | "people"
   | "vip"
   | "label"
+  | "space"
+  | "moveSpace"
+  | "actions"
   | "addToCalendar"
   | "screenshot"
   | "translate"
@@ -125,6 +128,9 @@ export const SHORTCUT_DEFINITIONS: Definition[] = [
   { id: "people", label: "People in this conversation", group: "Conversation", defaults: ["i"] },
   { id: "vip", label: "Mark VIP / not VIP", group: "Conversation", defaults: ["shift+v"] },
   { id: "label", label: "Labels / folders", group: "Conversation", defaults: ["l"] },
+  { id: "space", label: "Add to a space", group: "Conversation", defaults: ["y"] },
+  { id: "moveSpace", label: "Move to a space (out of the Inbox)", group: "Conversation", defaults: ["shift+y"] },
+  { id: "actions", label: "Actions menu", group: "Conversation", defaults: ["ContextMenu", "F10"] },
   { id: "addToCalendar", label: "Add to calendar", group: "Conversation", defaults: ["shift+c"] },
   { id: "screenshot", label: "Screenshot the conversation", group: "Conversation", defaults: ["shift+x"] },
   { id: "translate", label: "Translate the newest message (on this PC)", group: "Conversation", defaults: ["t"] },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { patchOverride, withoutOverride, type OverridePatch, type ThreadOverride } from "@/lib/mail/overrides";
+import { patchShown, withoutOverride, type OverridePatch, type ThreadOverride } from "@/lib/mail/overrides";
 import { shownThread, type MailAction, type MailState } from "@/lib/mail/store";
 import { threadKey } from "@/lib/mail/threads";
 import { mailChanges } from "@/lib/mail/pending-changes";
@@ -62,7 +62,7 @@ export function useThreadActions({
   const setOverride = useCallback(
     (id: string, patch: OverridePatch, failure = "Kite couldn't save that change. Try again.") => {
       const before = overridesRef.current[id];
-      dispatch({ type: "override", id, override: patchOverride(before, patch) });
+      dispatch({ type: "override", id, override: patchShown(before, patch) });
       return postJson<{ override: ThreadOverride | null }>("/api/thread-overrides", { threadId: id, ...patch })
         .then((res) => dispatch({ type: "override", id, override: res.override }))
         .catch(() => {

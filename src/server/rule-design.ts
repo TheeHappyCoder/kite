@@ -20,7 +20,7 @@ const AiRule = z.object({
 });
 
 /** Steps the AI may write: what runs on new or sent mail, minus the ones that need fields read first. */
-const DESIGNABLE = TRIGGER_VERBS.new_mail.filter((v) => !["collect", "remind", "calendar"].includes(v));
+const DESIGNABLE = TRIGGER_VERBS.new_mail.filter((v) => !["collect", "space", "remind", "calendar"].includes(v));
 
 const SYSTEM = `You write rules for Kite, an email client. A rule runs on new mail (when: "new_mail") or on mail the user sends (when: "sent"): if the mail matches the search query and every condition, the actions run in order.
 

@@ -18,7 +18,7 @@ import { FLUID_ITEM, FluidList } from "../ui/fluid-hover";
 import { Select } from "../ui/select";
 import { Spinner } from "../ui/spinner";
 import { Switch } from "../ui/switch";
-import { CollectionPick, ExpectEditor, ScheduleEditor, request, waitText } from "./builder";
+import { CollectionPick, ExpectEditor, ScheduleEditor, SpacePick, request, waitText } from "./builder";
 import { inputClass } from "./read-step";
 
 // The one way every automation is built (starters only fill it in): 1 pick whose emails (or, on a
@@ -42,6 +42,8 @@ type Choices = {
   remind: { on: boolean; field: string; daysBefore: number; time: string };
   calendar: { on: boolean; field: string; title: string };
   archive: boolean;
+  /** Into one of Kite's spaces (lib/spaces.ts). */
+  space: { on: boolean; id: string };
   markRead: boolean;
   star: boolean;
   notify: boolean;
@@ -54,7 +56,7 @@ type Choices = {
 };
 
 /** Verbs the wizard has its own switch for; anything else a starter brings is an extra. */
-const OWN = new Set<RuleAction["verb"]>(["collect", "remind", "calendar", "archive", "mark_read", "star", "notify", "prepare_reply", "expect", "pack"]);
+const OWN = new Set<RuleAction["verb"]>(["collect", "remind", "calendar", "archive", "space", "mark_read", "star", "notify", "prepare_reply", "expect", "pack"]);
 
 const defaultExpect = (when: Trigger): ExpectAction => ({
   verb: "expect",
@@ -82,6 +84,7 @@ function choicesFrom(starter: Starter | null, name: string, when: Trigger): Choi
     remind: { on: !!remind, field: remind?.field ?? "", daysBefore: remind?.daysBefore ?? 2, time: remind?.time ?? "09:00" },
     calendar: { on: !!calendar, field: calendar?.field ?? "", title: calendar?.title ?? "{subject}" },
     archive: !!find("archive"),
+    space: { on: !!find("space"), id: find("space")?.space ?? "" },
     markRead: !!find("mark_read"),
     star: !!find("star"),
     notify: acts.some((a) => a.verb === "notify" && a.mode === "now"),
@@ -275,6 +278,7 @@ export function GuidedBuilder({
     if (when === "new_mail" && choices.reply.on && choices.reply.template.trim()) actions.push({ verb: "prepare_reply", template: choices.reply.template });
     if (when === "new_mail" && choices.markRead) actions.push({ verb: "mark_read" });
     if (choices.star) actions.push({ verb: "star" });
+    if (choices.space.on && choices.space.id) actions.push({ verb: "space", space: choices.space.id });
     if (choices.archive) actions.push({ verb: "archive" });
     if (when === "new_mail" && choices.notify) actions.push({ verb: "notify", mode: "now" });
     for (const extra of choices.extras) if (extra.on) actions.push(extra.action);
@@ -655,6 +659,16 @@ export function GuidedBuilder({
                         title={when === "sent" ? "File the conversation" : "Skip the inbox"}
                         line={starter?.delay ? `After ${waitText(starter.delay)} in your inbox (still in All mail and your list).` : "Filed straight away (still in All mail and your list)."}
                       />
+                      <Choice
+                        on={choices.space.on}
+                        onChange={(on) => set({ space: { ...choices.space, on } })}
+                        title="Put it in a space"
+                        line="Kite's own place for it, beside the rest of that client or job. Only in Kite."
+                      >
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <SpacePick value={choices.space.id} onChange={(id) => set({ space: { on: true, id } })} />
+                        </span>
+                      </Choice>
                       {when === "new_mail" ? <Choice on={choices.markRead} onChange={(markRead) => set({ markRead })} title="Mark it read" /> : null}
                       <Choice on={choices.star} onChange={(star) => set({ star })} title="Star it" />
                       {choices.extras.map((extra, i) => (

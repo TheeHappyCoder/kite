@@ -50,6 +50,8 @@ export function useMailList({
         ? `mailbox=inbox&account=${state.accountId}`
       : state.view.kind === "label"
         ? `mailbox=label&label=${encodeURIComponent(state.view.labelId)}&account=${state.view.accountId}`
+      : state.view.kind === "space"
+        ? `mailbox=space&space=${encodeURIComponent(state.view.spaceId)}&account=${state.accountId}`
         : null;
   const viewKey = `${listSource}:${state.accountId}:${query}`;
   const requestKey = `${viewKey}:${reloadKey}`;

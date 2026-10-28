@@ -51,7 +51,7 @@ export function useCounts({ live, state, serverCounts, sync }: { live: boolean; 
   const { threads: allThreads, overrides, accountId: scopeAccount, remote: serverScoped } = state;
   // Unread per inbox tab, and which tabs have any mail (only those show: lib/mail/sides.ts).
   const { sideCountsNow, presentNow } = useMemo(() => {
-    const inbox = scopedThreads({ threads: allThreads, overrides, accountId: scopeAccount, remote: serverScoped, listQuery: "", query: "", view: { kind: "mailbox", mailbox: "inbox" }, side: "important", selectedId: null, unseen: null });
+    const inbox = scopedThreads({ threads: allThreads, overrides, accountId: scopeAccount, remote: serverScoped, listQuery: "", query: "", view: { kind: "mailbox", mailbox: "inbox" }, side: "important", selectedId: null, unseen: null, spaces: [] });
     const counts: Record<InboxSide, number> = { important: 0, newsletters: 0, other: 0, notifications: 0 };
     const present = new Set<InboxSide>();
     for (const t of inbox) {

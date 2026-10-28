@@ -11,6 +11,7 @@ import { refreshDraftList } from "@/server/drafts";
 import { scheduledThreads } from "@/server/scheduled";
 import { withAmounts } from "@/server/home";
 import { countThreads, queryLabel, queryThreads, searchThreads, threadCount } from "@/server/store";
+import { spaceThreads } from "@/server/spaces";
 import { ensureSyncLoop, runLabelChange, runOps, syncProgress, undoMove } from "@/server/sync";
 
 export const runtime = "nodejs";
@@ -67,8 +68,8 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   ensureSyncLoop();
   const params = new URL(request.url).searchParams;
-  const mailbox = params.get("mailbox") as Mailbox | "label";
-  if (!MAILBOXES.includes(mailbox as Mailbox) && mailbox !== "label") return NextResponse.json({ error: "Unknown mailbox" }, { status: 400 });
+  const mailbox = params.get("mailbox") as Mailbox | "label" | "space";
+  if (!MAILBOXES.includes(mailbox as Mailbox) && mailbox !== "label" && mailbox !== "space") return NextResponse.json({ error: "Unknown mailbox" }, { status: 400 });
   const accountId = params.get("account") || "all";
   const query = params.get("q")?.trim();
   if (mailbox === "drafts" && !query) for (const account of listAccounts().filter((a) => inScope(accountId, a.id) && mailFor(a))) void refreshDraftList(account).catch(() => {});
@@ -76,11 +77,17 @@ export async function GET(request: Request) {
   const label = params.get("label");
   if (mailbox === "label" && (!label || scopeIds(accountId)?.length !== 1)) return NextResponse.json({ error: "Unknown label" }, { status: 400 });
 
+  // A space holds conversations from every account in view (and its pockets'): ?mailbox=space&space=<id>.
+  const space = params.get("space");
+  if (mailbox === "space" && !space) return NextResponse.json({ error: "Unknown space" }, { status: 400 });
+
   const offset = Math.max(0, Math.min(1_000_000, Number(params.get("offset")) || 0));
   const threads = query
     ? searchThreads(query, accountId, 101, offset)
     : mailbox === "label"
       ? queryLabel(accountId, label!)
+      : mailbox === "space"
+      ? spaceThreads(space!, accountId)
       : mailbox === "scheduled"
       ? scheduledThreads(accountId)
       : mailbox === "inbox"

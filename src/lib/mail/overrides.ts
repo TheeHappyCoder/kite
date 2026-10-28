@@ -20,6 +20,8 @@ export type ThreadOverride = {
   replyDone?: string;
   /** Reply tracking's Dismiss: never in To reply or Waiting on. */
   replyOff?: boolean;
+  /** The spaces it's in (lib/spaces.ts; kept in space_items, changed through /api/spaces, never by a patch). */
+  spaces?: string[];
 };
 
 /** One change to a thread's overrides. null clears a field. */
@@ -37,6 +39,8 @@ export type OverridePatch = z.infer<typeof OverridePatch>;
 /** The override after a patch, or null when nothing is left to keep. */
 export function patchOverride(current: ThreadOverride | undefined, patch: OverridePatch, now = new Date().toISOString()): ThreadOverride | null {
   const next: ThreadOverride = { ...current };
+  // Spaces aren't stored with the rest (space_items): a patch leaves them as they are.
+  delete next.spaces;
   if (patch.chat !== undefined) {
     if (patch.chat === null) delete next.chat;
     else next.chat = patch.chat;
@@ -68,6 +72,20 @@ export function patchOverride(current: ThreadOverride | undefined, patch: Overri
   return Object.keys(next).length ? next : null;
 }
 
+/** The client's copy after a patch: the patched fields plus the spaces it was in. */
+export function patchShown(current: ThreadOverride | undefined, patch: OverridePatch): ThreadOverride | null {
+  const next = { ...patchOverride(current, patch), ...(current?.spaces?.length ? { spaces: current.spaces } : {}) };
+  return Object.keys(next).length ? next : null;
+}
+
+/** The client's copy with these spaces. */
+export function withSpaces(current: ThreadOverride | undefined, spaces: string[]): ThreadOverride | null {
+  const next: ThreadOverride = { ...current };
+  if (spaces.length) next.spaces = spaces;
+  else delete next.spaces;
+  return Object.keys(next).length ? next : null;
+}
+
 /** The last shown copy of each thread: the same thread and override give the same object, so memoised rows skip. */
 const shownCache = new WeakMap<Thread, { override: ThreadOverride; shown: Thread }>();
 
@@ -84,6 +102,7 @@ export function applyOverride(thread: Thread, override: ThreadOverride | undefin
     pinned: !!override.pinnedAt || undefined,
     muted: override.muted || undefined,
     note: override.note,
+    spaces: override.spaces,
   };
   shownCache.set(thread, { override, shown });
   return shown;
@@ -102,5 +121,6 @@ export function withoutOverride(thread: Thread): Thread {
   delete rest.pinned;
   delete rest.muted;
   delete rest.note;
+  delete rest.spaces;
   return rest;
 }

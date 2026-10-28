@@ -139,6 +139,8 @@ export type Thread = {
   pinned?: boolean;
   muted?: boolean;
   note?: string;
+  /** The spaces it's in (lib/spaces.ts), only in Kite. */
+  spaces?: string[];
   /** Gmail's subject when the user renamed the thread locally. */
   originalSubject?: string;
   /** The latest local split or merge that made this conversation (undoable). */

@@ -26,13 +26,13 @@ export function useToastTimer(toast: Toast | null, setToast: SetToast) {
   useEffect(() => {
     // A busy toast stays until what it's waiting on replaces it.
     if (!toast || toast.busy) return;
-    const timer = setTimeout(() => setToast(null), toast.held ? (toast.held.seconds + 5) * 1000 : 5000);
+    const timer = setTimeout(() => setToast(null), toast.held ? (toast.held.seconds + 5) * 1000 : toast.action ? 9000 : 5000);
     return () => clearTimeout(timer);
   }, [toast, setToast]);
 }
 
 /** The one toast at the bottom of the window, with Undo when there's something to undo. */
-export function AppToast({ toast, onUndo }: { toast: Toast | null; onUndo: () => void }) {
+export function AppToast({ toast, onUndo, setToast }: { toast: Toast | null; onUndo: () => void; setToast: SetToast }) {
   const shortcuts = useShortcuts();
   return (
     <AnimatePresence>
@@ -48,6 +48,17 @@ export function AppToast({ toast, onUndo }: { toast: Toast | null; onUndo: () =>
                 {toast.held ? <Countdown key={toast.held.id} seconds={toast.held.seconds} /> : null}
               </motion.span>
             </AnimatePresence>
+            {toast.action ? (
+              <button
+                onClick={() => {
+                  toast.action!.run();
+                  setToast(null);
+                }}
+                className="shrink-0 font-medium text-frame-fg hover:opacity-80"
+              >
+                {toast.action.label}
+              </button>
+            ) : null}
             {toast.undo || toast.onUndo ? (
               <button onClick={onUndo} className="flex shrink-0 items-center gap-1.5 font-medium text-accent hover:opacity-80">
                 Undo

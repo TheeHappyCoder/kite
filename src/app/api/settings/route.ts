@@ -10,6 +10,7 @@ import { announceUsage } from "@/server/ai-usage";
 import { screenerOn } from "@/server/rules";
 import { listOverrides } from "@/server/overrides";
 import { listPeople } from "@/server/people";
+import { listSpaces } from "@/server/spaces";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,7 @@ export async function GET(request: Request) {
     screener: screenerOn(),
     overrides: listOverrides(),
     people: listPeople(),
+    spaces: listSpaces(),
     storage: withStorage ? await storageInfo() : undefined,
   });
 }

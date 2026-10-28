@@ -732,6 +732,15 @@ export function threadsByIds(ids: string[]): Thread[] {
   return rows.map(hydrateFound);
 }
 
+/** Conversations by id that aren't in Trash or Spam, newest first (a space's list). */
+export function liveThreadsByIds(ids: string[]): Thread[] {
+  if (!ids.length) return [];
+  const rows = getDb()
+    .prepare(`SELECT ${LIST_COLUMNS}, ${REMINDER} FROM threads t WHERE t.id IN (SELECT value FROM json_each(?)) AND ${NOT_HIDDEN} ORDER BY t.last_date DESC`)
+    .all(JSON.stringify(ids)) as ThreadRow[];
+  return rows.map(hydrateFound);
+}
+
 export function threadCount(accountId: string) {
   return (getDb().prepare("SELECT COUNT(*) AS n FROM threads WHERE account_id = ?").get(accountId) as { n: number }).n;
 }

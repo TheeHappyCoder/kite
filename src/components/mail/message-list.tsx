@@ -30,7 +30,11 @@ import {
   Delete02Icon,
   Mail01Icon,
   MailOpen01Icon,
+  MoreHorizontalIcon,
 } from "@hugeicons/core-free-icons";
+import { THREAD_DRAG, spaceLabel, type Space } from "@/lib/spaces";
+import { SpaceDot } from "./space-picker";
+import { SpaceHeader, type SpaceHeaderActions } from "./space-header";
 import type { SwipeAction, SwipePrefs, SwipeTone } from "@/lib/swipe";
 import { useListGestures, type RowSwipe, type RowSwipes } from "./list-gestures";
 import { threadHasInvite } from "@/lib/calendar/invite";
@@ -80,6 +84,13 @@ const VIEW_TITLES: Record<string, string> = {
 
 type Props = {
   view: View;
+  /** Kite's spaces (lib/spaces.ts): chips on rows, and the space view's header. */
+  spaces: Space[];
+  /** Right-click on a row, the Menu key or its More button: the actions menu at a point. */
+  onRowMenu: (id: string, at: { x: number; y: number }) => void;
+  onOpenSpace: (id: string) => void;
+  /** The space view's header: pockets, note, rename. */
+  spaceActions: SpaceHeaderActions;
   threads: Thread[];
   accounts: Account[];
   accountId: AccountScope;
@@ -179,6 +190,8 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
           ? "Automations"
         : view.kind === "label"
           ? (props.labelOf(view.accountId, view.labelId)?.name ?? "Label")
+        : view.kind === "space"
+          ? (props.spaces.find((s) => s.id === view.spaceId)?.name ?? "Space")
         : isInbox && account && props.accounts.length > 1
           ? accountName(account)
           : isInbox && props.accounts.length > 1
@@ -249,6 +262,10 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
       pin: (id) => latest.current.onPin(id),
       mute: (id) => latest.current.onMute(id),
       openLabel: (accountId, id) => latest.current.onOpenLabel(accountId, id),
+      openSpace: (id) => latest.current.onOpenSpace(id),
+      menu: (id, at) => latest.current.onRowMenu(id, at),
+      // Dragging a ticked row takes every ticked one with it.
+      dragged: (id) => (latest.current.checked.has(id) ? [...latest.current.checked] : [id]),
     }),
     [],
   );
@@ -289,7 +306,7 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
     const swipes = { right: side(p.swipe.right), left: side(p.swipe.left) };
     return swipes.right || swipes.left ? swipes : null;
   }, []);
-  const pullable = view.kind === "mailbox" || view.kind === "label";
+  const pullable = view.kind === "mailbox" || view.kind === "label" || view.kind === "space";
   const { scroller: listRef, backdrop: backdropRef, indicator: pullRef, shown: swipeShown, refreshing, refresh } = useListGestures({
     bindKey: props.listKey,
     swipesFor,
@@ -478,6 +495,8 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
               />
             ) : null}
           </div>
+        ) : view.kind === "space" && !props.query ? (
+          <SpaceHeader spaceId={view.spaceId} spaces={props.spaces} count={threads.length} actions={props.spaceActions} />
         ) : (
           <p className="px-1 pb-1 text-[12px] text-pane-muted">
             {isScreener
@@ -525,7 +544,7 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
         ) : threads.length === 0 && props.loading ? (
           <ListSkeleton />
         ) : threads.length === 0 && !props.query ? (
-          <EmptyList isInbox={isInbox} screener={isScreener} />
+          <EmptyList isInbox={isInbox} screener={isScreener} space={view.kind === "space"} />
         ) : (
           <FluidList tone="pane" glide>
           <SwipeBackdrop ref={backdropRef} shown={swipeShown} />
@@ -545,6 +564,8 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
               actions={rowActions}
               labelOf={props.labelOf}
               hideLabel={view.kind === "label" ? view.labelId : null}
+              spaces={props.spaces}
+              hideSpace={view.kind === "space" ? view.spaceId : null}
               vips={props.vips}
               compact={compact}
             />
@@ -606,6 +627,9 @@ type RowActions = {
   pin: (id: string) => void;
   mute: (id: string) => void;
   openLabel: (accountId: string, id: string) => void;
+  openSpace: (id: string) => void;
+  menu: (id: string, at: { x: number; y: number }) => void;
+  dragged: (id: string) => string[];
 };
 
 const ThreadRow = memo(function ThreadRow({
@@ -623,6 +647,8 @@ const ThreadRow = memo(function ThreadRow({
   actions: rowActions,
   labelOf,
   hideLabel,
+  spaces,
+  hideSpace,
   compact = false,
 }: {
   index: number;
@@ -640,6 +666,9 @@ const ThreadRow = memo(function ThreadRow({
   labelOf: LabelLookup;
   /** The label being viewed: not repeated as a chip. */
   hideLabel: string | null;
+  spaces: Space[];
+  /** The space being viewed: not repeated as a chip. */
+  hideSpace: string | null;
   vips: Set<string>;
   /** One line: who, what, and the amount an automation collected (the inbox's Everything else side). */
   compact?: boolean;
@@ -673,12 +702,24 @@ const ThreadRow = memo(function ThreadRow({
   const hasAttachments = thread.messages.some((m) => m.attachments?.some((a) => !a.inline));
   const invite = threadHasInvite(thread);
   const count = thread.messages.length;
+  const inSpaces = (thread.spaces ?? []).filter((s) => s !== hideSpace).flatMap((id) => spaces.find((s) => s.id === id) ?? []);
 
   return (
     <div
       data-thread={thread.id}
       {...FLUID_ITEM}
       aria-selected={checked}
+      draggable={!thread.scheduled}
+      onDragStart={(e) => {
+        const ids = rowActions.dragged(id);
+        e.dataTransfer.setData(THREAD_DRAG, JSON.stringify(ids));
+        e.dataTransfer.setData("text/plain", ids.length > 1 ? `${ids.length} conversations` : thread.subject);
+        e.dataTransfer.effectAllowed = "copyMove";
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        rowActions.menu(id, { x: e.clientX, y: e.clientY });
+      }}
       onPointerEnter={armed ? undefined : () => setArmed(true)}
       // Shift-click picks a range, so it mustn't select text.
       onMouseDown={(e) => {
@@ -790,7 +831,7 @@ const ThreadRow = memo(function ThreadRow({
           {messagePreview(last)}
         </div>
 
-        {!screener && (hasAttachments || invite || thread.starred || showAccount || thread.reminder || thread.scheduled || thread.note || actions.labels.length) ? (
+        {!screener && (hasAttachments || invite || thread.starred || showAccount || thread.reminder || thread.scheduled || thread.note || actions.labels.length || inSpaces.length) ? (
           <div className="mt-1 flex items-center gap-1.5 text-[11.5px] text-pane-muted">
             {thread.reminder ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-1.5 py-px text-[10.5px] font-medium text-warning">
@@ -809,6 +850,21 @@ const ThreadRow = memo(function ThreadRow({
               <LabelChip key={label.id} label={label} spec={spec} onClick={() => actions.onOpenLabel(label.id)} />
             ))}
             {actions.labels.length > 3 ? <span className="text-[10.5px]">+{actions.labels.length - 3}</span> : null}
+            {inSpaces.slice(0, 2).map((space) => (
+              <button
+                key={space.id}
+                title={`In ${spaceLabel(spaces, space.id)}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  rowActions.openSpace(space.id);
+                }}
+                className="inline-flex max-w-[140px] items-center gap-1 rounded-full border border-pane-border px-1.5 py-px text-[10.5px] font-medium text-pane-muted transition-colors hover:border-accent/50 hover:text-pane-fg"
+              >
+                <SpaceDot space={space} className="size-1.5" />
+                <span className="truncate">{space.name}</span>
+              </button>
+            ))}
+            {inSpaces.length > 2 ? <span className="text-[10.5px]">+{inSpaces.length - 2}</span> : null}
             {invite ? <Icon icon={Calendar03Icon} size={12} aria-label="Invite" /> : null}
             {hasAttachments ? <Icon icon={Attachment01Icon} size={12} /> : null}
             {thread.note ? <Icon icon={Note01Icon} size={12} className="text-warning" /> : null}
@@ -843,27 +899,31 @@ const ThreadRow = memo(function ThreadRow({
 
       {armed && !screener && !thread.scheduled ? (
         <div className="invisible absolute right-2 top-1.5 group-data-[lit]:visible flex items-center gap-0.5 rounded-full border border-pane-border bg-pane p-0.5 shadow-sm">
-          <RowAction label={thread.mailbox === "trash" ? "Delete permanently…" : "Delete"} shortcut="delete" onClick={actions.onTrash}>
-            <Icon icon={Delete02Icon} size={14} />
-          </RowAction>
-          <RowAction label={thread.unread ? "Mark as read" : "Mark as unread"} shortcut="toggleRead" onClick={actions.onToggleRead}>
-            <Icon icon={thread.unread ? MailOpen01Icon : Mail01Icon} size={14} />
-          </RowAction>
           <RowAction label={thread.mailbox === "trash" ? "Move to inbox" : "Archive"} shortcut="archive" onClick={actions.onArchive}>
             <Icon icon={Archive02Icon} size={14} />
           </RowAction>
-          {thread.mailbox !== "trash" ? <RowAction label="Snooze until tomorrow" shortcut="snooze" onClick={actions.onSnooze}>
-            <Icon icon={Clock01Icon} size={14} />
-          </RowAction> : null}
-          <RowAction label={thread.starred ? "Unstar" : "Star"} shortcut="star" onClick={actions.onStar}>
-            <Icon icon={StarIcon} size={14} className={cn(thread.starred && "fill-warning text-warning")} />
+          <RowAction label={thread.mailbox === "trash" ? "Delete permanently…" : "Delete"} shortcut="delete" onClick={actions.onTrash}>
+            <Icon icon={Delete02Icon} size={14} />
           </RowAction>
-          <RowAction label={thread.pinned ? "Unpin" : "Pin to the top"} shortcut="pin" onClick={actions.onPin}>
-            <Icon icon={PinIcon} size={14} className={cn(thread.pinned && "text-accent")} />
-          </RowAction>
-          <RowAction label={thread.muted ? "Unmute" : "Mute"} shortcut="mute" onClick={actions.onMute}>
-            <Icon icon={thread.muted ? Notification02Icon : NotificationOff02Icon} size={14} />
-          </RowAction>
+          {thread.mailbox !== "trash" ? (
+            <RowAction label="Snooze until tomorrow" shortcut="snooze" onClick={actions.onSnooze}>
+              <Icon icon={Clock01Icon} size={14} />
+            </RowAction>
+          ) : null}
+          <Tooltip label="More" shortcut="actions">
+            <button
+              aria-label="More"
+              aria-haspopup="menu"
+              onClick={(e) => {
+                e.stopPropagation();
+                const box = e.currentTarget.getBoundingClientRect();
+                rowActions.menu(id, { x: box.left, y: box.bottom + 4 });
+              }}
+              className="grid size-6 place-items-center rounded-full text-pane-muted hover:bg-pane-hover hover:text-pane-fg"
+            >
+              <Icon icon={MoreHorizontalIcon} size={14} />
+            </button>
+          </Tooltip>
         </div>
       ) : null}
     </div>
@@ -957,7 +1017,19 @@ function SearchFooter({
   );
 }
 
-function EmptyList({ isInbox, screener }: { isInbox: boolean; screener?: boolean }) {
+function EmptyList({ isInbox, screener, space }: { isInbox: boolean; screener?: boolean; space?: boolean }) {
+  if (space) {
+    return (
+      <div className="grid h-full place-items-center p-8 text-center">
+        <div className="max-w-[300px]">
+          <p className="text-[13px] font-medium">Nothing in here yet</p>
+          <p className="mt-1 text-[12px] text-pane-muted">
+            Drag conversations onto this space in the sidebar, right-click one, or press Y on it. Pockets show their mail here too.
+          </p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="grid h-full place-items-center p-8 text-center">
       <div>

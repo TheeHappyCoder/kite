@@ -19,7 +19,7 @@ export function errorResponse(error: unknown) {
   }
   if (error instanceof InviteError) return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
   if (error instanceof z.ZodError) return NextResponse.json({ error: error.issues[0]?.message ?? "That didn't look right" }, { status: 400 });
-  if (error instanceof Error && ["RuleError", "ExpectError", "CollectionError"].includes(error.name)) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error instanceof Error && ["RuleError", "ExpectError", "CollectionError", "SpaceError"].includes(error.name)) return NextResponse.json({ error: error.message }, { status: 400 });
   if (error instanceof ProviderError) {
     console.error(error.message);
     return NextResponse.json({ error: `${error.service} request failed` }, { status: error.status === 404 ? 404 : 502 });

@@ -2,6 +2,7 @@ import "server-only";
 
 import { patchOverride, type OverridePatch, type ThreadOverride } from "@/lib/mail/overrides";
 import { getDb } from "./db";
+import { threadSpaces } from "./spaces";
 import { reindexThread } from "./store";
 
 // Local per-thread state (thread_overrides). Sync never writes here, so it survives every
@@ -30,9 +31,20 @@ function fromRow(row: OverrideRow): ThreadOverride {
   return o;
 }
 
+/** Every conversation's local state, with the spaces it's in (space_items, server/spaces.ts). */
 export function listOverrides(): Record<string, ThreadOverride> {
   const rows = getDb().prepare("SELECT * FROM thread_overrides").all() as OverrideRow[];
-  return Object.fromEntries(rows.map((r) => [r.thread_id, fromRow(r)]));
+  const all: Record<string, ThreadOverride> = Object.fromEntries(rows.map((r) => [r.thread_id, fromRow(r)]));
+  for (const [id, spaces] of Object.entries(threadSpaces())) all[id] = { ...all[id], spaces };
+  return all;
+}
+
+/** One conversation's local state as the client keeps it (spaces included). */
+export function shownOverride(threadId: string): ThreadOverride | null {
+  const own = getOverride(threadId);
+  const spaces = threadSpaces([threadId])[threadId];
+  const shown = { ...own, ...(spaces.length ? { spaces } : {}) };
+  return Object.keys(shown).length ? shown : null;
 }
 
 export function getOverride(threadId: string): ThreadOverride | undefined {
@@ -71,7 +83,7 @@ export function updateOverride(threadId: string, patch: OverridePatch) {
   const next = patchOverride(getOverride(threadId), patch);
   putOverride(threadId, next);
   if (patch.note !== undefined || patch.subject !== undefined) reindexThread(threadId);
-  return next;
+  return shownOverride(threadId);
 }
 
 /** Whether new mail in this conversation should skip the inbox. */

@@ -66,6 +66,8 @@ export const RuleActionSchema = z.discriminatedUnion("verb", [
     collection: z.string().trim().min(1, "Pick a collection").max(64),
     match: z.string().trim().max(32).nullable().default(null),
   }),
+  /** Puts the conversation in one of Kite's spaces (lib/spaces.ts, by id). Local only. */
+  z.object({ verb: z.literal("space"), space: z.string().trim().min(1, "Pick a space").max(40) }),
   /** Brings the conversation back to the inbox `daysBefore` a date the email names, at `time` (a snooze until then). */
   z.object({
     verb: z.literal("remind"),
@@ -139,6 +141,7 @@ export const VERBS: Record<Verb, VerbInfo> = {
   prepare_reply: { label: "Prepare a reply", done: "prepared a reply", gmail: false, undoable: true },
   draft_reply: { label: "Draft a reply with AI", done: "asked your AI for a reply", gmail: false, undoable: true },
   collect: { label: "Add to a collection", done: "added to a collection", gmail: false, undoable: true },
+  space: { label: "Put in a space", done: "put in a space", gmail: false, undoable: true },
   remind: { label: "Bring it back on a date", done: "set to come back", gmail: false, undoable: true },
   calendar: { label: "Add to my calendar", done: "added to your calendar", gmail: false, undoable: true },
   expect: { label: "Expect an answer", done: "started waiting for an answer", gmail: false, undoable: true },
@@ -160,8 +163,8 @@ export const TRIGGER_NAMES: Record<Trigger, string> = { new_mail: "Mail arrives"
 
 /** The verbs each trigger can use (the builder offers only these; the server refuses the rest). */
 export const TRIGGER_VERBS: Record<Trigger, readonly Verb[]> = {
-  new_mail: ["label", "unlabel", "archive", "star", "pin", "mute", "mark_read", "snooze", "trash", "screen", "notify", "prepare_reply", "draft_reply", "collect", "remind", "calendar", "expect"],
-  sent: ["label", "unlabel", "archive", "star", "pin", "mute", "snooze", "collect", "remind", "calendar", "expect"],
+  new_mail: ["label", "unlabel", "archive", "space", "star", "pin", "mute", "mark_read", "snooze", "trash", "screen", "notify", "prepare_reply", "draft_reply", "collect", "remind", "calendar", "expect"],
+  sent: ["label", "unlabel", "archive", "space", "star", "pin", "mute", "snooze", "collect", "remind", "calendar", "expect"],
   schedule: ["expect", "pack"],
 };
 
@@ -255,6 +258,8 @@ export function defaultAction(verb: Verb): RuleAction {
       return { verb, instruction: "" };
     case "collect":
       return { verb, collection: "", match: null };
+    case "space":
+      return { verb, space: "" };
     case "remind":
       return { verb, field: "", daysBefore: 1, time: "08:00" };
     case "calendar":

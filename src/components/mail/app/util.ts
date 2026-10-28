@@ -21,6 +21,8 @@ export type Toast = {
   undo?: Thread[];
   undoOp?: ThreadOp;
   onUndo?: () => void;
+  /** One more thing to offer beside Undo ("Always"): runs, then the toast goes. */
+  action?: { label: string; run: () => void };
   /** Something is under way (a send): a spinner before the message. */
   busy?: boolean;
   /** Undo send: the held message's id, seconds left to undo, and what to say once it goes. */
