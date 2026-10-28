@@ -311,7 +311,7 @@ function FrameIconButton({ label, shortcut, icon, onClick, side = "top" }: { lab
 }
 
 /** Views that belong to Mail: the mail column shows beside the rail while one is open. */
-const MAIL_VIEWS = new Set<View["kind"]>(["mailbox", "label", "home", "cleanup"]);
+const MAIL_VIEWS = new Set<View["kind"]>(["mailbox", "label", "space", "home", "cleanup"]);
 
 /**
  * The navigation is one dark panel floating on the sky like the panes (a solid surface keeps every

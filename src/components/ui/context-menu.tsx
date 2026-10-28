@@ -68,8 +68,13 @@ function MenuBody({ at, items, onClose, label }: { at: MenuPoint; items: MenuIte
     setPlace({ left, top });
   }, [at]);
 
+  // Focus waits for the menu to be placed: a hidden element can't take it.
+  const placed = !!place;
   useEffect(() => {
-    root.current?.focus({ preventScroll: true });
+    if (placed) root.current?.focus({ preventScroll: true });
+  }, [placed]);
+
+  useEffect(() => {
     const away = (e: MouseEvent) => {
       if (!root.current?.contains(e.target as Node)) onClose();
     };

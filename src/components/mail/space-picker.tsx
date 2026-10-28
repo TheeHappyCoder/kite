@@ -129,33 +129,38 @@ export function SpacePicker({
         className="h-12 w-full border-b border-pane-border bg-transparent px-4 text-[14px] outline-none placeholder:text-pane-muted"
       />
       <Command.List className="scroll-fade max-h-[340px] overflow-y-auto p-2 [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-pane-muted">
-        <Command.Empty className="px-3 py-6 text-center text-[13px] text-pane-muted">{spaces.length ? "No spaces match." : "No spaces yet. Type a name to make one."}</Command.Empty>
+        {canMake ? null : (
+          <Command.Empty className="px-3 py-6 text-center text-[13px] text-pane-muted">{spaces.length ? "No spaces match." : "No spaces yet. Type a name to make one."}</Command.Empty>
+        )}
         <FluidList tone="pane" follow="[data-selected=true]">
           {recents.length ? <Command.Group heading="Recent">{recents.map((s) => row(s, 0, `recent:${s.id}`))}</Command.Group> : null}
           {tree.length ? (
             <Command.Group heading={recents.length ? "All spaces" : undefined}>{tree.map(({ space, depth }) => row(space, depth, space.id))}</Command.Group>
           ) : null}
+          {/* In a group of its own: cmdk sorts items inside their group, and a bare item under FluidList crashes it. */}
           {canMake ? (
-            <Command.Item
-              forceMount
-              value={`make ${typed}`}
-              disabled={making}
-              onSelect={() => void make()}
-              className="relative flex h-9 cursor-default items-center gap-2.5 rounded-lg px-2.5 text-[13px] touch:h-11"
-            >
-              <span className="grid size-4 shrink-0 place-items-center text-accent">{making ? <Spinner size={13} /> : <Icon icon={Add01Icon} size={14} />}</span>
-              <span className="min-w-0 flex-1 truncate">
-                {parent ? (
-                  <>
-                    Make the pocket <span className="font-medium">“{newName}”</span> in {parent.name}
-                  </>
-                ) : (
-                  <>
-                    Make the space <span className="font-medium">“{newName}”</span>
-                  </>
-                )}
-              </span>
-            </Command.Item>
+            <Command.Group forceMount>
+              <Command.Item
+                forceMount
+                value={`make ${typed}`}
+                disabled={making}
+                onSelect={() => void make()}
+                className="relative flex h-9 cursor-default items-center gap-2.5 rounded-lg px-2.5 text-[13px] touch:h-11"
+              >
+                <span className="grid size-4 shrink-0 place-items-center text-accent">{making ? <Spinner size={13} /> : <Icon icon={Add01Icon} size={14} />}</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {parent ? (
+                    <>
+                      Make the pocket <span className="font-medium">“{newName}”</span> in {parent.name}
+                    </>
+                  ) : (
+                    <>
+                      Make the space <span className="font-medium">“{newName}”</span>
+                    </>
+                  )}
+                </span>
+              </Command.Item>
+            </Command.Group>
           ) : null}
         </FluidList>
       </Command.List>

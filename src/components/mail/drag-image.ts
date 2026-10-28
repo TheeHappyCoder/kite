@@ -1,0 +1,104 @@
+/**
+ * What follows the pointer while conversations are dragged: a clean card (who and what) instead of
+ * the browser's ghost of the row. Browsers draw a drag image see-through, so theirs is replaced by an
+ * empty one and the card is our own element, moved with the pointer. Several conversations fan out
+ * as up to three cards, with "+N" for the rest. Colours are read from the row, so the card matches
+ * its pane in light and dark.
+ */
+
+/** A transparent pixel, loaded ahead so it's ready the moment a drag starts. */
+let blank: HTMLImageElement | null = null;
+function emptyImage() {
+  if (!blank) {
+    blank = new Image();
+    blank.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+  }
+  return blank;
+}
+if (typeof window !== "undefined") emptyImage();
+
+const VARS = ["--pane", "--pane-2", "--pane-fg", "--pane-muted", "--pane-border", "--accent", "--accent-soft", "--lime", "--lime-fg", "--font-ui"];
+const FAN = [
+  { rotate: 0, x: 0, y: 0 },
+  { rotate: -6, x: -8, y: 4 },
+  { rotate: 5, x: 10, y: 8 },
+];
+
+const text = (value: string) => value.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+
+export function setThreadDragImage(e: React.DragEvent<HTMLElement>, { sender, subject, ids }: { sender: string; subject: string; ids: string[] }) {
+  const count = ids.length;
+  const shown = Math.min(count, 3);
+  const extra = count - shown;
+  const initial = (sender.trim()[0] ?? "?").toUpperCase();
+
+  const look = getComputedStyle(e.currentTarget);
+  const card = document.createElement("div");
+  card.setAttribute("data-sensitive", "");
+  card.setAttribute("aria-hidden", "true");
+  for (const name of VARS) card.style.setProperty(name, look.getPropertyValue(name));
+
+  const sheet = (i: number, content: string) => {
+    const { rotate, x, y } = FAN[i];
+    return `<div style="position:absolute;inset:0;display:flex;align-items:center;gap:10px;padding:0 14px 0 10px;border-radius:14px;background:var(--pane);color:var(--pane-fg);border:1px solid var(--pane-border);box-shadow:0 1px 2px rgb(0 0 0 / 0.06), 0 10px 24px -12px rgb(0 0 0 / 0.35);transform:translate(${x}px, ${y}px) rotate(${rotate}deg);transform-origin:50% 100%">${content}</div>`;
+  };
+  const front = `
+    <span style="display:grid;place-items:center;flex:none;width:30px;height:30px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:600">${text(initial)}</span>
+    <span style="display:flex;flex-direction:column;min-width:0;gap:1px">
+      <span style="font-size:13px;font-weight:600;line-height:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${text(sender)}</span>
+      <span style="font-size:12px;line-height:16px;color:var(--pane-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${text(subject)}</span>
+    </span>`;
+  const behind = Array.from({ length: shown - 1 }, (_, i) => sheet(shown - 1 - i, "")).join("");
+  const more = extra
+    ? `<span style="position:absolute;top:-8px;right:-8px;padding:0 8px;height:22px;display:grid;place-items:center;border-radius:999px;background:var(--lime);color:var(--lime-fg);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--pane)">+${extra}</span>`
+    : "";
+  card.innerHTML = `${behind}${sheet(0, front)}${more}`;
+  Object.assign(card.style, {
+    position: "fixed",
+    top: "0",
+    left: "0",
+    width: "240px",
+    height: "50px",
+    zIndex: "2147483647",
+    pointerEvents: "none",
+    fontFamily: "var(--font-ui, system-ui), system-ui, sans-serif",
+    opacity: "0",
+    transition: "opacity 120ms ease",
+    willChange: "transform",
+  });
+
+  e.dataTransfer.setDragImage(emptyImage(), 0, 0);
+
+  // Where the pointer took hold: the card hangs from there, a little below and right of it.
+  const place = (x: number, y: number) => {
+    card.style.transform = `translate(${x + 12}px, ${y + 10}px)`;
+  };
+  const follow = (ev: DragEvent) => {
+    // The last `drag` event reports 0, 0 in some browsers; ignore it.
+    if (ev.clientX === 0 && ev.clientY === 0) return;
+    place(ev.clientX, ev.clientY);
+  };
+  place(e.clientX, e.clientY);
+
+  // The rows being dragged step back, until the drag ends.
+  const rows = new Set(ids);
+  const start = () => {
+    document.body.appendChild(card);
+    requestAnimationFrame(() => (card.style.opacity = "1"));
+    document.querySelectorAll<HTMLElement>("[data-thread]").forEach((row) => rows.has(row.dataset.thread ?? "") && row.setAttribute("data-dragging", ""));
+  };
+  const end = () => {
+    card.remove();
+    document.querySelectorAll("[data-dragging]").forEach((row) => row.removeAttribute("data-dragging"));
+    window.removeEventListener("dragover", follow, true);
+    window.removeEventListener("drag", follow, true);
+    window.removeEventListener("dragend", end, true);
+    window.removeEventListener("drop", end, true);
+  };
+  // Not in the dragstart itself: changing the page there can cancel the drag.
+  setTimeout(start, 0);
+  window.addEventListener("dragover", follow, true);
+  window.addEventListener("drag", follow, true);
+  window.addEventListener("dragend", end, true);
+  window.addEventListener("drop", end, true);
+}

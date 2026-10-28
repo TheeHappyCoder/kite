@@ -568,6 +568,15 @@ body {
   transition: none;
 }
 
+/* Message list: rows being dragged (components/mail/drag-image.ts) step back, so the card at the pointer reads on its own. */
+[data-thread][data-dragging] > * {
+  opacity: 0.3;
+  transition: opacity 150ms ease;
+}
+[data-thread][data-dragging] {
+  background-color: transparent;
+}
+
 /* Message list: a row being swiped (components/mail/list-gestures.tsx) covers its backdrop. Layered under the
    utilities, so a selected or ticked row keeps its own colour. */
 @layer base {

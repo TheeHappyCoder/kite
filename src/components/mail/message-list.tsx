@@ -34,6 +34,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { THREAD_DRAG, spaceLabel, type Space } from "@/lib/spaces";
 import { SpaceDot } from "./space-picker";
+import { setThreadDragImage } from "./drag-image";
 import { SpaceHeader, type SpaceHeaderActions } from "./space-header";
 import type { SwipeAction, SwipePrefs, SwipeTone } from "@/lib/swipe";
 import { useListGestures, type RowSwipe, type RowSwipes } from "./list-gestures";
@@ -715,6 +716,7 @@ const ThreadRow = memo(function ThreadRow({
         e.dataTransfer.setData(THREAD_DRAG, JSON.stringify(ids));
         e.dataTransfer.setData("text/plain", ids.length > 1 ? `${ids.length} conversations` : thread.subject);
         e.dataTransfer.effectAllowed = "copyMove";
+        setThreadDragImage(e, { sender: sender.name || sender.email, subject: thread.subject, ids });
       }}
       onContextMenu={(e) => {
         e.preventDefault();
