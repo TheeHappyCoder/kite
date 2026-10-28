@@ -1,36 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import {
-  Archive02Icon,
-  Cancel01Icon,
-  LinkSquare02Icon,
-  Location01Icon,
-  KeyboardIcon,
-  MailReply01Icon,
-  Video01Icon,
-} from "@hugeicons/core-free-icons";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { motion } from "motion/react";
+import { Archive02Icon, Cancel01Icon, Key01Icon, KeyboardIcon, LinkSquare02Icon, MailReply01Icon, Video01Icon } from "@hugeicons/core-free-icons";
 import { desktopInvoke, inDesktopApp, type DesktopCode, type DesktopMail, type DesktopMeeting, type BarItem } from "@/lib/desktop";
-import { blurFade, exitFor, spring } from "@/lib/motion";
+import { exitFor, spring } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { capitalise } from "@/lib/format";
 import { Icon } from "../icon";
 import { CopyIcon } from "../ui/copy";
 import { DropZone, QuickReply, ReplySent, useQuickReply } from "./bar-reply";
-import { ActivityRow, ActivitySheet, activityLine, hasSheet, ticks } from "./bar-activity";
+import { ActivityRow, ActivitySheet, BTN, Lines, PRIMARY, Tile, hasSheet, ticks } from "./bar-activity";
 
 /*
- * The Kite bar: a strip of Kite's sky floating just below the top edge of the screen (the hour's
- * colours, white type, the kite mark), in a window the desktop shell keeps warm (src-tauri/src/bar.rs).
- * Its row is what's showing (a `BarItem`: a sign-in code, a meeting about to start, mail to notify
- * about, or another app's activity from the Kite bar API, docs/bar.md) with its one thing to do as
- * the white pill; everything else waiting sits beside it as frosted chips (click to bring forward).
- * Open while it has just arrived or the pointer is over it: more buttons, and a paper sheet hanging
- * under the sky for what needs room (the mail's text, the quick reply, a meeting's place, an
- * activity's words). A lime line along the bottom edge runs down a meeting's countdown or fills with
- * an activity's progress. It drops in with a blur fade and leaves the same way; the window never
- * resizes. The shell lets clicks in only over the box this page reports, and the window never takes
- * focus (but for a quick reply).
+ * The Kite bar: a plain card just below the top edge of the screen, in Kite's light or dark panes, in a
+ * window the desktop shell keeps warm (src-tauri/src/bar.rs). Its row is what's showing (a `BarItem`:
+ * a sign-in code, a meeting about to start, mail to notify about, or another app's activity from the
+ * Kite bar API, docs/bar.md): an icon, a title with a line under it, and every button it has, the one
+ * thing to do in the accent. While it has just arrived or the pointer is over it, what needs room shows
+ * under the row (the mail's first lines, the quick reply, an activity's words); what else waits is a
+ * line of chips at the foot (click to bring one forward). The card is always the same width, so
+ * nothing moves under the pointer; it slides in and out (opacity and position only) and the window
+ * never resizes. The shell lets clicks in only over the box this page reports, and the window never
+ * takes focus (but for a quick reply).
  */
 
 /** Open after something arrives, unless the pointer is over it. */
@@ -52,12 +44,20 @@ const PICKED_MS = 2_800;
 const TURN_MS = 8_000;
 /** How far the bar floats below the top of the screen. */
 const GAP = 8;
-/** Chips beside what's showing; more than this become "+N". */
+/** Chips at the foot; more than this become "+N". */
 const MAX_CHIPS = 3;
+/** The card's width: fixed, so hovering or a change of item never moves anything. */
+const WIDTH = 500;
+/** A new item's row comes in part by part: a few px up and in, one after another (opacity and transform only). */
+const ROW_IN =
+  "@keyframes bar-in{from{opacity:0;transform:translateY(4px)}}.bar-row>*{animation:bar-in .22s cubic-bezier(.22,1,.36,1) both}" +
+  [2, 3, 4, 5, 6, 7, 8].map((n) => `.bar-row>:nth-child(${n}){animation-delay:${(n - 1) * 25}ms}`).join("");
+/** The ring round ×: its radius and length. */
+const RING_R = 12.5;
+const RING = 2 * Math.PI * RING_R;
 
 type Mode = "hidden" | "peek" | "expanded";
 type Archived = "archived" | "restored" | "failed";
-type Size = { w: number; h: number };
 
 /** What the shell says along with the item (bar.rs `refresh_page`): what waits, in order. */
 type Context = { waiting: BarItem[]; quiet: boolean };
@@ -97,7 +97,6 @@ export function Bar({ demo = false }: { demo?: boolean }) {
   const [copied, setCopied] = useState<string | null>(null);
   /** The part of an unclear code the user just picked: the shape turns into its confirmation. */
   const [picked, setPicked] = useState<number | null>(null);
-  const [size, setSize] = useState<Size>({ w: 0, h: 0 });
   const done = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Mail archived from the Kite bar: the shape says so, with Undo. */
   const [archived, setArchived] = useState<Archived | null>(null);
@@ -109,6 +108,8 @@ export function Bar({ demo = false }: { demo?: boolean }) {
   const [queue, setQueue] = useState<BarItem[]>([]);
   const waiting = queue.length;
   const barRef = useRef<HTMLDivElement>(null);
+  /** The ring round × (its time left). */
+  const leaving = useRef<SVGCircleElement>(null);
   const itemRef = useRef<BarItem | null>(null);
   /** When each item is done (it leaves for good then): kept per id, so one that took turns keeps its time. */
   const deadlines = useRef(new Map<string, number>());
@@ -198,8 +199,14 @@ export function Bar({ demo = false }: { demo?: boolean }) {
     }
     const left = (deadlines.current.get(item.id) ?? 0) - Date.now();
     const turn = waiting > 0 && left > TURN_MS + 1_000;
-    const timer = setTimeout(() => leave(turn), turn ? TURN_MS : Math.max(left, 0));
-    return () => clearTimeout(timer);
+    const ms = turn ? TURN_MS : Math.max(left, 0);
+    const timer = setTimeout(() => leave(turn), ms);
+    // The ring round × runs down to the moment it leaves; the pointer stops it (and it fills again).
+    const run = leaving.current?.animate([{ strokeDashoffset: 0, opacity: 1 }, { strokeDashoffset: RING, opacity: 1 }], { duration: ms, easing: "linear" });
+    return () => {
+      clearTimeout(timer);
+      run?.cancel();
+    };
   }, [mode, hovered, copied, holding, item, waiting, leave]);
 
   // Countdowns (a meeting's, an activity's) tick while they show.
@@ -210,19 +217,20 @@ export function Bar({ demo = false }: { demo?: boolean }) {
     return () => clearInterval(timer);
   }, [ticking, mode]);
 
-  // Where clicks may land: the bar's box, reported whenever it changes size.
+  // Where clicks may land: the bar's box, reported whenever it changes size (and once it has slid in).
+  const reportShape = useCallback(() => {
+    const box = barRef.current?.getBoundingClientRect();
+    if (box) act("shape", { shape: { x: box.left, y: box.top, w: box.width, h: box.height } });
+  }, []);
   useEffect(() => {
     const bar = barRef.current;
     if (mode === "hidden" || !bar) return;
-    const report = () => {
-      const box = bar.getBoundingClientRect();
-      act("shape", { shape: { x: box.left, y: box.top, w: box.width, h: box.height } });
-    };
+    const report = reportShape;
     report();
     const observer = new ResizeObserver(report);
     observer.observe(bar);
     return () => observer.disconnect();
-  }, [mode]);
+  }, [mode, reportShape]);
 
   const finish = (value: string, ms = DONE_MS) => {
     setCopied(value);
@@ -388,35 +396,31 @@ export function Bar({ demo = false }: { demo?: boolean }) {
   const chips = queue.slice(0, MAX_CHIPS);
   const more = queue.length - chips.length;
 
-  // What hangs under the bar on paper: the mail's text or the reply, a meeting's place, an activity's words.
+  // What shows under the row while open: the reply, the mail's first lines, an activity's words.
   const sheet: { key: string; node: ReactNode } | null = !item
     ? null
     : mail && mailView === "reply"
       ? { key: `reply:${mail.id}`, node: <QuickReply mail={mail} reply={reply} onClose={closeReply} onOpenInKite={openInKite} onSend={() => void sendReply()} /> }
       : mail && expanded && mailView === "expanded" && mail.preview
-        ? { key: `mail:${mail.id}`, node: <MailSheet mail={mail} /> }
-        : meeting && expanded && (meeting.place || meeting.end)
-          ? { key: `meeting:${meeting.id}`, node: <MeetingSheet meeting={meeting} /> }
-          : activity && expanded && hasSheet(activity)
-            ? { key: `activity:${activity.id}`, node: <ActivitySheet activity={activity} /> }
-            : null;
-  // The lime line along the bar's bottom edge.
-  const line = meeting ? meetingLine(meeting, now) : activity ? activityLine(activity, now) : null;
-  const width = sheet ? Math.max(size.w, SHEET_WIDTH + SHEET_INSET * 2) : size.w;
+        ? { key: `mail:${mail.id}`, node: <p className="line-clamp-3 text-[13px] leading-relaxed">{mail.preview}</p> }
+        : activity && expanded && hasSheet(activity)
+          ? { key: `activity:${activity.id}`, node: <ActivitySheet activity={activity} /> }
+          : null;
 
   return (
     <div className="flex h-screen justify-center" style={{ background: "transparent", paddingTop: GAP }}>
-      {/* The window is transparent: only the bar paints. */}
-      <style>{"html,body{background:transparent!important;overflow:hidden}"}</style>
+      {/* The window is transparent: only the card paints. */}
+      <style>{"html,body{background:transparent!important;overflow:hidden}" + ROW_IN}</style>
       <motion.div
         ref={barRef}
         data-sensitive
-        className="relative flex h-max flex-col"
+        className="relative flex h-max flex-col overflow-hidden rounded-xl border border-pane-border bg-pane text-pane-fg shadow-[0_10px_30px_-10px_rgb(0_0_0/0.35)]"
+        style={{ width: WIDTH }}
         initial={false}
-        animate={shown ? { opacity: 1, y: 0, filter: "blur(0px)" } : { opacity: 0, y: -14, filter: "blur(8px)" }}
-        transition={shown ? spring.slow : exitFor.slow}
+        animate={shown ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -10, scale: 0.97 }}
+        transition={shown ? spring.moderate : exitFor.moderate}
         onAnimationComplete={() => {
-          if (shown) return;
+          if (shown) return reportShape();
           act("hidden", { again: again.current });
           // The browser demo plays the shell: the next in line comes up.
           if (!demo) return;
@@ -436,145 +440,63 @@ export function Bar({ demo = false }: { demo?: boolean }) {
         onDragLeave={dragOut}
         onDrop={drop}
       >
-        {/* A strip of Kite's sky (the hour's colours, like the app behind its panes). */}
-        <motion.div
-          className="on-sky relative z-10 h-[52px] overflow-hidden rounded-[18px] text-frame-fg shadow-[0_18px_40px_-16px_rgb(10_30_70/0.6),inset_0_1px_0_rgb(255_255_255/0.28)]"
-          style={{ backgroundImage: SKY }}
-          initial={false}
-          animate={{ width }}
-          transition={spring.slow}
-        >
-          <AnimatePresence initial={false}>{dragging ? <DropZone key="drop" /> : null}</AnimatePresence>
-          <Measure onSize={setSize}>
-            <KiteMark />
-            <AnimatePresence mode="popLayout" initial={false}>
-              <motion.div
-                key={`${item?.id}:${mailView}:${archived}:${picked}:${expanded}`}
-                className="flex items-center gap-2"
-                {...blurFade({ y: 4, blur: 6, speed: "moderate" })}
-              >
-                {!item ? null : mail && mailView === "sent" ? (
-                  <ReplySent reply={reply} onUndo={undoReply} />
-                ) : mail && archived ? (
-                  <ArchivedRow state={archived} onUndo={undoArchive} />
-                ) : mail ? (
-                  <MailRow mail={mail} draft={hasDraft} open={expanded} replying={replying} onReply={startReply} onArchive={archive} onOpen={() => openMail(false)} />
-                ) : meeting ? (
-                  <MeetingRow meeting={meeting} now={now} joined={copied !== null} open={expanded} onJoin={join} />
-                ) : code ? (
-                  <CodeRow code={code} copied={copied} picked={picked} open={expanded} onCopy={() => copy()} onFill={fill} onPick={pick} onOpen={open} />
-                ) : activity ? (
-                  <ActivityRow activity={activity} now={now} open={expanded} onCopy={activityCopy} onOpen={activityOpen} onCallback={tellIntegration} />
-                ) : null}
-              </motion.div>
-            </AnimatePresence>
-            {chips.length ? (
-              <span className="ml-1 flex items-center gap-1 border-l border-white/20 pl-2">
-                {chips.map((waitingItem) => (
-                  <Chip key={waitingItem.id} item={waitingItem} now={now} onClick={() => front(waitingItem.id)} />
-                ))}
-                {more > 0 ? <span className="px-1 text-[12px] tabular-nums text-frame-muted">+{more}</span> : null}
-              </span>
-            ) : null}
-            {expanded && !replying && item ? (
-              <button onClick={() => (activity ? dismissActivity() : leave())} aria-label="Dismiss" className={cn(FROST, "size-8 justify-center px-0")}>
-                <Icon icon={Cancel01Icon} size={13} />
-              </button>
-            ) : null}
-          </Measure>
-          {line !== null ? (
-            <span aria-hidden className="absolute inset-x-4 bottom-[5px] h-[2px] overflow-hidden rounded-full bg-white/20">
-              <motion.span className="block h-full rounded-full bg-lime" initial={false} animate={{ width: `${line * 100}%` }} transition={{ duration: 0.6, ease: "easeOut" }} />
-            </span>
+        {dragging ? <DropZone /> : null}
+        <div key={`${item?.id}:${reply.phase}:${archived}:${picked}:${replying}`} className="bar-row flex h-[52px] items-center gap-2 pl-2.5 pr-1.5">
+          {!item ? null : mail && mailView === "sent" ? (
+            <ReplySent reply={reply} onUndo={undoReply} />
+          ) : mail && archived ? (
+            <ArchivedRow state={archived} onUndo={undoArchive} />
+          ) : mail ? (
+            <MailRow mail={mail} draft={hasDraft} replying={replying} onReply={startReply} onArchive={archive} onOpen={() => openMail(false)} />
+          ) : meeting ? (
+            <MeetingRow meeting={meeting} now={now} joined={copied !== null} onJoin={join} />
+          ) : code ? (
+            <CodeRow code={code} copied={copied} picked={picked} onCopy={() => copy()} onFill={fill} onPick={pick} onOpen={open} />
+          ) : activity ? (
+            <ActivityRow activity={activity} now={now} onCopy={activityCopy} onOpen={activityOpen} onCallback={tellIntegration} />
           ) : null}
-        </motion.div>
-        {/* Paper under the sky, for what needs room. */}
-        <AnimatePresence initial={false}>
-          {sheet ? (
-            <motion.div
-              key={sheet.key}
-              className="relative -mt-3 self-start overflow-hidden rounded-b-[18px] bg-pane text-pane-fg shadow-[0_22px_44px_-18px_rgb(10_30_70/0.5),0_0_0_1px_rgb(10_30_70/0.06)]"
-              style={{ marginLeft: SHEET_INSET, marginRight: SHEET_INSET }}
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0, transition: exitFor.moderate }}
-              transition={spring.moderate}
+          {item && !replying ? (
+            <button
+              onClick={() => (activity ? dismissActivity() : leave())}
+              aria-label="Dismiss"
+              title="Dismiss (the ring is how long it stays; point at it to keep it)"
+              className="relative grid size-7 shrink-0 place-items-center rounded-full text-pane-muted transition-colors duration-150 hover:bg-pane-2 hover:text-pane-fg"
             >
-              <div className="px-4 pb-4 pt-6" style={{ width: SHEET_WIDTH }}>
-                {sheet.node}
-              </div>
-            </motion.div>
+              <svg viewBox="0 0 28 28" className="absolute inset-0 -rotate-90" aria-hidden>
+                <circle ref={leaving} cx="14" cy="14" r={RING_R} fill="none" stroke="currentColor" strokeWidth={1.5} strokeDasharray={RING} strokeLinecap="round" opacity={0} />
+              </svg>
+              <Icon icon={Cancel01Icon} size={12} />
+            </button>
           ) : null}
-        </AnimatePresence>
+        </div>
+        {sheet ? (
+          <div key={sheet.key} className="border-t border-pane-border px-3 py-2.5">
+            {sheet.node}
+          </div>
+        ) : null}
+        {chips.length ? (
+          <div className="flex h-9 items-center gap-1.5 border-t border-pane-border px-2.5 text-[12px]">
+            <span className="shrink-0 text-pane-muted">Next</span>
+            {chips.map((waitingItem) => (
+              <Chip key={waitingItem.id} item={waitingItem} now={now} onClick={() => front(waitingItem.id)} />
+            ))}
+            {more > 0 ? <span className="shrink-0 tabular-nums text-pane-muted">+{more}</span> : null}
+          </div>
+        ) : null}
       </motion.div>
       {demo ? <DemoControls /> : null}
     </div>
   );
 }
 
-/** The sky's colours across the bar, darkest first so white type holds at every hour, with light from the left. */
-const SKY = "radial-gradient(120% 160% at 0% 0%, rgb(255 255 255 / 0.22), transparent 55%), linear-gradient(100deg, var(--sky-1), var(--sky-2) 70%, var(--sky-3) 140%)";
-
-/** Frosted controls on the sky, and the solid white pill for the one thing to do. */
-const FROST =
-  "flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-white/[0.16] px-3 text-[13px] text-frame-fg transition-[background-color,transform] duration-150 hover:bg-white/[0.26] active:scale-95";
-const SOLID =
-  "flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-frame-active px-3.5 text-[13px] font-medium text-frame-active-fg shadow-[0_4px_12px_-4px_rgb(10_30_70/0.45)] transition-transform duration-150 active:scale-95";
-
-/** The sheet's width, and how far in from the bar's ends it hangs. */
-const SHEET_WIDTH = 420;
-const SHEET_INSET = 14;
-
-/** Kite's mark: the kite, white on the sky, with its lime tail. */
-function KiteMark() {
-  return (
-    <svg viewBox="0 0 24 30" className="mr-0.5 h-[26px] w-[21px] shrink-0" aria-hidden>
-      <path d="M12 2 20 10 12 22 4 10Z" fill="rgb(255 255 255 / 0.28)" stroke="#fff" strokeWidth={1.6} strokeLinejoin="round" />
-      <path d="M4 10h16M12 2v20" stroke="#fff" strokeOpacity={0.8} strokeWidth={1.1} />
-      <path d="M12 22c-1.5 2.2 1.5 3.4 0 5.6" fill="none" stroke="var(--lime)" strokeWidth={1.6} strokeLinecap="round" />
-    </svg>
-  );
-}
-
-/** The bar's row at its own width (the sky animates to it). */
-function Measure({ onSize, children }: { onSize: (size: Size) => void; children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const measure = () => onSize({ w: element.offsetWidth, h: element.offsetHeight });
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [onSize]);
-  return (
-    <div ref={ref} className="absolute left-0 top-0 flex h-[52px] w-max items-center gap-2 pl-3.5 pr-2.5">
-      {children}
-    </div>
-  );
-}
-
-/** A name, then a word or two in the serif. */
-function Says({ name, accent, max = 200 }: { name: string; accent?: ReactNode; max?: number }) {
-  return (
-    <span className="flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
-      <span className="truncate text-[13.5px] font-medium" style={{ maxWidth: max }}>
-        {name}
-      </span>
-      {accent ? <span className="font-accent text-[15.5px] leading-none text-frame-fg/85">{accent}</span> : null}
-    </span>
-  );
-}
-
-/** Something waiting, as one short line on the sky: click to bring it forward. */
+/** Something waiting: click to bring it forward. */
 function Chip({ item, now, onClick }: { item: BarItem; now: number; onClick: () => void }) {
   const label =
     item.kind === "code" ? (item.code ?? item.service) : item.kind === "meeting" ? `${item.title} ${untilLabel(item.start, now)}` : item.kind === "mail" ? senderOf(item) : item.title;
   return (
-    <button onClick={onClick} title="Show this" className={cn(FROST, "h-7 max-w-[170px] gap-1.5 px-2.5 text-[12px]")}>
-      {item.kind === "mail" ? <Face mail={item} size={16} /> : <span className="size-1.5 shrink-0 rounded-full bg-lime" />}
-      <span className={item.kind === "code" && item.code ? "truncate font-semibold tabular-nums tracking-[0.04em]" : "truncate"}>{label}</span>
+    <button onClick={onClick} title="Show this" className={cn(BTN, "h-6 min-w-0 max-w-[150px] gap-1.5 px-2 text-[12px]")}>
+      {item.kind === "mail" ? <Face mail={item} size={14} /> : null}
+      <span className={item.kind === "code" && item.code ? "truncate font-semibold tabular-nums" : "truncate"}>{label}</span>
     </button>
   );
 }
@@ -594,7 +516,7 @@ function Face({ mail, size }: { mail: DesktopMail; size: number }) {
   const [failed, setFailed] = useState(false);
   return (
     <span
-      className="relative grid shrink-0 place-items-center overflow-hidden rounded-full bg-white/25 font-medium text-frame-fg ring-1 ring-white/40"
+      className="relative grid shrink-0 place-items-center overflow-hidden rounded-full bg-pane-2 font-medium text-pane-fg"
       style={{ width: size, height: size, fontSize: size * 0.42 }}
     >
       {senderOf(mail).slice(0, 1).toUpperCase()}
@@ -606,43 +528,28 @@ function Face({ mail, size }: { mail: DesktopMail; size: number }) {
   );
 }
 
-function MailRow(props: { mail: DesktopMail; draft: boolean; open: boolean; replying: boolean; onReply: () => void; onArchive: () => void; onOpen: () => void }) {
+function MailRow(props: { mail: DesktopMail; draft: boolean; replying: boolean; onReply: () => void; onArchive: () => void; onOpen: () => void }) {
   const { mail } = props;
   return (
     <>
-      <Face mail={mail} size={26} />
-      <Says name={senderOf(mail)} accent={mail.count > 1 ? `${mail.count} new` : undefined} max={150} />
-      <span className="max-w-[220px] truncate text-[13px] text-frame-muted">{props.draft ? "Your reply is waiting" : mail.subject}</span>
+      <Face mail={mail} size={32} />
+      <Lines title={mail.count > 1 ? `${senderOf(mail)} · ${mail.count} new` : senderOf(mail)} under={props.draft ? "Your reply is waiting" : mail.subject} />
       {props.replying ? null : (
         <>
-          <button onClick={props.onReply} className={SOLID}>
-            <Icon icon={MailReply01Icon} size={14} />
+          <button onClick={props.onReply} className={PRIMARY}>
+            <Icon icon={MailReply01Icon} size={13} />
             {props.draft ? "Your reply" : "Reply"}
           </button>
-          {props.open ? (
-            <>
-              <button onClick={props.onArchive} className={FROST}>
-                <Icon icon={Archive02Icon} size={14} />
-                Archive
-              </button>
-              <button onClick={props.onOpen} className={FROST}>
-                Open
-              </button>
-            </>
-          ) : null}
+          <button onClick={props.onArchive} className={BTN}>
+            <Icon icon={Archive02Icon} size={13} />
+            Archive
+          </button>
+          <button onClick={props.onOpen} className={BTN}>
+            Open
+          </button>
         </>
       )}
     </>
-  );
-}
-
-/** The mail's first lines, on paper in the reading font. */
-function MailSheet({ mail }: { mail: DesktopMail }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="truncate text-[12px] text-pane-muted">{mail.subject}</div>
-      <p className="line-clamp-4 font-reading text-[14px] leading-relaxed">{mail.preview}</p>
-    </div>
   );
 }
 
@@ -650,9 +557,12 @@ function MailSheet({ mail }: { mail: DesktopMail }) {
 function ArchivedRow({ state, onUndo }: { state: Archived; onUndo: () => void }) {
   return (
     <>
-      <Says name={state === "archived" ? "Archived" : state === "restored" ? "Back in your Inbox" : "Couldn't do that."} accent={state === "failed" ? "Try it in Kite" : undefined} />
+      <Tile className="text-pane-muted">
+        <Icon icon={Archive02Icon} size={16} />
+      </Tile>
+      <Lines title={state === "archived" ? "Archived" : state === "restored" ? "Back in your Inbox" : "Couldn't do that"} under={state === "failed" ? "Try it in Kite" : undefined} />
       {state === "archived" ? (
-        <button onClick={onUndo} className={FROST}>
+        <button onClick={onUndo} className={BTN}>
           Undo
         </button>
       ) : null}
@@ -669,22 +579,28 @@ function untilLabel(start: string, now: number) {
   return `started ${Math.round(-seconds / 60)} min ago`;
 }
 
+/** How much of the last ten minutes before a meeting is left. */
+const meetingLeft = (meeting: DesktopMeeting, now: number) => Math.min(1, Math.max(0, (new Date(meeting.start).getTime() - now) / (10 * 60_000)));
+
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-/** How much of the last ten minutes before a meeting is left: the lime line drains to its start. */
-function meetingLine(meeting: DesktopMeeting, now: number) {
-  const left = new Date(meeting.start).getTime() - now;
-  return Math.min(1, Math.max(0, left / (10 * 60_000)));
-}
-
-function MeetingRow(props: { meeting: DesktopMeeting; now: number; joined: boolean; open: boolean; onJoin: () => void }) {
+function MeetingRow(props: { meeting: DesktopMeeting; now: number; joined: boolean; onJoin: () => void }) {
   const { meeting } = props;
+  const starts = untilLabel(meeting.start, props.now);
+  const when = `${timeOf(meeting.start)}${meeting.end ? ` – ${timeOf(meeting.end)}` : ""}`;
   return (
     <>
-      <Says name={meeting.title} accent={untilLabel(meeting.start, props.now)} max={240} />
+      {/* The ring runs down the last ten minutes before it starts. */}
+      <Tile className="text-accent" ring={meetingLeft(meeting, props.now)}>
+        <Icon icon={Video01Icon} size={16} />
+      </Tile>
+      <Lines
+        title={meeting.title}
+        under={[starts === "now" ? "Starting now" : starts.startsWith("started") ? capitalise(starts) : `Starts ${starts}`, when, meeting.place].filter(Boolean).join(" · ")}
+      />
       {meeting.join ? (
-        <button onClick={props.onJoin} className={SOLID}>
-          {props.joined ? <CopyIcon copied tint={false} /> : <Icon icon={Video01Icon} size={14} />}
+        <button onClick={props.onJoin} className={PRIMARY}>
+          {props.joined ? <CopyIcon copied tint={false} size={13} /> : <Icon icon={Video01Icon} size={13} />}
           Join
         </button>
       ) : null}
@@ -692,20 +608,26 @@ function MeetingRow(props: { meeting: DesktopMeeting; now: number; joined: boole
   );
 }
 
-function MeetingSheet({ meeting }: { meeting: DesktopMeeting }) {
+/** The code in cells, grouped in threes; copying lights them one after another. */
+function Digits({ code, copied }: { code: string; copied: boolean }) {
+  const chars = [...code];
   return (
-    <div className="flex items-center gap-3 text-[13px]">
-      <span className="tabular-nums">
-        {timeOf(meeting.start)}
-        {meeting.end ? ` – ${timeOf(meeting.end)}` : ""}
-      </span>
-      {meeting.place ? (
-        <span className="flex min-w-0 items-center gap-1 text-pane-muted">
-          <Icon icon={Location01Icon} size={13} className="shrink-0" />
-          <span className="truncate">{meeting.place}</span>
+    <span className="flex shrink-0 items-center gap-[3px] px-0.5" aria-label={code}>
+      {chars.map((char, index) => (
+        <span
+          key={index}
+          aria-hidden
+          style={{ transitionDelay: copied ? `${index * 30}ms` : "0ms" }}
+          className={cn(
+            "grid h-7 w-[19px] place-items-center rounded-md text-[15px] font-semibold tabular-nums transition-colors duration-150",
+            copied ? "bg-accent-soft text-accent" : "bg-pane-2",
+            index > 0 && index % 3 === 0 && chars.length > 4 && "ml-1.5",
+          )}
+        >
+          {char}
         </span>
-      ) : null}
-    </div>
+      ))}
+    </span>
   );
 }
 
@@ -716,7 +638,6 @@ function CodeRow(props: {
   code: DesktopCode;
   copied: string | null;
   picked: number | null;
-  open: boolean;
   onCopy: () => void;
   /** Types it into the field you're in (desktop app only). */
   onFill: () => void;
@@ -725,55 +646,57 @@ function CodeRow(props: {
 }) {
   const { code, copied, picked } = props;
   const choices = !code.code && code.choices?.length ? code.choices : null;
+  const tile = (
+    <Tile className="text-accent">
+      <Icon icon={Key01Icon} size={16} />
+    </Tile>
+  );
   if (picked !== null && code.choices?.[picked]) {
     return (
       <>
-        <span className="text-[17px] font-semibold tabular-nums tracking-[0.06em]">{code.choices[picked]}</span>
-        <Says name="Copied." accent={`Next time, the ${PART_WORDS[picked] ?? "same part"}`} />
+        {tile}
+        <Lines title={`Copied ${code.choices[picked]}`} under={`Next time Kite copies the ${PART_WORDS[picked] ?? "same part"}`} />
       </>
     );
   }
+  const copiedCode = copied !== null && copied !== "fill" && copied !== "open";
   return (
     <>
-      <Says name={code.service} accent={code.code || choices ? "sign-in code" : "sign-in link"} max={170} />
+      {tile}
+      <Lines title={code.service} under={choices ? "Which part is the code?" : code.code ? "Sign-in code" : hostOf(code.link) || "Sign-in link"} />
       {choices ? (
-        <>
-          <span className="text-[12.5px] text-frame-muted">Which part?</span>
-          {choices.map((value, index) => (
-            <button key={value} onClick={() => props.onPick(index)} className={cn(FROST, "font-semibold tabular-nums tracking-[0.04em]")}>
-              {copied === value ? <CopyIcon copied tint={false} /> : null}
-              {value}
-            </button>
-          ))}
-        </>
+        choices.map((value, index) => (
+          <button key={value} onClick={() => props.onPick(index)} className={cn(BTN, "font-semibold tabular-nums")}>
+            {copied === value ? <CopyIcon copied tint={false} size={13} /> : null}
+            {value}
+          </button>
+        ))
       ) : code.code ? (
         <>
-          <span className="px-1 text-[20px] font-semibold leading-none tabular-nums tracking-[0.06em]">{code.code}</span>
-          {/* Fill types it where you are (the bar never takes the keyboard); offered while it's open, in the desktop app. */}
-          {props.open && inDesktopApp() ? (
-            <button onClick={props.onFill} title="Type it into the field you're in" className={FROST}>
-              {copied === "fill" ? <CopyIcon copied tint={false} /> : <Icon icon={KeyboardIcon} size={14} />}
+          <Digits code={code.code} copied={copiedCode} />
+          {/* Fill types it where you are (the bar never takes the keyboard), in the desktop app. */}
+          {inDesktopApp() ? (
+            <button onClick={props.onFill} title="Type it into the field you're in" className={BTN}>
+              {copied === "fill" ? <CopyIcon copied tint={false} size={13} /> : <Icon icon={KeyboardIcon} size={13} />}
               {copied === "fill" ? "Filled" : "Fill"}
             </button>
           ) : null}
-          <button onClick={props.onCopy} className={SOLID}>
-            <CopyIcon copied={copied !== null && copied !== "fill"} tint={false} />
-            {copied !== null && copied !== "fill" ? "Copied" : "Copy"}
-          </button>
-          {code.link && props.open ? (
-            <button onClick={props.onOpen} className={FROST}>
-              Open link
+          {code.link ? (
+            <button onClick={props.onOpen} title={hostOf(code.link)} className={BTN}>
+              {copied === "open" ? <CopyIcon copied tint={false} size={13} /> : <Icon icon={LinkSquare02Icon} size={13} />}
+              Open
             </button>
           ) : null}
-        </>
-      ) : (
-        <>
-          <span className="max-w-[180px] truncate text-[13px] text-frame-muted">{hostOf(code.link)}</span>
-          <button onClick={props.onOpen} className={SOLID}>
-            {copied !== null ? <CopyIcon copied tint={false} /> : <Icon icon={LinkSquare02Icon} size={14} />}
-            Open link
+          <button onClick={props.onCopy} className={PRIMARY}>
+            <CopyIcon copied={copiedCode} tint={false} size={13} />
+            {copiedCode ? "Copied" : "Copy"}
           </button>
         </>
+      ) : (
+        <button onClick={props.onOpen} className={PRIMARY}>
+          {copied !== null ? <CopyIcon copied tint={false} size={13} /> : <Icon icon={LinkSquare02Icon} size={13} />}
+          Open link
+        </button>
       )}
     </>
   );

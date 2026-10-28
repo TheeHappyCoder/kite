@@ -845,6 +845,29 @@ export function inboxThreadsFromSender(email: string, accountId: string) {
   ).map((r) => r.id);
 }
 
+/** A stored message as bulk changes see it: its labels, sender and provider thread. */
+export type StoredMessage = { id: string; labels: string[]; from: string; remote: string };
+
+/**
+ * One account's stored messages, read in SQL so a bulk change needn't ask the provider about each:
+ * those from `senders`, those in Trash, or every one (`all`). Mail the local copy hasn't got isn't here.
+ */
+export function storedMessages(accountId: string, only: { senders: string[] } | "trash" | "all"): Map<string, StoredMessage> {
+  const narrow =
+    only === "all" ? "1" : only === "trash" ? HAS("TRASH") : only.senders.length ? `(${only.senders.map(() => "instr(lower(t.data), ?) > 0").join(" OR ")})` : "0";
+  const args = typeof only === "object" ? only.senders.map((s) => `"${s.toLowerCase()}"`) : [];
+  const rows = getDb()
+    .prepare(
+      `SELECT json_extract(m.value, '$.id') AS id, json_extract(m.value, '$.labels') AS labels, lower(json_extract(m.value, '$.from.email')) AS sender,
+         COALESCE(json_extract(m.value, '$.remoteThread'), t.remote_id) AS remote
+       FROM threads t, json_each(t.data, '$.messages') m WHERE t.account_id = ? AND ${narrow}`,
+    )
+    .all(accountId, ...args) as { id: string; labels: string | null; sender: string | null; remote: string }[];
+  const found = new Map<string, StoredMessage>();
+  for (const r of rows) found.set(r.id, { id: r.id, labels: r.labels ? (JSON.parse(r.labels) as string[]) : [], from: r.sender ?? "", remote: r.remote });
+  return found;
+}
+
 // ---------------------------------------------------------------------------
 // Files
 // ---------------------------------------------------------------------------

@@ -54,8 +54,8 @@ import { formatBytes, plural } from "@/lib/format";
 
 type Toast = { message: string; onUndo?: () => void };
 
-/** What a queue does to each sender: unsubscribe + archive, archive only, or block (which archives too). */
-type Run = "clean" | "archive" | "block" | "unsubscribe";
+/** What a queue does to each sender: unsubscribe, or block (which archives too). Archive and Trash go through mail-batch-dialog. */
+type Run = "block" | "unsubscribe";
 
 type QueueItem = { email: string; name: string; state: "waiting" | "running" | "done" | "failed" | "skipped"; note?: string; url?: string };
 
@@ -73,7 +73,24 @@ async function post<T>(body: unknown, url = "/api/senders", method = "POST"): Pr
 const nameOf = (s: Pick<SenderSummary, "name" | "email">) => s.name || s.email;
 
 /** Cleanup's state: the sender table, the picked and ticked senders, one sender's detail and the running queue. */
-export function useCleanup({ open, live, accountId, reloadKey, onToast, onBatch }: { open: boolean; live: boolean; accountId: string; reloadKey: number; onToast: (toast: Toast) => void; onBatch: (request: MailBatchRequest) => void }) {
+export function useCleanup({
+  open,
+  live,
+  accountId,
+  reloadKey,
+  onToast,
+  onBatch,
+  working,
+}: {
+  open: boolean;
+  live: boolean;
+  accountId: string;
+  reloadKey: number;
+  onToast: (toast: Toast) => void;
+  onBatch: (request: MailBatchRequest, options?: { unsubscribable?: number; quiet?: boolean }) => void;
+  /** The bulk change under way (mail-batch-dialog), so its buttons show they're working. */
+  working: MailBatchRequest | null;
+}) {
   const [own, setOwn] = useState(0);
   const key = `${accountId}:${reloadKey}:${own}`;
   const [data, setData] = useState<{ key: string; senders: SenderSummary[]; at: number } | null>(null);
@@ -184,7 +201,7 @@ export function useCleanup({ open, live, accountId, reloadKey, onToast, onBatch 
       const notes: string[] = [];
       let url: string | undefined;
       try {
-        if ((kind === "clean" || kind === "unsubscribe") && sender.canUnsubscribe && !sender.unsubscribedAt) {
+        if (kind === "unsubscribe" && sender.canUnsubscribe && !sender.unsubscribedAt) {
           const { result } = await post<{ result: UnsubscribeResult }>({ action: "unsubscribe", email: sender.email, account: accountId });
           if (result.done) {
             unsubscribed++;
@@ -195,10 +212,10 @@ export function useCleanup({ open, live, accountId, reloadKey, onToast, onBatch 
           } else notes.push("No way to unsubscribe");
         }
         if (kind === "unsubscribe") { update(i, { state: "done", note: notes.join(" · "), url }); continue; }
-        const res = await post<{ archived: number; undo?: string }>({ action: kind === "block" ? "block" : "archive", email: sender.email, account: accountId });
+        const res = await post<{ archived: number; undo?: string }>({ action: "block", email: sender.email, account: accountId });
         if (res.undo) undo.push(res.undo);
         archived += res.archived;
-        if (kind === "block") notes.push("Blocked");
+        notes.push("Blocked");
         notes.push(res.archived ? `${res.archived} archived` : "Inbox already clear");
         update(i, { state: "done", note: notes.join(" · "), url });
       } catch (error) {
@@ -230,7 +247,7 @@ export function useCleanup({ open, live, accountId, reloadKey, onToast, onBatch 
               ? `${only.name} is blocked`
               : unsubscribed
                 ? `Unsubscribed from ${only.name}`
-                : kind === "clean" || kind === "unsubscribe"
+                : kind === "unsubscribe"
                   ? `${only.name} doesn't offer a way to unsubscribe`
                   : null;
       onToast({ message: [lead, only.state === "failed" || kind === "unsubscribe" ? null : `${archived} archived`].filter(Boolean).join(" · "), onUndo });
@@ -290,8 +307,16 @@ export function useCleanup({ open, live, accountId, reloadKey, onToast, onBatch 
     queue,
     busy,
     run,
-    deleteMail: (emails: string[], unsubscribe = false) => onBatch({ account: accountId, action: "trash", senders: emails, inboxOnly: true, unsubscribe }),
-    archiveMail: (emails: string[]) => onBatch({ account: accountId, action: "archive", senders: emails, inboxOnly: true }),
+    /** Opens the Move to Trash sheet; "Unsubscribe too" is offered there when any of them can be. */
+    deleteMail: (emails: string[]) =>
+      onBatch(
+        { account: accountId, action: "trash", senders: emails, inboxOnly: true },
+        { unsubscribable: senders.filter((s) => emails.includes(s.email) && s.canUnsubscribe && !s.unsubscribedAt).length },
+      ),
+    /** Archive needs no sheet: it's undone as easily, so it starts at once with its progress in the corner. */
+    archiveMail: (emails: string[]) => onBatch({ account: accountId, action: "archive", senders: emails, inboxOnly: true }, { quiet: true }),
+    /** Whether a bulk change of this kind is working on any of these senders. */
+    working: (action: MailBatchRequest["action"], emails: string[]) => working?.action === action && !!working.senders?.some((e) => emails.includes(e)),
     stopQueue: () => {
       stop.current = true;
     },
@@ -747,7 +772,7 @@ function CleanupDetail({
 
   return (
     <section className="flex h-full flex-col overflow-y-auto bg-pane text-pane-fg scroll-fade">
-      <div key={sender.email} className="blur-fade-up mx-auto w-full max-w-[600px] px-5 pb-10 pt-6 sm:px-8">
+      <div key={sender.email} className="@container blur-fade-up mx-auto w-full max-w-[600px] px-5 pb-10 pt-6 sm:px-8">
         <header className="flex items-start gap-3.5">
           <span data-sensitive className="shrink-0">
             <Avatar name={name} email={sender.email} className="size-12 text-[15px]" />
@@ -771,18 +796,10 @@ function CleanupDetail({
                 if (!running) cleanup.keep([sender.email], !sender.keptAt);
               }}
             />
-            <CircleButton
-              icon={UserBlock01Icon}
-              label={sender.status === "blocked" ? "Blocked" : "Block this sender"}
-              active={sender.status === "blocked"}
-              onClick={() => {
-                if (!running && sender.status !== "blocked") setConfirmBlock(true);
-              }}
-            />
           </div>
         </header>
 
-        <div className="@container mt-5">
+        <div className="mt-5">
           <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-pane-border shadow-[0_0_0_1px_var(--pane-border)] @[22rem]:grid-cols-3">
             {stats.map((stat) => (
               <div key={stat.label} className="flex min-w-0 flex-col-reverse bg-pane-2 px-3.5 py-2.5">
@@ -793,100 +810,121 @@ function CleanupDetail({
           </dl>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {unsubscribe ? (
-            <PillButton icon={MailRemove01Icon} busy={running === "unsubscribe"} disabled={!!running} onClick={() => void cleanup.run("unsubscribe", [sender.email])}>
-              Unsubscribe
-            </PillButton>
-          ) : null}
-          <PillButton
-            icon={Archive02Icon}
-            busy={running === "archive"}
-            disabled={!sender.inInbox || !!running}
-            onClick={() => cleanup.archiveMail([sender.email])}
-          >
-            {sender.inInbox ? `Archive ${sender.inInbox} in inbox` : "Inbox clear"}
-          </PillButton>
-          <PillButton primary icon={Delete02Icon} disabled={!!running} onClick={() => cleanup.deleteMail([sender.email])}>Delete…</PillButton>
-          {unsubscribe ? <PillButton icon={MailRemove01Icon} disabled={!!running} onClick={() => cleanup.deleteMail([sender.email], true)}>Unsubscribe and delete…</PillButton> : null}
-          {detail?.archiveRule ? null : (
-            <PillButton icon={WorkflowSquare03Icon} disabled={ruleOpen} onClick={() => setRuleOpen(true)}>
-              Archive future mail
-            </PillButton>
-          )}
-        </div>
-
-        <AnimatePresence mode="popLayout" initial={false}>
-          {confirmBlock
-            ? confirmPanel(
-                "block",
-                <>Block {name}? Everything they&apos;ve sent leaves your inbox, and future mail is archived as it arrives.</>,
-                "Block sender",
-                () => {
-                  setConfirmBlock(false);
-                  void cleanup.run("block", [sender.email]);
-                },
-                () => setConfirmBlock(false),
-              )
-            : ruleOpen && !detail?.archiveRule
-              ? confirmPanel(
-                  "rule",
-                  <>New mail from {name} skips your inbox. Kite adds an automation you can change or remove in Automations.</>,
-                  "Add automation",
-                  () => {
-                    setSaving(true);
-                    void cleanup.archiveFuture(sender, gmail && gmailOk && gmailAccounts.length > 0).finally(() => {
-                      setSaving(false);
-                      setRuleOpen(false);
-                    });
-                  },
-                  () => setRuleOpen(false),
-                  gmailAccounts.length ? (
-                    <div className="mt-3 flex items-center gap-3">
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-medium">Also run in Gmail</span>
-                        <span className="block text-pane-muted">{gmailCheck.ok ? "A Gmail filter archives their mail even while Kite is closed." : gmailCheck.reason}</span>
-                      </span>
-                      <Switch value={gmail && gmailOk} onChange={setGmail} disabled={!gmailOk} label="Also run in Gmail" size="sm" />
-                    </div>
-                  ) : null,
-                  saving,
-                )
-              : null}
-        </AnimatePresence>
-
-        {detail?.archiveRule ? (
-          <button
-            onClick={onOpenRules}
-            className="mt-3 flex w-full items-center gap-2.5 rounded-2xl bg-pane-2 px-3.5 py-2.5 text-left text-[12.5px] transition-colors duration-150 hover:bg-pane-hover"
-          >
-            <Icon icon={WorkflowSquare03Icon} size={15} className="shrink-0 text-pane-muted" />
-            <span className="min-w-0 flex-1 truncate">
-              New mail skips your inbox: automation “{detail.archiveRule.name}”{detail.archiveRule.enabled ? "" : " (paused)"}
-            </span>
-            <span className="shrink-0 font-medium text-pane-muted">Edit</span>
-          </button>
-        ) : null}
-
-        {stillSending ? (
-          <div className="mt-3 flex items-start gap-2.5 rounded-2xl bg-warning/10 px-3.5 py-3 text-[12.5px]">
-            <Icon icon={Alert02Icon} size={15} className="mt-px shrink-0 text-warning" />
-            <p className="min-w-0 flex-1 text-pane-fg/85">
-              <span className="font-medium text-pane-fg">Still sending.</span> {plural(sender.sinceUnsubscribe, "email")} arrived more than {UNSUBSCRIBE_GRACE_DAYS} days
-              after you unsubscribed on {formatListDate(sender.unsubscribedAt!)}.{" "}
-              {!confirmBlock ? (
-                <button
-                  onClick={() => setConfirmBlock(true)}
-                  disabled={!!running}
-                  className="font-medium text-pane-fg underline decoration-pane-muted underline-offset-2 hover:decoration-pane-fg"
-                >
-                  Block them
-                </button>
-              ) : null}
-            </p>
+        <ActionGroup title="Their emails">
+          <div className="grid grid-cols-1 gap-2 @[26rem]:grid-cols-2">
+            <ActionTile
+              icon={Archive02Icon}
+              title={sender.inInbox ? `Archive ${plural(sender.inInbox, "email")}` : "Inbox is clear"}
+              detail={sender.inInbox ? "Out of your inbox, kept in All mail" : "Nothing of theirs is in your inbox"}
+              busy={cleanup.working("archive", [sender.email])}
+              disabled={!sender.inInbox || !!running}
+              onClick={() => cleanup.archiveMail([sender.email])}
+            />
+            <ActionTile
+              icon={Delete02Icon}
+              title="Move to Trash"
+              detail="Pick inbox or everything next; restore any time"
+              busy={cleanup.working("trash", [sender.email])}
+              disabled={!!running}
+              onClick={() => cleanup.deleteMail([sender.email])}
+            />
           </div>
-        ) : null}
+        </ActionGroup>
 
+        <ActionGroup title="From now on">
+          <ul className="overflow-hidden rounded-2xl border border-pane-border">
+            {sender.canUnsubscribe || sender.unsubscribedAt ? (
+              <ChoiceRow
+                icon={MailRemove01Icon}
+                title="Unsubscribe"
+                detail={sender.unsubscribedAt ? `You unsubscribed on ${formatListDate(sender.unsubscribedAt)}` : "Ask them to stop sending"}
+              >
+                {unsubscribe ? (
+                  <RowButton busy={running === "unsubscribe"} disabled={!!running} onClick={() => void cleanup.run("unsubscribe", [sender.email])}>
+                    Unsubscribe
+                  </RowButton>
+                ) : (
+                  <Done>Done</Done>
+                )}
+              </ChoiceRow>
+            ) : null}
+            <ChoiceRow
+              icon={WorkflowSquare03Icon}
+              title="Skip the inbox"
+              detail={
+                detail?.archiveRule
+                  ? `Automation “${detail.archiveRule.name}”${detail.archiveRule.enabled ? "" : " (paused)"}`
+                  : "New mail from them goes straight to All mail"
+              }
+            >
+              {detail?.archiveRule ? (
+                <RowButton onClick={onOpenRules}>Edit</RowButton>
+              ) : (
+                <RowButton disabled={ruleOpen} onClick={() => setRuleOpen(true)}>
+                  Set up
+                </RowButton>
+              )}
+            </ChoiceRow>
+            <ChoiceRow icon={UserBlock01Icon} title="Block" detail="Everything they send is archived, now and as it arrives">
+              {sender.status === "blocked" ? (
+                <Done>Blocked</Done>
+              ) : (
+                <RowButton busy={running === "block"} disabled={!!running || confirmBlock} onClick={() => setConfirmBlock(true)}>
+                  Block
+                </RowButton>
+              )}
+            </ChoiceRow>
+          </ul>
+
+          <AnimatePresence mode="popLayout" initial={false}>
+            {confirmBlock
+              ? confirmPanel(
+                  "block",
+                  <>Block {name}? Everything they&apos;ve sent leaves your inbox, and future mail is archived as it arrives.</>,
+                  "Block sender",
+                  () => {
+                    setConfirmBlock(false);
+                    void cleanup.run("block", [sender.email]);
+                  },
+                  () => setConfirmBlock(false),
+                )
+              : ruleOpen && !detail?.archiveRule
+                ? confirmPanel(
+                    "rule",
+                    <>New mail from {name} skips your inbox. Kite adds an automation you can change or remove in Automations.</>,
+                    "Add automation",
+                    () => {
+                      setSaving(true);
+                      void cleanup.archiveFuture(sender, gmail && gmailOk && gmailAccounts.length > 0).finally(() => {
+                        setSaving(false);
+                        setRuleOpen(false);
+                      });
+                    },
+                    () => setRuleOpen(false),
+                    gmailAccounts.length ? (
+                      <div className="mt-3 flex items-center gap-3">
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-medium">Also run in Gmail</span>
+                          <span className="block text-pane-muted">{gmailCheck.ok ? "A Gmail filter archives their mail even while Kite is closed." : gmailCheck.reason}</span>
+                        </span>
+                        <Switch value={gmail && gmailOk} onChange={setGmail} disabled={!gmailOk} label="Also run in Gmail" size="sm" />
+                      </div>
+                    ) : null,
+                    saving,
+                  )
+                : null}
+          </AnimatePresence>
+
+          {stillSending ? (
+            <div className="mt-3 flex items-start gap-2.5 rounded-2xl bg-warning/10 px-3.5 py-3 text-[12.5px]">
+              <Icon icon={Alert02Icon} size={15} className="mt-px shrink-0 text-warning" />
+              <p className="min-w-0 flex-1 text-pane-fg/85">
+                <span className="font-medium text-pane-fg">Still sending.</span> {plural(sender.sinceUnsubscribe, "email")} arrived more than {UNSUBSCRIBE_GRACE_DAYS} days
+                after you unsubscribed. Blocking them stops it.
+              </p>
+            </div>
+          ) : null}
+        </ActionGroup>
         {detail?.recent.length ? (
           <section className="mt-7" data-sensitive>
             <h3 className="pb-1.5 text-[11px] font-medium uppercase tracking-wider text-pane-muted">Recent</h3>
@@ -912,40 +950,81 @@ function CleanupDetail({
   );
 }
 
-/** A compact action pill: filled for the main action, outlined for the rest. */
-function PillButton({
-  children,
-  icon,
-  primary,
-  busy,
-  disabled,
-  onClick,
-}: {
-  children: React.ReactNode;
-  icon: IconData;
-  primary?: boolean;
-  busy?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
+/** A heading over one kind of choice: what's here now, or what happens from now on. */
+function ActionGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mt-6">
+      <h3 className="pb-2 text-[11px] font-medium uppercase tracking-wider text-pane-muted">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+/** A big choice for mail that's already here: icon, what it does, and one line on what that means. */
+function ActionTile({ icon, title, detail, busy, disabled, onClick }: { icon: IconData; title: string; detail: string; busy?: boolean; disabled?: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       disabled={busy || disabled}
+      aria-busy={busy || undefined}
       className={cn(
-        "flex h-9 min-w-0 items-center gap-2 rounded-full px-4 text-[13px] font-medium transition-[opacity,transform,background-color] duration-150 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45",
-        primary ? "bg-pane-fg text-pane hover:opacity-90" : "border border-pane-border hover:bg-pane-hover",
+        "flex min-w-0 items-center gap-3 rounded-2xl border border-pane-border p-3 text-left transition-[opacity,transform,background-color] duration-150 hover:bg-pane-hover active:scale-[0.98] disabled:pointer-events-none touch:p-3.5",
+        disabled && !busy && "opacity-50",
       )}
     >
-      {busy ? <Spinner size={14} /> : <Icon icon={icon} size={15} className="shrink-0" />}
-      <span className="truncate">{children}</span>
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-pane-2">{busy ? <Spinner size={16} /> : <Icon icon={icon} size={18} />}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13.5px] font-medium leading-snug">{title}</span>
+        <span className="block text-[12px] leading-snug text-pane-muted">{detail}</span>
+      </span>
     </button>
+  );
+}
+
+/** One row of "From now on": what it is on the left, its button on the right. */
+function ChoiceRow({ icon, title, detail, children }: { icon: IconData; title: string; detail: string; children: React.ReactNode }) {
+  return (
+    <li className="flex items-center gap-3 px-3.5 py-3 [&+&]:border-t [&+&]:border-pane-border">
+      <Icon icon={icon} size={18} className="shrink-0 text-pane-muted" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13.5px] font-medium leading-snug">{title}</span>
+        <span className="block text-[12px] leading-snug text-pane-muted">{detail}</span>
+      </span>
+      {children}
+    </li>
+  );
+}
+
+function RowButton({ children, busy, disabled, onClick }: { children: React.ReactNode; busy?: boolean; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={busy || disabled}
+      aria-busy={busy || undefined}
+      className={cn(
+        "flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-pane-border px-3.5 text-[12.5px] font-medium transition-[opacity,transform,background-color] duration-150 hover:bg-pane-hover active:scale-[0.97] disabled:pointer-events-none touch:h-10",
+        disabled && !busy && "opacity-50",
+      )}
+    >
+      {busy ? <Spinner size={13} /> : null}
+      {children}
+    </button>
+  );
+}
+
+/** A choice already made, where its button would be. */
+function Done({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="flex shrink-0 items-center gap-1 px-1 text-[12.5px] font-medium text-success">
+      <Icon icon={Tick02Icon} size={14} />
+      {children}
+    </span>
   );
 }
 
 /** Several ticked senders: one confirm for anything that can't be taken back, then the queue. */
 function BulkPanel({ cleanup, senders }: { cleanup: CleanupState; senders: SenderSummary[] }) {
-  const [confirm, setConfirm] = useState<"clean" | "block" | null>(null);
+  const [confirm, setConfirm] = useState<"block" | null>(null);
   const emails = senders.map((s) => s.email);
   const inInbox = senders.reduce((n, s) => n + s.inInbox, 0);
   const total = senders.reduce((n, s) => n + s.emails, 0);
@@ -980,53 +1059,67 @@ function BulkPanel({ cleanup, senders }: { cleanup: CleanupState; senders: Sende
           {senders.length > shown.length ? <li className="px-3 py-2 text-[12px] text-pane-muted">and {senders.length - shown.length} more</li> : null}
         </ul>
 
-        <div className="blur-fade-up mt-4 flex flex-col gap-2" style={{ "--i": 3 } as React.CSSProperties}>
-          <AnimatePresence mode="popLayout" initial={false}>
-            {confirm ? (
-              <motion.div key={confirm} {...blurFade({ y: 4 })} className="rounded-2xl border border-warning/40 bg-warning/5 p-3 text-[12.5px]">
-                <p className="text-pane-fg/85">
-                  {confirm === "clean"
-                    ? `Unsubscribe from ${plural(canUnsubscribe, "sender")} and archive ${plural(inInbox, "email")}? Unsubscribing can't be taken back; the archive can.`
-                    : `Block ${plural(senders.length, "sender")}? Their ${plural(inInbox, "email")} leave your inbox, and future mail is archived as it arrives.`}
-                </p>
-                <div className="mt-2.5 flex gap-2">
-                  <button
-                    onClick={() => {
-                      setConfirm(null);
-                      void cleanup.run(confirm, emails);
-                    }}
-                    className="h-8 rounded-full bg-pane-fg px-4 text-[12.5px] font-medium text-pane hover:opacity-90"
-                  >
-                    {confirm === "clean" ? "Unsubscribe and archive" : "Block senders"}
-                  </button>
-                  <button onClick={() => setConfirm(null)} className="h-8 rounded-full px-3 text-[12.5px] text-pane-muted hover:text-pane-fg">
-                    Cancel
-                  </button>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div key="actions" {...blurFade({ y: -4 })} className="flex flex-col gap-2">
-                {canUnsubscribe ? (
-                  <ActionButton icon={MailRemove01Icon} onClick={() => void cleanup.run("unsubscribe", emails)}>
-                    Unsubscribe
-                  </ActionButton>
-                ) : null}
-                <ActionButton primary icon={Delete02Icon} onClick={() => cleanup.deleteMail(emails)}>Delete…</ActionButton>
-                {canUnsubscribe ? <ActionButton icon={MailRemove01Icon} onClick={() => cleanup.deleteMail(emails, true)}>Unsubscribe and delete…</ActionButton> : null}
-                <ActionButton icon={Archive02Icon} disabled={!inInbox} onClick={() => cleanup.archiveMail(emails)}>
-                  {inInbox ? `Archive all ${inInbox} in inbox` : "Nothing left in your inbox"}
-                </ActionButton>
-                <div className="grid grid-cols-2 gap-2">
-                  <ActionButton icon={ThumbsUpIcon} onClick={() => cleanup.keep(emails, true)}>
-                    Keep
-                  </ActionButton>
-                  <ActionButton icon={UserBlock01Icon} onClick={() => setConfirm("block")}>
-                    Block
-                  </ActionButton>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+        <div className="@container blur-fade-up" style={{ "--i": 3 } as React.CSSProperties}>
+          <ActionGroup title="Their emails">
+            <div className="grid grid-cols-1 gap-2">
+              <ActionTile
+                icon={Archive02Icon}
+                title={inInbox ? `Archive ${plural(inInbox, "email")}` : "Inbox is clear"}
+                detail={inInbox ? "Out of your inbox, kept in All mail" : "Nothing of theirs is in your inbox"}
+                busy={cleanup.working("archive", emails)}
+                disabled={!inInbox}
+                onClick={() => cleanup.archiveMail(emails)}
+              />
+              <ActionTile
+                icon={Delete02Icon}
+                title="Move to Trash"
+                detail="Pick inbox or everything next; restore any time"
+                busy={cleanup.working("trash", emails)}
+                onClick={() => cleanup.deleteMail(emails)}
+              />
+            </div>
+          </ActionGroup>
+
+          <ActionGroup title="From now on">
+            <ul className="overflow-hidden rounded-2xl border border-pane-border">
+              {canUnsubscribe ? (
+                <ChoiceRow icon={MailRemove01Icon} title="Unsubscribe" detail={`Ask ${plural(canUnsubscribe, "sender")} to stop`}>
+                  <RowButton onClick={() => void cleanup.run("unsubscribe", emails)}>Unsubscribe</RowButton>
+                </ChoiceRow>
+              ) : null}
+              <ChoiceRow icon={UserBlock01Icon} title="Block" detail="Their mail is archived, now and as it arrives">
+                <RowButton disabled={!!confirm} onClick={() => setConfirm("block")}>
+                  Block
+                </RowButton>
+              </ChoiceRow>
+              <ChoiceRow icon={ThumbsUpIcon} title="Keep" detail="Stop suggesting them in Cleanup">
+                <RowButton onClick={() => cleanup.keep(emails, true)}>Keep</RowButton>
+              </ChoiceRow>
+            </ul>
+            <AnimatePresence mode="popLayout" initial={false}>
+              {confirm ? (
+                <motion.div key={confirm} {...blurFade({ y: 4 })} className="mt-3 rounded-2xl border border-pane-border bg-pane-2 p-3.5 text-[12.5px]">
+                  <p className="text-pane-fg/85">
+                    Block {plural(senders.length, "sender")}? Their {plural(inInbox, "email")} leave your inbox, and future mail is archived as it arrives.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => {
+                        setConfirm(null);
+                        void cleanup.run("block", emails);
+                      }}
+                      className="h-8 rounded-full bg-pane-fg px-4 text-[12.5px] font-medium text-pane transition-opacity duration-150 hover:opacity-90"
+                    >
+                      Block senders
+                    </button>
+                    <button onClick={() => setConfirm(null)} className="h-8 rounded-full px-3 text-[12.5px] text-pane-muted transition-colors duration-150 hover:text-pane-fg">
+                      Cancel
+                    </button>
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </ActionGroup>
         </div>
 
         <button
@@ -1043,8 +1136,6 @@ function BulkPanel({ cleanup, senders }: { cleanup: CleanupState; senders: Sende
 
 const RUN_TITLES: Record<Run, [string, string]> = {
   unsubscribe: ["Unsubscribing", "Unsubscribed"],
-  clean: ["Unsubscribing and archiving", "Cleaned up"],
-  archive: ["Archiving", "Archived"],
   block: ["Blocking", "Blocked"],
 };
 
@@ -1113,35 +1204,5 @@ function QueuePanel({ cleanup, queue }: { cleanup: CleanupState; queue: Queue })
         </div>
       </div>
     </section>
-  );
-}
-
-function ActionButton({
-  children,
-  icon,
-  primary,
-  busy,
-  disabled,
-  onClick,
-}: {
-  children: React.ReactNode;
-  icon: IconData;
-  primary?: boolean;
-  busy?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={busy || disabled}
-      className={cn(
-        "flex h-11 w-full min-w-0 items-center justify-center gap-2 rounded-full px-4 text-[13.5px] font-medium transition-[opacity,transform,background-color] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50",
-        primary ? "bg-pane-fg text-pane hover:opacity-90" : "border border-pane-border hover:bg-pane-hover",
-      )}
-    >
-      {busy ? <Spinner size={16} /> : <Icon icon={icon} size={16} className="shrink-0" />}
-      <span className="truncate">{children}</span>
-    </button>
   );
 }

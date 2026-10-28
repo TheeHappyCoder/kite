@@ -198,7 +198,7 @@ export function MailApp() {
   const listVisible = state.view.kind === "mailbox" || state.view.kind === "label";
   const selected = useMemo(() => shownThread(state, state.selectedId), [state]);
 
-  const mailBatch = useMailBatch(setToast, reload);
+  const mailBatch = useMailBatch({ accounts, onToast: setToast, onChanged: reload });
   const permanentDelete = (targets: Thread[]) => {
     if (!live) { setToast({ message: "Permanent deletion is available for connected mail accounts." }); return; }
     mailBatch.open({ account: state.accountId, action: "permanent", threads: targets.map((t) => ({ account: t.accountId, id: threadKey(t) })) });
@@ -473,7 +473,7 @@ export function MailApp() {
   });
 
   // Cleanup: the sender table comes straight from the local store.
-  const cleanupState = useCleanup({ open: cleanup, live, accountId: state.accountId, reloadKey, onToast: setToast, onBatch: mailBatch.open });
+  const cleanupState = useCleanup({ open: cleanup, live, accountId: state.accountId, reloadKey, onToast: setToast, onBatch: mailBatch.open, working: mailBatch.working });
 
   const { todayData, todayNow, todayCount } = useToday({
     ready: mode !== "loading",
@@ -1189,7 +1189,8 @@ export function MailApp() {
           markAllRead={inboxTab && sideCounts[state.side] ? { label: tabLabel, onSelect: markAllRead } : null}
         />
 
-        {mailBatch.dialog}
+        {mailBatch.sheet}
+        {mailBatch.pill}
         <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
         <LabelPicker
