@@ -886,6 +886,8 @@ export function MailApp() {
     onCreateSpace: spaces.create,
     onUpdateSpace: (id: string, patch: { name?: string; color?: string; parentId?: string | null }) => void spaces.update(id, patch),
     onDeleteSpace: (id: string) => void spaces.remove(id),
+    onNestSpace: (id: string, parentId: string) => void spaces.nest(id, parentId),
+    onPlaceSpace: (id: string, targetId: string, before: boolean) => void spaces.placeNear(id, targetId, before),
     onDropOnSpace: (id: string, ids: string[], move: boolean) => {
       const from = state.view.kind === "space" && state.view.spaceId !== id ? [state.view.spaceId] : [];
       void spaces.put(shownThreads(ids), id, { move, from: move ? from : [] });

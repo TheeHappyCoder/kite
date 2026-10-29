@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { withSpaces, type ThreadOverride } from "@/lib/mail/overrides";
 import type { MailAction, MailState, View } from "@/lib/mail/store";
 import type { Thread } from "@/lib/mail/types";
-import { spaceLabel, within, type Space, type SpacePatch } from "@/lib/spaces";
+import { placeBeside, placeProblem, siblingsOf, spaceLabel, within, type Space, type SpacePatch } from "@/lib/spaces";
 import { postJson, type Reload, type SetToast } from "./util";
 
 const RECENT_KEY = "kite-spaces-recent";
@@ -237,7 +237,67 @@ export function useSpaces({
     [setSpaces, setToast],
   );
 
-  return { recent, create, update, remove, put, takeOut, order };
+  /** Moves a space (with its pockets) under `parentId` at that level's `order`: shown at once, then saved. */
+  const relocate = useCallback(
+    async (id: string, parentId: string | null, nextOrder: string[]): Promise<boolean> => {
+      const before = spacesRef.current;
+      const position = new Map(nextOrder.map((s, i) => [s, i]));
+      setSpaces(before.map((s) => (s.id === id ? { ...s, parentId, position: position.get(s.id) ?? s.position } : position.has(s.id) ? { ...s, position: position.get(s.id)! } : s)));
+      try {
+        if (before.find((s) => s.id === id)?.parentId !== parentId) await send(`/api/spaces/${encodeURIComponent(id)}`, "PATCH", { parentId });
+        const res = await send<{ spaces: Space[] }>("/api/spaces", "PUT", { order: nextOrder });
+        setSpaces(res.spaces);
+        return true;
+      } catch (error) {
+        setSpaces(before);
+        setToast({ message: error instanceof Error ? error.message : "Couldn't move that space." });
+        return false;
+      }
+    },
+    [setSpaces, setToast],
+  );
+
+  /**
+   * Moves a space (with its pockets) to `parentId` (null: a space of its own) at that level's `order`,
+   * with Undo. Refused with the reason when it can't go there.
+   */
+  const arrange = useCallback(
+    async (id: string, parentId: string | null, nextOrder: string[]) => {
+      const before = spacesRef.current;
+      const space = before.find((s) => s.id === id);
+      if (!space) return;
+      const problem = placeProblem(before, id, parentId);
+      if (problem) {
+        setToast({ message: problem });
+        return;
+      }
+      const wasParent = space.parentId;
+      const wasOrder = siblingsOf(before, wasParent).map((s) => s.id);
+      if (!(await relocate(id, parentId, nextOrder))) return;
+      setToast({
+        message: wasParent === parentId ? `Moved ${space.name}` : parentId ? `${space.name} is now a pocket in ${nameOf(parentId)}` : `${space.name} is a space of its own now`,
+        onUndo: () => void relocate(id, wasParent, wasOrder),
+      });
+    },
+    [relocate, setToast, nameOf],
+  );
+
+  /** A space dropped on another: it becomes a pocket there, last in line. */
+  const nest = useCallback(
+    (id: string, parentId: string) => arrange(id, parentId, [...siblingsOf(spacesRef.current, parentId).map((s) => s.id).filter((s) => s !== id), id]),
+    [arrange],
+  );
+
+  /** A space dropped in the gap before or after another: beside it, at its level. */
+  const placeNear = useCallback(
+    (id: string, targetId: string, before: boolean) => {
+      const { parentId, order: next } = placeBeside(spacesRef.current, id, targetId, before);
+      return arrange(id, parentId, next);
+    },
+    [arrange],
+  );
+
+  return { recent, create, update, remove, put, takeOut, order, nest, placeNear };
 }
 
 export type SpacesApi = ReturnType<typeof useSpaces>;

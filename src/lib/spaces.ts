@@ -112,6 +112,52 @@ export function spaceLabel(spaces: Pick<Space, "id" | "parentId" | "name">[], id
     .join(" / ");
 }
 
+/** Its siblings in order: the spaces (or pockets) beside it, itself included. */
+export function siblingsOf<T extends Pick<Space, "id" | "parentId" | "position" | "name">>(spaces: T[], parentId: string | null): T[] {
+  return spaces.filter((s) => (s.parentId ?? null) === parentId).sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+}
+
+/** How many levels of pockets a space holds below it (0: none). */
+function heightOf(spaces: Pick<Space, "id" | "parentId">[], id: string): number {
+  const pockets = spaces.filter((s) => s.parentId === id);
+  return pockets.length ? 1 + Math.max(...pockets.map((p) => heightOf(spaces, p.id))) : 0;
+}
+
+/**
+ * Whether a space (with its pockets) can go inside `parentId` (null: the top, a space of its own).
+ * Null when it can; otherwise the reason, said plainly, for the toast.
+ */
+export function placeProblem(spaces: Pick<Space, "id" | "parentId" | "name">[], id: string, parentId: string | null): string | null {
+  const space = spaces.find((s) => s.id === id);
+  if (!space) return "That space isn't there any more.";
+  if (!parentId) return null;
+  const parent = spaces.find((s) => s.id === parentId);
+  if (!parent) return "That space isn't there any more.";
+  if (parentId === id) return `${space.name} can't go inside itself.`;
+  if (within(spaces, id).has(parentId)) return `${space.name} can't go inside one of its own pockets.`;
+  if (spaceDepth(spaces, parentId) + 1 + heightOf(spaces, id) > SPACE_DEPTH - 1) {
+    return heightOf(spaces, id)
+      ? `${space.name} and its pockets would go deeper than ${SPACE_DEPTH} levels.`
+      : `Pockets go ${SPACE_DEPTH} levels deep at most.`;
+  }
+  return null;
+}
+
+/**
+ * Dropping a space beside another (`before` or after it): where it lands (the target's parent) and
+ * that level's new order. The order leaves out nothing and repeats nothing.
+ */
+export function placeBeside<T extends Pick<Space, "id" | "parentId" | "position" | "name">>(spaces: T[], id: string, targetId: string, before: boolean) {
+  const target = spaces.find((s) => s.id === targetId);
+  const parentId = target?.parentId ?? null;
+  const order = siblingsOf(spaces, parentId)
+    .map((s) => s.id)
+    .filter((s) => s !== id);
+  const at = order.indexOf(targetId);
+  order.splice(at < 0 ? order.length : before ? at : at + 1, 0, id);
+  return { parentId, order };
+}
+
 /** What a space view shows: its conversations, the files in them, or the people in them. */
 export const SPACE_TABS = [
   { id: "conversations", label: "Conversations" },
@@ -153,3 +199,6 @@ export function spacePeople(threads: Thread[], own: Set<string>): SpacePerson[] 
 
 /** Conversations being dragged from the list (a JSON array of Kite thread ids). */
 export const THREAD_DRAG = "application/x-kite-threads";
+
+/** A space being dragged in the sidebar (its id), kept apart from conversations. */
+export const SPACE_DRAG = "application/x-kite-space";

@@ -56,7 +56,7 @@ Built: When → Read → Check → Do, collections with month totals and coming 
 
 - **Codes:** a list of recent codes in the app (today only the code bar, desktop toasts and tray show them)
 - **Search:** `from:` / `to:` suggestions for people only in mail Kite hasn't stored; OCR for scanned documents; old binary `.doc` extraction
-- **Spaces:** notes and contacts kept in a space, drag a space onto another to nest it and reorder by dragging (PUT /api/spaces is there), a space in the command palette and the narrow-window switcher, fold Collections into spaces (a collection as a table inside one), an optional mirror as a label / folder at the provider
+- **Spaces:** notes and contacts kept in a space, a space in the command palette and the narrow-window switcher, fold Collections into spaces (a collection as a table inside one), an optional mirror as a label / folder at the provider
 - **Threads:** split from the chat view; merge suggestions (same subject, different provider threads); follow-up nudges per split part (both halves show them today); "Mute and archive"
 - **Reply tracking:** read List-Id (lists without List-Unsubscribe count as people today); match the account's aliases as "you"
 - **People:** reply times by hour of day; the panel remembering it was open

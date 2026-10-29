@@ -32,11 +32,7 @@ export function setThreadDragImage(e: React.DragEvent<HTMLElement>, { sender, su
   const extra = count - shown;
   const initial = (sender.trim()[0] ?? "?").toUpperCase();
 
-  const look = getComputedStyle(e.currentTarget);
-  const card = document.createElement("div");
-  card.setAttribute("data-sensitive", "");
-  card.setAttribute("aria-hidden", "true");
-  for (const name of VARS) card.style.setProperty(name, look.getPropertyValue(name));
+  const card = cardShell(e, { width: 240, height: 50 });
 
   const sheet = (i: number, content: string) => {
     const { rotate, x, y } = FAN[i];
@@ -53,12 +49,28 @@ export function setThreadDragImage(e: React.DragEvent<HTMLElement>, { sender, su
     ? `<span style="position:absolute;top:-8px;right:-8px;padding:0 8px;height:22px;display:grid;place-items:center;border-radius:999px;background:var(--lime);color:var(--lime-fg);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--pane)">+${extra}</span>`
     : "";
   card.innerHTML = `${behind}${sheet(0, front)}${more}`;
+
+  // The rows being dragged step back, until the drag ends.
+  const rows = new Set(ids);
+  followPointer(e, card, {
+    start: () => document.querySelectorAll<HTMLElement>("[data-thread]").forEach((row) => rows.has(row.dataset.thread ?? "") && row.setAttribute("data-dragging", "")),
+    end: () => document.querySelectorAll("[data-dragging]").forEach((row) => row.removeAttribute("data-dragging")),
+  });
+}
+
+/** A card on its own: the drag look shared by conversations and spaces (fixed, see-through until shown). */
+function cardShell(e: React.DragEvent<HTMLElement>, { width, height }: { width: number; height: number }) {
+  const look = getComputedStyle(e.currentTarget);
+  const card = document.createElement("div");
+  card.setAttribute("data-sensitive", "");
+  card.setAttribute("aria-hidden", "true");
+  for (const name of VARS) card.style.setProperty(name, look.getPropertyValue(name));
   Object.assign(card.style, {
     position: "fixed",
     top: "0",
     left: "0",
-    width: "240px",
-    height: "50px",
+    width: `${width}px`,
+    height: `${height}px`,
     zIndex: "2147483647",
     pointerEvents: "none",
     fontFamily: "var(--font-ui, system-ui), system-ui, sans-serif",
@@ -66,10 +78,15 @@ export function setThreadDragImage(e: React.DragEvent<HTMLElement>, { sender, su
     transition: "opacity 120ms ease",
     willChange: "transform",
   });
+  return card;
+}
 
+/**
+ * Swaps the browser's ghost for `card`, which then hangs a little below and right of the pointer
+ * until the drag ends. `start` / `end` run as it appears and goes.
+ */
+function followPointer(e: React.DragEvent<HTMLElement>, card: HTMLElement, hooks: { start?: () => void; end?: () => void } = {}) {
   e.dataTransfer.setDragImage(emptyImage(), 0, 0);
-
-  // Where the pointer took hold: the card hangs from there, a little below and right of it.
   const place = (x: number, y: number) => {
     card.style.transform = `translate(${x + 12}px, ${y + 10}px)`;
   };
@@ -79,17 +96,14 @@ export function setThreadDragImage(e: React.DragEvent<HTMLElement>, { sender, su
     place(ev.clientX, ev.clientY);
   };
   place(e.clientX, e.clientY);
-
-  // The rows being dragged step back, until the drag ends.
-  const rows = new Set(ids);
   const start = () => {
     document.body.appendChild(card);
     requestAnimationFrame(() => (card.style.opacity = "1"));
-    document.querySelectorAll<HTMLElement>("[data-thread]").forEach((row) => rows.has(row.dataset.thread ?? "") && row.setAttribute("data-dragging", ""));
+    hooks.start?.();
   };
   const end = () => {
     card.remove();
-    document.querySelectorAll("[data-dragging]").forEach((row) => row.removeAttribute("data-dragging"));
+    hooks.end?.();
     window.removeEventListener("dragover", follow, true);
     window.removeEventListener("drag", follow, true);
     window.removeEventListener("dragend", end, true);
@@ -101,4 +115,16 @@ export function setThreadDragImage(e: React.DragEvent<HTMLElement>, { sender, su
   window.addEventListener("drag", follow, true);
   window.addEventListener("dragend", end, true);
   window.addEventListener("drop", end, true);
+}
+
+/** A space being dragged in the sidebar: its dot, its name, and how many pockets come with it. */
+export function setSpaceDragImage(e: React.DragEvent<HTMLElement>, { name, color, pockets }: { name: string; color: string; pockets: number }) {
+  const card = cardShell(e, { width: 200, height: 40 });
+  // The same paper card as a conversation's, so both drags read alike.
+  card.innerHTML = `<div style="position:absolute;inset:0;display:flex;align-items:center;gap:10px;padding:0 14px 0 12px;border-radius:12px;background:var(--pane);color:var(--pane-fg);border:1px solid var(--pane-border);box-shadow:0 1px 2px rgb(0 0 0 / 0.06), 0 10px 24px -12px rgb(0 0 0 / 0.35)">
+    <span style="flex:none;width:10px;height:10px;border-radius:999px;background:${text(color)}"></span>
+    <span style="flex:1;min-width:0;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${text(name)}</span>
+    ${pockets ? `<span style="flex:none;font-size:11.5px;color:var(--pane-muted);font-variant-numeric:tabular-nums">+${pockets} ${pockets === 1 ? "pocket" : "pockets"}</span>` : ""}
+  </div>`;
+  followPointer(e, card);
 }

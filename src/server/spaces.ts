@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { scopeSql, type AccountScope } from "@/lib/mail/scope";
 import type { Thread } from "@/lib/mail/types";
-import { SPACE_COLORS, SPACE_DEPTH, spaceDepth, within, type Space, type SpaceItems, type SpacePatch } from "@/lib/spaces";
+import { SPACE_COLORS, SPACE_DEPTH, placeProblem, spaceDepth, within, type Space, type SpaceItems, type SpacePatch } from "@/lib/spaces";
 import { getDb } from "./db";
 import { liveThreadsByIds } from "./store";
 
@@ -75,8 +75,8 @@ export function updateSpace(id: string, patch: SpacePatch): Space {
   const space = spaces.find((s) => s.id === id);
   if (!space) throw new SpaceError("That space isn't there any more.");
   if (patch.parentId !== undefined && patch.parentId !== space.parentId) {
-    if (patch.parentId && within(spaces, id).has(patch.parentId)) throw new SpaceError("A space can't go inside one of its own pockets.");
-    if (patch.parentId && !spaces.some((s) => s.id === patch.parentId)) throw new SpaceError("That space isn't there any more.");
+    const problem = placeProblem(spaces, id, patch.parentId);
+    if (problem) throw new SpaceError(problem);
   }
   const parentId = patch.parentId === undefined ? space.parentId : patch.parentId;
   const now = new Date().toISOString();

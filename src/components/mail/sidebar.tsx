@@ -52,7 +52,8 @@ import { ringLabel, type AiUsageSummary } from "@/lib/ai-pricing";
 import { accountSpec, labelDepth, leafName, sortLabels, type MailLabel } from "@/lib/mail/providers";
 import { stableHandlers } from "../ui/stable";
 import { DesktopUpdate } from "../desktop/update";
-import { SPACE_COLORS, THREAD_DRAG, spaceTree, type Space } from "@/lib/spaces";
+import { SPACE_COLORS, SPACE_DRAG, THREAD_DRAG, placeProblem, spaceTree, within, type Space } from "@/lib/spaces";
+import { setSpaceDragImage } from "./drag-image";
 import { ContextMenu, type MenuItem, type MenuPoint } from "../ui/context-menu";
 import { SpaceDot } from "./space-picker";
 
@@ -130,6 +131,10 @@ type Props = {
   onDeleteSpace: (id: string) => void;
   /** Conversations dropped on a space (Shift held: moved out of the Inbox too). */
   onDropOnSpace: (spaceId: string, threadIds: string[], move: boolean) => void;
+  /** A space dropped on another: a pocket of it. */
+  onNestSpace: (id: string, parentId: string) => void;
+  /** A space dropped in the gap before or after another: beside it, at its level. */
+  onPlaceSpace: (id: string, targetId: string, before: boolean) => void;
   /** Inside the drawer: fills it instead of taking its own width. */
   inDrawer?: boolean;
 };
@@ -703,6 +708,12 @@ function LabelSection({ accounts, labels, view, onView }: { accounts: Account[];
 
 type SpaceEdit = { kind: "new"; parentId: string | null } | { kind: "rename"; id: string } | null;
 
+/** Where a space dragged over a row would land: inside it, or in the gap before or after it. `threads`: conversations over it. */
+type SpaceDropMode = "nest" | "before" | "after" | "threads";
+
+/** The space being dragged in the sidebar (a drag's data can't be read until the drop). */
+let draggedSpace: string | null = null;
+
 /**
  * SPACES: Kite's own places for mail, across accounts, with pockets inside them. Drop conversations
  * on one to add them (Shift: move), right-click for New pocket, Rename, Colour and Delete.
@@ -799,30 +810,77 @@ function SpaceRow({
 }) {
   const rail = useContext(RailContext);
   const [collapsed, toggle] = useCollapsed(`space:${space.id}`);
-  const [over, setOver] = useState(false);
+  // What a drag over this row would do: conversations in, or a space in, before or after it.
+  const [drop, setDrop] = useState<SpaceDropMode | null>(null);
   const pockets = all.filter((s) => s.parentId === space.id).sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
   const active = props.view.kind === "space" && props.view.spaceId === space.id;
   const making = edit?.kind === "new" && edit.parentId === space.id;
   const open = !collapsed || making;
   if (edit?.kind === "rename" && edit.id === space.id && !rail) return <SpaceInput depth={depth} initial={space.name} onDone={onCommit} />;
+  /** Where a dragged space would go from this point on the row: the top or bottom quarter is the gap beside it. */
+  const spaceMode = (e: React.DragEvent<HTMLElement>): SpaceDropMode | null => {
+    const dragged = draggedSpace;
+    if (!dragged || dragged === space.id) return null;
+    const box = e.currentTarget.getBoundingClientRect();
+    const y = (e.clientY - box.top) / box.height;
+    // Below a row with its pockets showing, the gap is above its first pocket: dropping there nests.
+    if (y < 0.28) return "before";
+    if (y > 0.72 && !(open && pockets.length)) return "after";
+    return all.find((s) => s.id === dragged)?.parentId === space.id ? null : "nest";
+  };
+  // A place the rules refuse shows no outline or line; the drop then says why in a toast.
+  const refused = !!draggedSpace && (drop === "nest" || drop === "before" || drop === "after") && !!placeProblem(all, draggedSpace, drop === "nest" ? space.id : space.parentId);
   return (
     <>
       <div
-        className={cn("group/space relative rounded-[10px] transition-shadow duration-150", over && "shadow-[inset_0_0_0_1.5px_var(--color-lime)]")}
+        draggable={!rail}
+        onDragStart={(e) => {
+          if (rail) return;
+          e.stopPropagation();
+          draggedSpace = space.id;
+          e.dataTransfer.setData(SPACE_DRAG, space.id);
+          e.dataTransfer.setData("text/plain", space.name);
+          e.dataTransfer.effectAllowed = "move";
+          setSpaceDragImage(e, { name: space.name, color: space.color, pockets: within(all, space.id).size - 1 });
+        }}
+        onDragEnd={() => {
+          draggedSpace = null;
+        }}
+        className={cn(
+          "group/space relative rounded-[10px] transition-shadow duration-150",
+          (drop === "threads" || (drop === "nest" && !refused)) && "shadow-[inset_0_0_0_1.5px_var(--color-lime)]",
+        )}
         style={rail ? undefined : { paddingLeft: depth * 14 }}
         onContextMenu={(e) => {
           e.preventDefault();
           onMenu({ x: e.clientX, y: e.clientY }, space);
         }}
         onDragOver={(e) => {
+          if (e.dataTransfer.types.includes(SPACE_DRAG)) {
+            const mode = spaceMode(e);
+            if (mode !== drop) setDrop(mode);
+            if (!mode) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            return;
+          }
           if (!e.dataTransfer.types.includes(THREAD_DRAG)) return;
           e.preventDefault();
           e.dataTransfer.dropEffect = e.shiftKey ? "move" : "copy";
-          if (!over) setOver(true);
+          if (drop !== "threads") setDrop("threads");
         }}
-        onDragLeave={() => setOver(false)}
+        onDragLeave={() => setDrop(null)}
         onDrop={(e) => {
-          setOver(false);
+          setDrop(null);
+          const moved = e.dataTransfer.getData(SPACE_DRAG);
+          if (moved) {
+            e.preventDefault();
+            const mode = spaceMode(e);
+            draggedSpace = null;
+            if (mode === "nest") props.onNestSpace(moved, space.id);
+            else if (mode) props.onPlaceSpace(moved, space.id, mode === "before");
+            return;
+          }
           const raw = e.dataTransfer.getData(THREAD_DRAG);
           if (!raw) return;
           e.preventDefault();
@@ -833,6 +891,15 @@ function SpaceRow({
           }
         }}
       >
+        {(drop === "before" || drop === "after") && !refused ? (
+          <span
+            aria-hidden
+            className={cn("pointer-events-none absolute right-1 z-10 h-0.5 rounded-full bg-accent", drop === "before" ? "-top-px" : "-bottom-px")}
+            style={{ left: (rail ? 0 : depth * 14) + 8 }}
+          >
+            <span className="absolute -left-1 -top-[3px] size-2 rounded-full border-2 border-accent bg-frame" />
+          </span>
+        ) : null}
         <NavItem
           icon={Folder02Icon}
           leading={

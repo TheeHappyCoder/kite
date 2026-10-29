@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { threadFiles } from "@/lib/mail/attachments";
 import type { Message, Thread } from "@/lib/mail/types";
-import { spacePeople } from "@/lib/spaces";
+import { placeBeside, placeProblem, spacePeople, type Space } from "@/lib/spaces";
 
 const message = (id: string, from: string, to: string[], date: string, extra: Partial<Message> = {}): Message => ({
   id,
@@ -53,5 +53,46 @@ describe("a space's Files and People tabs", () => {
       { email: "ann@acme.test", name: "Ann", conversations: 2, last: "2026-10-05T09:00:00Z" },
       { email: "bob@acme.test", name: "", conversations: 1, last: "2026-10-03T09:00:00Z" },
     ]);
+  });
+});
+
+describe("dragging spaces in the sidebar", () => {
+  const space = (id: string, parentId: string | null, position = 0): Space => ({ id, parentId, name: id, color: "#000000", note: null, position, createdAt: "", threads: 0 });
+  // acme > web > phase > copy (four levels), house (on its own), trip > flights
+  const spaces = [
+    space("acme", null, 0),
+    space("web", "acme"),
+    space("phase", "web"),
+    space("copy", "phase"),
+    space("house", null, 1),
+    space("trip", null, 2),
+    space("flights", "trip"),
+  ];
+
+  it("nests a space in another while the whole tree stays four levels deep", () => {
+    expect(placeProblem(spaces, "house", "acme")).toBeNull();
+    expect(placeProblem(spaces, "house", "phase")).toBeNull();
+    expect(placeProblem(spaces, "house", "copy")).toMatch(/4 levels deep at most/);
+    // trip brings its pocket: under phase that would be five levels.
+    expect(placeProblem(spaces, "trip", "web")).toBeNull();
+    expect(placeProblem(spaces, "trip", "phase")).toMatch(/trip and its pockets would go deeper/);
+    expect(placeProblem(spaces, "web", "trip")).toBeNull();
+    expect(placeProblem(spaces, "web", "flights")).toMatch(/deeper/);
+    expect(placeProblem(spaces, "phase", "flights")).toBeNull();
+  });
+
+  it("never puts a space inside itself or its own pockets", () => {
+    expect(placeProblem(spaces, "acme", "acme")).toMatch(/inside itself/);
+    expect(placeProblem(spaces, "acme", "phase")).toMatch(/own pockets/);
+    expect(placeProblem(spaces, "web", null)).toBeNull();
+    expect(placeProblem(spaces, "gone", "acme")).toMatch(/isn't there/);
+  });
+
+  it("places a space beside another at that one's level", () => {
+    expect(placeBeside(spaces, "trip", "acme", true)).toEqual({ parentId: null, order: ["trip", "acme", "house"] });
+    expect(placeBeside(spaces, "acme", "trip", false)).toEqual({ parentId: null, order: ["house", "trip", "acme"] });
+    // A pocket dropped beside a top-level space becomes a space of its own.
+    expect(placeBeside(spaces, "flights", "house", false)).toEqual({ parentId: null, order: ["acme", "house", "flights", "trip"] });
+    expect(placeBeside(spaces, "house", "web", false)).toEqual({ parentId: "acme", order: ["web", "house"] });
   });
 });
