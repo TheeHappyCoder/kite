@@ -17,6 +17,12 @@
   WriteRegStr HKCU "Software\Classes\*\shell\KiteSendBack\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" --send-back "%1"'
 !macroend
 
+; The Kite printer (Print to Kite, src-tauri/src/printer.rs), only if the user added it: Windows asks for
+; permission once. It runs while the app's files are still there.
+!macro NSIS_HOOK_PREUNINSTALL
+  ExecWait '"$INSTDIR\${MAINBINARYNAME}.exe" --remove-printer'
+!macroend
+
 !macro NSIS_HOOK_POSTUNINSTALL
   DeleteRegKey HKCU "Software\Classes\*\shell\KiteShowEmail"
   DeleteRegKey HKCU "Software\Classes\*\shell\KiteSendBack"

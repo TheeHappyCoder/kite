@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "The main window can check/install updates and read clipboard text for Paste actions.",
+  "description": "The main window can check/install updates, add or remove the Kite printer and read clipboard text for Paste actions.",
   "windows": [
     "main"
   ],
@@ -12,6 +12,7 @@
   },
   "permissions": [
     "allow-update",
+    "allow-printer",
     "clipboard-manager:allow-read-text"
   ]
 }

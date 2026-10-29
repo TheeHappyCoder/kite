@@ -95,13 +95,18 @@ fn lookup(app: &AppHandle, path: &Path) -> Option<serde_json::Value> {
 /// The file as an outgoing attachment (POST /api/uploads, as compose sends it): its `upload` ref, or why not.
 async fn upload(path: &Path) -> Result<serde_json::Value, String> {
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "attachment".into());
+    upload_named(path, &name).await
+}
+
+/// The same, under another name (Print to Kite names a print after its document).
+pub async fn upload_named(path: &Path, name: &str) -> Result<serde_json::Value, String> {
     let data = std::fs::read(path).map_err(|_| format!("Kite couldn't read {name}."))?;
     let response = reqwest::Client::new()
         .post(format!("{ORIGIN}/api/uploads"))
         // The route only takes uploads from Kite's own origin, with raw bytes.
         .header("origin", ORIGIN)
         .header("content-type", "application/octet-stream")
-        .header("x-file-name", encode(&name))
+        .header("x-file-name", encode(name))
         .body(data)
         .send()
         .await
@@ -166,6 +171,13 @@ fn hash(path: &Path) -> Option<String> {
 }
 
 fn send(app: &AppHandle, mode: Mode, files: Vec<serde_json::Value>) {
+    let mode = if mode == Mode::Reply { "reply" } else { "show" };
+    call_page(app, "__kiteFindFiles", &format!("{}, \"{mode}\"", serde_json::Value::Array(files)));
+}
+
+/// Shows Kite and calls one of the page's shell hooks (`window.<hook>(<args>)`, args as JS), waiting
+/// for the page when Kite is just starting.
+pub fn call_page(app: &AppHandle, hook: &str, args: &str) {
     crate::show(app);
     let Some(window) = app.get_webview_window("main") else { return };
     // Release cold start: the splash shows until the server is up, then the window navigates (and a script
@@ -176,13 +188,9 @@ fn send(app: &AppHandle, mode: Mode, files: Vec<serde_json::Value>) {
         }
         std::thread::sleep(Duration::from_millis(250));
     }
-    let mode = if mode == Mode::Reply { "reply" } else { "show" };
     // On a cold start the page is still loading: try again until the app has set its hook (a minute at most).
-    let script = format!(
-        "(() => {{ const files = {}; let tries = 0; const go = () => window.__kiteFindFiles ? window.__kiteFindFiles(files, \"{mode}\") : ++tries < 240 && setTimeout(go, 250); go(); }})()",
-        serde_json::Value::Array(files)
-    );
+    let script = format!("(() => {{ let tries = 0; const go = () => window.{hook} ? window.{hook}({args}) : ++tries < 240 && setTimeout(go, 250); go(); }})()");
     if window.eval(&script).is_err() {
-        eprintln!("[kite] couldn't hand the files to the page");
+        eprintln!("[kite] couldn't reach the page ({hook})");
     }
 }

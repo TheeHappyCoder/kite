@@ -17,6 +17,7 @@ import {
   type DrivePreviewNode,
 } from "@/lib/drive";
 import { blurFade } from "@/lib/motion";
+import { desktopPrinter, type DesktopPrinterState } from "@/lib/desktop";
 import type { Preferences, PreferencesPatch } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { Icon } from "../icon";
@@ -32,6 +33,50 @@ import { Group, Note, Page, Row, Segmented, ToggleRow } from "./settings-ui";
  * set (person, year, month, week, file type, account), with a live preview of the real tree. No
  * folders of the user's own: those are saved searches.
  */
+
+/**
+ * Print to Kite: a printer called Kite in every app's Print window (src-tauri/src/printer.rs). It's a
+ * real Windows printer, so adding or removing it is the shell's job, behind Windows' permission prompt.
+ */
+function PrintToKite() {
+  const [state, setState] = useState<DesktopPrinterState | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    desktopPrinter("status").then(setState).catch(() => setState({ on: false, unavailable: true, error: null }));
+  }, []);
+  const change = (on: boolean) => {
+    setBusy(true);
+    desktopPrinter(on ? "on" : "off")
+      .then(setState)
+      .catch(() => setState((s) => s && { ...s, error: "Kite couldn't change the printer. Try again." }))
+      .finally(() => setBusy(false));
+  };
+  return (
+    <Group title="Print to Kite">
+      <Row
+        label="A Kite printer"
+        detail={
+          state?.unavailable
+            ? "Needs Windows' “Microsoft Print to PDF”, which is turned off on this computer (Windows features)."
+            : state?.on
+              ? "Print from any app and choose Kite: a new message opens with the PDF. Nothing is sent until you send it."
+              : "Adds a printer called Kite to every app's Print window. Windows asks for permission once."
+        }
+        control={
+          busy ? (
+            <span className="flex items-center gap-2 text-[12px] text-pane-muted">
+              <Spinner /> Waiting for Windows
+            </span>
+          ) : (
+            <Switch value={!!state?.on} onChange={change} label="A Kite printer" disabled={!state || state.unavailable} />
+          )
+        }
+      >
+        {state?.error ? <p className="text-[12px] text-danger">{state.error}</p> : null}
+      </Row>
+    </Group>
+  );
+}
 
 export function DriveSection(props: { preferences: Preferences; onPreferences: (patch: PreferencesPatch) => Promise<void>; desktop: boolean; accounts: number }) {
   const { drive, savedSearches } = props.preferences;
@@ -147,6 +192,8 @@ export function DriveSection(props: { preferences: Preferences; onPreferences: (
       </Group>
 
       <Preview drive={drive} />
+
+      {props.desktop ? <PrintToKite /> : null}
     </Page>
   );
 }

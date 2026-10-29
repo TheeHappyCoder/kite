@@ -1,12 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-local",
-  "description": "Update and clipboard Paste access for pnpm desktop, where the devUrl counts as local.",
+  "description": "Update, the Kite printer and clipboard Paste access for pnpm desktop, where the devUrl counts as local.",
   "windows": [
     "main"
   ],
   "permissions": [
     "allow-update",
+    "allow-printer",
     "clipboard-manager:allow-read-text"
   ]
 }

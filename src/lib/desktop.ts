@@ -91,6 +91,12 @@ export type DesktopUpdateState = {
 /** `status` (what's known), `check` (look now), `install` (download, install, restart). */
 export const desktopUpdate = (action: "status" | "check" | "install") => desktopInvoke("update", { action }) as Promise<DesktopUpdateState>;
 
+/** Print to Kite (src-tauri/src/printer.rs): whether the Kite printer is there, and why a change didn't happen. */
+export type DesktopPrinterState = { on: boolean; unavailable: boolean; error: string | null };
+
+/** `status`, or `on` / `off` (Windows asks the user for permission first). */
+export const desktopPrinter = (action: "status" | "on" | "off") => desktopInvoke("printer", { action }) as Promise<DesktopPrinterState>;
+
 type ShellWindow = {
   __KITE_DESKTOP__?: true;
   __TAURI_INTERNALS__?: { invoke: (command: string, args?: Record<string, unknown>) => Promise<unknown> };

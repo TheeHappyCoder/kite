@@ -3,6 +3,7 @@ mod downloads;
 #[cfg(windows)]
 mod drive;
 mod origin;
+mod printer;
 mod bar;
 mod server;
 mod tray;
@@ -13,6 +14,11 @@ use tauri_plugin_opener::OpenerExt;
 use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 pub fn run() {
+    // The uninstaller removes the Kite printer (installer-hooks.nsh) before the app's files go.
+    if std::env::args().any(|a| a == "--remove-printer") {
+        printer::uninstall();
+        return;
+    }
     // Single instance must come first: a second launch focuses the running Kite instead.
     let builder = tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
         // Explorer's "Show the email" launches Kite with a file: look it up instead of just showing Kite.
@@ -48,7 +54,7 @@ pub fn run() {
         .manage(bar::Bar::default())
         .manage(updater::Updates::default())
         .manage(origin::Pending::default())
-        .invoke_handler(tauri::generate_handler![bar::bar, updater::update])
+        .invoke_handler(tauri::generate_handler![bar::bar, updater::update, printer::printer])
         .setup(|app| {
             // Debug: the dev server is already up (`tauri dev` waits for it). Release: a splash until Node is ready.
             let url = if cfg!(debug_assertions) {
@@ -79,6 +85,7 @@ pub fn run() {
             tray::create(app.handle())?;
             codes::start(app.handle());
             updater::start(app.handle());
+            printer::start(app.handle());
             #[cfg(windows)]
             {
                 app.manage(drive::Drive::default());

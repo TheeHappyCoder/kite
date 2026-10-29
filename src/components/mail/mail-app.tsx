@@ -26,6 +26,7 @@ import type { FileRef } from "../files/file-preview";
 import { FillSignContext } from "../files/fill-sign";
 import { useFileOrigin, type FileLookup, type FileMode } from "../files/file-origin";
 import { uploadFile } from "@/lib/mail/upload";
+import type { AttachmentRef } from "@/lib/mail/compose";
 import type { RichEditorHandle } from "./rich-editor";
 import { MessageList } from "./message-list";
 import { FirstSyncContext } from "./first-sync";
@@ -492,6 +493,19 @@ export function MailApp() {
       delete shell.__kiteFindFiles;
     };
   }, [live, findFiles]);
+
+  // Print to Kite (src-tauri/src/printer.rs): each print opens a new message with the PDF; nothing is sent by itself.
+  useEffect(() => {
+    if (!inDesktopApp() || !live) return;
+    const shell = window as { __kitePrinted?: (print: { attach?: AttachmentRef; error?: string }) => void };
+    shell.__kitePrinted = (print) => {
+      if (print.attach) openCompose({ attachments: [print.attach] });
+      else setToast({ message: print.error ?? "That print didn't reach Kite. Try printing it again." });
+    };
+    return () => {
+      delete shell.__kitePrinted;
+    };
+  }, [live, openCompose, setToast]);
 
   // AI status (live accounts only).
   useEffect(() => {
