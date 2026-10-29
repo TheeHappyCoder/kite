@@ -24,7 +24,7 @@ import { TranslateContext } from "./translate";
 import { PrivacyContext, type PrivacyPolicy } from "./privacy-chip";
 import type { FileRef } from "../files/file-preview";
 import { FillSignContext } from "../files/fill-sign";
-import { useFileOrigin, type FileLookup } from "../files/file-origin";
+import { useFileOrigin, type FileLookup, type FileMode } from "../files/file-origin";
 import { uploadFile } from "@/lib/mail/upload";
 import type { RichEditorHandle } from "./rich-editor";
 import { MessageList } from "./message-list";
@@ -474,12 +474,20 @@ export function MailApp() {
 
   // "Where did this file come from?": files dropped outside a composer, or right-clicked in Explorer
   // (the shell hashes them and calls `__kiteFindFiles`, src-tauri/src/origin.rs).
-  const origin = useFileOrigin({ enabled: live, onOpen: (target) => list.openFromToday(target) });
+  const origin = useFileOrigin({
+    enabled: live,
+    onOpen: (target) => list.openFromToday(target),
+    // Explorer's "Send back in Kite": the conversation, and a reply with the file (nothing is sent by itself).
+    onReply: (target, attachments) => {
+      list.openFromToday(target);
+      void startCompose("reply", "", { threadId: target.threadId, attachments });
+    },
+  });
   const findFiles = origin.find;
   useEffect(() => {
     if (!inDesktopApp() || !live) return;
-    const shell = window as { __kiteFindFiles?: (files: FileLookup[]) => void };
-    shell.__kiteFindFiles = (files) => void findFiles(files);
+    const shell = window as { __kiteFindFiles?: (files: FileLookup[], mode?: FileMode) => void };
+    shell.__kiteFindFiles = (files, mode) => void findFiles(files, mode);
     return () => {
       delete shell.__kiteFindFiles;
     };
