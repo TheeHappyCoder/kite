@@ -33,9 +33,12 @@ import {
   TranslateIcon,
   TickDouble02Icon,
   Tag01Icon,
+  FolderAddIcon,
+  FolderExportIcon,
 } from "@hugeicons/core-free-icons";
 import { accountName, type Account } from "@/lib/mail/types";
 import type { View } from "@/lib/mail/store";
+import { spaceLabel, spaceTree, type Space } from "@/lib/spaces";
 import { Icon, type IconData } from "../icon";
 import { useShortcuts, type ShortcutAction } from "@/lib/shortcuts";
 import { FluidList } from "../ui/fluid-hover";
@@ -77,6 +80,10 @@ type Props = {
   labels: { accountId: string; id: string; name: string; account: string | null }[];
   /** "Mark all read" for the current inbox tab, when it has unread mail. */
   markAllRead: { label: string; onSelect: () => void } | null;
+  /** Kite's spaces, to go to ("Acme / Website"). */
+  spaces: Space[];
+  /** Opens the space picker for the open conversation or the ticked rows (null when there's nothing to put). */
+  pickSpace: ((move: boolean) => void) | null;
 };
 
 const MAILBOXES: { id: Extract<View, { kind: "mailbox" }>["mailbox"]; label: string; icon: IconData }[] = [
@@ -139,6 +146,12 @@ export function CommandPalette(props: Props) {
               <Item icon={Tag01Icon} label={props.conversation.labelsLabel} shortcut="label" onSelect={run(props.conversation.onLabels)} />
             </>
           ) : null}
+          {props.pickSpace ? (
+            <>
+              <Item icon={FolderAddIcon} label="Add to space…" shortcut="space" onSelect={run(() => props.pickSpace?.(false))} />
+              <Item icon={FolderExportIcon} label="Move to space…" shortcut="moveSpace" onSelect={run(() => props.pickSpace?.(true))} />
+            </>
+          ) : null}
           {props.markAllRead ? (
             <Item icon={TickDouble02Icon} label={`Mark all read in ${props.markAllRead.label}`} onSelect={run(props.markAllRead.onSelect)} />
           ) : null}
@@ -178,6 +191,20 @@ export function CommandPalette(props: Props) {
             />
           ))}
         </Command.Group>
+
+        {props.spaces.length ? (
+          <Command.Group heading="Spaces">
+            {spaceTree(props.spaces).map(({ space }) => (
+              <Item
+                key={space.id}
+                icon={Folder02Icon}
+                color={space.color}
+                label={`Go to ${spaceLabel(props.spaces, space.id)}`}
+                onSelect={run(() => props.onView({ kind: "space", spaceId: space.id }))}
+              />
+            ))}
+          </Command.Group>
+        ) : null}
 
         {props.labels.length ? (
           <Command.Group heading="Labels">

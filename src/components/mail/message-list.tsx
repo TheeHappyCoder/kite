@@ -387,7 +387,7 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
     <section className="flex h-full min-w-0 flex-col bg-pane text-pane-fg">
       <header className="flex flex-col gap-3 px-3.5 pt-3">
         <div className="flex items-center gap-2 pl-1">
-          {props.switcher && (view.kind === "mailbox" || view.kind === "label") ? (
+          {props.switcher && (view.kind === "mailbox" || view.kind === "label" || view.kind === "space") ? (
             <MailboxSwitcher
               title={title}
               view={view}
@@ -395,6 +395,7 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
               screener={props.switcher.screener}
               accounts={props.accounts}
               labels={props.switcher.labels}
+              spaces={props.spaces}
               savedSearches={props.savedSearches}
               activeQuery={props.query.trim()}
               onView={props.switcher.onView}

@@ -26,12 +26,14 @@ import type { View } from "@/lib/mail/store";
 import { accountName, type Account, type Mailbox } from "@/lib/mail/types";
 import { accountSpec, labelDepth, leafName, sortLabels, type MailLabel } from "@/lib/mail/providers";
 import type { SavedSearch } from "@/lib/settings";
+import { spaceTree, type Space } from "@/lib/spaces";
+import { SpaceDot } from "./space-picker";
 import { cn } from "@/lib/utils";
 import { Icon, type IconData } from "../icon";
 import { AccentTitle } from "../ui/accent-title";
 import { FLUID_IGNORE, FLUID_ITEM, FluidList } from "../ui/fluid-hover";
 
-// The mail list's title switches between Home, mailboxes, saved searches and your own labels/folders
+// The mail list's title switches between Home, mailboxes, saved searches, spaces and your own labels/folders
 // when the mail column isn't showing (rail and drawer widths, lib/layout.ts).
 
 const MAILBOXES: { id: Mailbox; label: string; icon: IconData }[] = [
@@ -56,6 +58,7 @@ export function MailboxSwitcher({
   screener,
   accounts,
   labels,
+  spaces,
   savedSearches,
   activeQuery,
   onView,
@@ -69,6 +72,8 @@ export function MailboxSwitcher({
   screener: boolean;
   accounts: Account[];
   labels: MailLabel[];
+  /** Kite's spaces, as a tree with their pockets. */
+  spaces: Space[];
   savedSearches: SavedSearch[];
   activeQuery: string;
   onView: (view: View) => void;
@@ -172,6 +177,30 @@ export function MailboxSwitcher({
               </>
             ) : null}
 
+            {spaces.length ? (
+              <>
+                <Heading>Spaces</Heading>
+                <FluidList tone="pane" className="flex flex-col gap-px">
+                  {spaceTree(spaces).map(({ space, depth }) => (
+                    <Row
+                      key={space.id}
+                      indent={depth}
+                      icon={Folder01Icon}
+                      leading={
+                        <span className="grid size-4 shrink-0 place-items-center">
+                          <SpaceDot space={space} className="size-2.5" />
+                        </span>
+                      }
+                      label={space.name}
+                      count={space.threads || undefined}
+                      active={view.kind === "space" && view.spaceId === space.id}
+                      onClick={() => go({ kind: "space", spaceId: space.id })}
+                    />
+                  ))}
+                </FluidList>
+              </>
+            ) : null}
+
             {groups.length ? (
               <>
                 <Heading
@@ -236,6 +265,7 @@ function Row({
   active,
   indent = 0,
   dot,
+  leading,
   onClick,
 }: {
   icon: IconData;
@@ -244,6 +274,8 @@ function Row({
   active: boolean;
   indent?: number;
   dot?: string | null;
+  /** Drawn in place of the icon (a space's dot). */
+  leading?: React.ReactNode;
   onClick: () => void;
 }) {
   return (
@@ -254,7 +286,9 @@ function Row({
       style={{ paddingLeft: 10 + indent * 14 }}
       className="flex h-8 w-full items-center gap-2.5 rounded-lg pr-2.5 text-left text-[13px] transition-[background-color] duration-150 touch:h-11"
     >
-      {dot ? (
+      {leading ? (
+        leading
+      ) : dot ? (
         <span className="grid size-4 shrink-0 place-items-center">
           <span className="size-2.5 rounded-full" style={{ background: dot }} />
         </span>

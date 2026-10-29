@@ -558,6 +558,9 @@ export function MailApp() {
   // Spaces (lib/spaces.ts): Kite's own places for mail, the picker (`y` / Shift+Y) and the actions menu.
   const spaces = useSpaces({ state, dispatch, setToast, reload, archiveQuietly });
   const [spacePick, setSpacePick] = useState<{ threads: Thread[]; move: boolean } | null>(null);
+  /** The space picker for the ticked rows or the open conversation (`y` / Shift+Y, the palette); null when there's nothing to put. */
+  const pickSpaceFor =
+    listVisible && (selecting || (selected && !selected.scheduled)) ? (move: boolean) => setSpacePick({ threads: selecting ? checkedThreads : [selected!], move }) : null;
   const shownThreads = useCallback((ids: string[]) => ids.flatMap((id) => shownThread(state, id) ?? []), [state]);
   const threadMenu = useThreadMenu({
     view: state.view,
@@ -770,8 +773,8 @@ export function MailApp() {
       people: selected ? () => setPeopleOpen((open) => !open) : undefined,
       vip: selected && !selecting ? toggleVip : undefined,
       label: selecting ? () => bulk("label") : selected && !selected.scheduled ? () => openLabels([selected]) : undefined,
-      space: listVisible && (selecting || (selected && !selected.scheduled)) ? () => setSpacePick({ threads: selecting ? checkedThreads : [selected!], move: false }) : undefined,
-      moveSpace: listVisible && (selecting || (selected && !selected.scheduled)) ? () => setSpacePick({ threads: selecting ? checkedThreads : [selected!], move: true }) : undefined,
+      space: pickSpaceFor ? () => pickSpaceFor(false) : undefined,
+      moveSpace: pickSpaceFor ? () => pickSpaceFor(true) : undefined,
       actions:
         listVisible && state.selectedId
           ? () => {
@@ -1265,6 +1268,8 @@ export function MailApp() {
             account: accounts.length > 1 ? (accounts.find((a) => a.id === l.accountId)?.email ?? null) : null,
           }))}
           markAllRead={inboxTab && sideCounts[state.side] ? { label: tabLabel, onSelect: markAllRead } : null}
+          spaces={state.spaces}
+          pickSpace={pickSpaceFor}
         />
 
         {mailBatch.sheet}
