@@ -896,7 +896,6 @@ function SpaceRow({
             </span>
           }
           label={space.name}
-          count={space.threads || undefined}
           active={active}
           onClick={() => props.onView({ kind: "space", spaceId: space.id })}
         />
