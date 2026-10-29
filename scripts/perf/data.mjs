@@ -50,9 +50,12 @@ export async function steadyScenarios(base, { idleMinutes, openCount = 20 }) {
 /** A new user's first sync (local copy reset), until sync has nothing left to do. */
 export async function initialSyncScenario(base) {
   await postJson(base, "/api/perf");
-  await getJson(base, "/api/accounts");
+  const { accounts } = await getJson(base, "/api/accounts");
   const started = Date.now();
   let lastLog = 0;
+  // An account whose sign-in the provider refuses (its refresh token in data/ revoked or expired)
+  // can't sync in the copy either: name it, so a missing first pass isn't read as slow sync.
+  const reconnect = new Set();
   // What a new user sees: the first rows, then the first pass done (everything after is background).
   const marks = { firstRowsMs: null, firstPassMs: null };
   let checking = false;
@@ -60,7 +63,9 @@ export async function initialSyncScenario(base) {
     if (checking || marks.firstPassMs) return;
     checking = true;
     try {
-      const sync = Object.values((await getJson(base, "/api/mail/threads?mailbox=drafts")).sync ?? {});
+      const byAccount = Object.entries((await getJson(base, "/api/mail/threads?mailbox=drafts")).sync ?? {});
+      for (const [id, a] of byAccount) if (a.reconnect) reconnect.add(accounts.find((x) => x.id === id)?.provider ?? id);
+      const sync = byAccount.map(([, a]) => a);
       const stored = sync.reduce((n, a) => n + (a.stored ?? 0), 0);
       if (marks.firstRowsMs == null && stored >= 20) marks.firstRowsMs = Date.now() - started;
       if (sync.length && sync.every((a) => a.ready)) marks.firstPassMs = Date.now() - started;
@@ -81,9 +86,9 @@ export async function initialSyncScenario(base) {
   await check();
   const threads = (await getJson(base, "/api/mail/threads?mailbox=inbox")).sync;
   const stored = Object.values(threads).reduce((s, a) => s + (a.stored ?? 0), 0);
-  const result = { ...window(settled.snapshot, Date.now() - started), ...marks, timedOut: !!settled.timedOut, storedThreads: stored };
+  const result = { ...window(settled.snapshot, Date.now() - started), ...marks, timedOut: !!settled.timedOut, storedThreads: stored, needsReconnect: [...reconnect] };
   result.perThreadKB = stored ? round(result.receivedKB / stored, 2) : null;
   result.serverRssMB = round(settled.snapshot.memory.rss / 1024 / 1024, 1);
-  log(`initial sync: ${result.receivedKB} KB for ${stored} threads in ${round(result.ms / 1000)} s (first rows ${marks.firstRowsMs == null ? "never" : `${round(marks.firstRowsMs / 1000)} s`}, first pass ${marks.firstPassMs == null ? "never: an account never finished" : `${round(marks.firstPassMs / 1000)} s`})`);
+  log(`initial sync: ${result.receivedKB} KB for ${stored} threads in ${round(result.ms / 1000)} s (first rows ${marks.firstRowsMs == null ? "never" : `${round(marks.firstRowsMs / 1000)} s`}, first pass ${marks.firstPassMs == null ? `never: ${reconnect.size ? `${[...reconnect].join(", ")} needs Reconnect in data/` : "an account never finished"}` : `${round(marks.firstPassMs / 1000)} s`})`);
   return result;
 }

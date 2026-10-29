@@ -66,5 +66,9 @@ console.log(`\nRegressions vs baseline (${regressions.length}):`);
 if (regressions.length) console.table(regressions);
 console.log(`\nImprovements vs baseline (${improvements.length}):`);
 if (improvements.length) console.table(improvements);
+// The initial sync starts from data/'s sign-ins: one the provider refuses leaves that account out.
+if (latest.initialSync?.needsReconnect?.length) {
+  console.log(`\nThe initial sync ran without ${latest.initialSync.needsReconnect.join(", ")}: its sign-in in data/ is refused. Reconnect it in Kite (Settings → Accounts), then run \`pnpm perf --only=initial\` again.`);
+}
 console.log(broken ? `\nFAIL: ${broken} budget(s) broken or missing.` : "\nPASS: every budget holds.");
 process.exit(broken ? 1 : 0);
