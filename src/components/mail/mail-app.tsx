@@ -593,6 +593,10 @@ export function MailApp() {
       createPocket: (parentId, name) => void createSpace(name, parentId),
       update: (id, patch) => void updateSpace(id, patch),
       remove: (id) => void removeSpace(id),
+      openPerson: (email) => {
+        dispatch({ type: "view", view: { kind: "contacts", email } });
+        setPaneDetail(false);
+      },
     }),
     [dispatch, createSpace, updateSpace, removeSpace],
   );
@@ -1073,7 +1077,9 @@ export function MailApp() {
             />
           ) : state.view.kind === "contacts" ? (
             <ContactsView
+              key={state.view.email ?? ""}
               ref={filesSearchRef}
+              initial={state.view.email}
               live={live}
               accounts={accounts}
               demoThreads={live ? NO_THREADS : state.threads}

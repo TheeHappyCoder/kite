@@ -14,8 +14,8 @@ export type View =
   | { kind: "files" }
   /** Every private note, on conversations and people (components/notes/notes-view.tsx). */
   | { kind: "notes" }
-  /** Everyone your mail knows (components/contacts/contacts-view.tsx). */
-  | { kind: "contacts" }
+  /** Everyone your mail knows (components/contacts/contacts-view.tsx); `email` opens on that person. */
+  | { kind: "contacts"; email?: string }
   /** Automations and their collections (components/automations/automations-view.tsx). */
   | { kind: "automations" }
   | { kind: "calendar" }

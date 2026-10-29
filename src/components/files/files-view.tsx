@@ -4,6 +4,7 @@ import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { inScope, singleAccount, type AccountScope } from "@/lib/mail/scope";
 import { Folder02Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import type { Account, Attachment, FileItem, Thread } from "@/lib/mail/types";
+import { threadFiles } from "@/lib/mail/attachments";
 import { cn, formatListDate } from "@/lib/utils";
 import { Icon } from "../icon";
 import { Segmented } from "../design/block-editor";
@@ -24,15 +25,7 @@ export const KINDS: [Kind, string][] = [
 ];
 
 /** Demo mail has no store behind it, so its files are gathered from the sample threads. */
-export function demoFiles(threads: Thread[]): FileItem[] {
-  return threads
-    .flatMap((t) =>
-      t.messages.flatMap((m) =>
-        (m.attachments ?? []).filter((a) => !a.inline).map((a) => ({ ...a, accountId: t.accountId, threadId: t.id, messageId: m.id, subject: t.subject, from: m.from, date: m.date })),
-      ),
-    )
-    .sort((a, b) => b.date.localeCompare(a.date));
-}
+export const demoFiles = threadFiles;
 
 export function matches(file: FileItem, query: string, kind: Kind, accountId: string) {
   if (kind !== "all" && file.kind !== kind) return false;

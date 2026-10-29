@@ -1,5 +1,7 @@
 import * as z from "zod";
 import { ACCOUNT_COLORS } from "./mail/account-face";
+import { realName } from "./mail/contacts";
+import type { Contact, Thread } from "./mail/types";
 
 // Spaces: Kite's own places for mail, across every account (a client, a house move, a trip). A
 // space can hold pockets (a job for that client), and pockets can hold pockets. They live only on
@@ -108,6 +110,45 @@ export function spaceLabel(spaces: Pick<Space, "id" | "parentId" | "name">[], id
   return spacePath(spaces, id)
     .map((s) => s.name)
     .join(" / ");
+}
+
+/** What a space view shows: its conversations, the files in them, or the people in them. */
+export const SPACE_TABS = [
+  { id: "conversations", label: "Conversations" },
+  { id: "files", label: "Files" },
+  { id: "people", label: "People" },
+] as const;
+export type SpaceTab = (typeof SPACE_TABS)[number]["id"];
+
+/** Someone in a space's conversations: how many they're in and the newest message with them. */
+export type SpacePerson = { email: string; name: string; conversations: number; last: string };
+
+/**
+ * Everyone in these conversations (senders and recipients) but you (`own`: your addresses,
+ * lower-cased), most conversations first, then the most recent.
+ */
+export function spacePeople(threads: Thread[], own: Set<string>): SpacePerson[] {
+  const people = new Map<string, SpacePerson>();
+  const counted = new Map<string, string>();
+  for (const thread of threads) {
+    for (const m of thread.messages) {
+      if (m.draft) continue;
+      const note = (c: Contact) => {
+        const email = c.email?.trim().toLowerCase();
+        if (!email || !email.includes("@") || own.has(email) || c.name === "You") return;
+        const entry = people.get(email) ?? { email, name: "", conversations: 0, last: "" };
+        entry.name ||= realName(c);
+        if (counted.get(email) !== thread.id) {
+          counted.set(email, thread.id);
+          entry.conversations++;
+        }
+        if (m.date > entry.last) entry.last = m.date;
+        people.set(email, entry);
+      };
+      [m.from, ...m.to, ...(m.cc ?? [])].forEach(note);
+    }
+  }
+  return [...people.values()].sort((a, b) => b.conversations - a.conversations || b.last.localeCompare(a.last));
 }
 
 /** Conversations being dragged from the list (a JSON array of Kite thread ids). */

@@ -47,8 +47,10 @@ export const ContactsView = forwardRef<
     onWrite: (contact: { name: string; email: string }) => void;
     onSearch: (email: string) => void;
     onOpenConversation: (target: { threadId: string; accountId: string; subject: string }) => void;
+    /** Opens on this person (a space's People tab). */
+    initial?: string;
   }
->(function ContactsView({ live, accounts, demoThreads, refreshKey, people, single, width, onUpdate, onWrite, onSearch, onOpenConversation }, searchRef) {
+>(function ContactsView({ live, accounts, demoThreads, refreshKey, people, single, width, onUpdate, onWrite, onSearch, onOpenConversation, initial }, searchRef) {
   const [fetched, setFetched] = useState<ContactEntry[] | null>(null);
   useEffect(() => {
     if (!live) return;
@@ -65,7 +67,7 @@ export const ContactsView = forwardRef<
   const [filter, setFilter] = useState<ContactFilter>("people");
   const [sort, setSort] = useState<ContactSort>("frequent");
   const [query, setQuery] = useState("");
-  const [picked, setPicked] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(initial?.toLowerCase() ?? null);
   const [shownCount, setShownCount] = useState(PAGE);
   const vip = (email: string) => !!people[personKey(email)]?.vip;
   const list = useMemo(

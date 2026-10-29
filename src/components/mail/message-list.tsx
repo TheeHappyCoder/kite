@@ -32,7 +32,10 @@ import {
   MailOpen01Icon,
   MoreHorizontalIcon,
 } from "@hugeicons/core-free-icons";
-import { THREAD_DRAG, spaceLabel, type Space } from "@/lib/spaces";
+import { THREAD_DRAG, spaceLabel, spacePeople, type Space } from "@/lib/spaces";
+import { threadFiles } from "@/lib/mail/attachments";
+import { SpaceTabs, useSpaceTab } from "./space-tabs";
+import dynamic from "next/dynamic";
 import { SpaceDot } from "./space-picker";
 import { setThreadDragImage } from "./drag-image";
 import { SpaceHeader, type SpaceHeaderActions } from "./space-header";
@@ -70,6 +73,10 @@ import { AccentTitle } from "../ui/accent-title";
 import { MailboxSwitcher } from "./mailbox-switcher";
 /** "Search older mail" at the provider(s) for the current query. */
 export type RemoteSearch = { query: string; status: "loading" | "done" | "error"; found: number };
+
+// A space's Files and People tabs load when one is first opened.
+const SpaceFiles = dynamic(() => import("./space-contents").then((m) => m.SpaceFiles), { ssr: false });
+const SpacePeople = dynamic(() => import("./space-contents").then((m) => m.SpacePeople), { ssr: false });
 
 const VIEW_TITLES: Record<string, string> = {
   inbox: "Inbox",
@@ -241,6 +248,22 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
     setCaret(at);
     requestAnimationFrame(() => inputRef.current?.setSelectionRange(at, at));
   };
+  // A space view: Conversations, or the files and people in them (worked out from the same list).
+  const spaceId = view.kind === "space" ? view.spaceId : null;
+  const [spaceTab, setSpaceTab] = useSpaceTab(spaceId);
+  const tabbed = !!spaceId && !query && !props.checked.size;
+  const shownTab = tabbed ? spaceTab : "conversations";
+  const { accounts, onSelect } = props;
+  const spaceFiles = useMemo(() => (spaceId ? threadFiles(threads) : []), [spaceId, threads]);
+  const spaceFolks = useMemo(() => (spaceId ? spacePeople(threads, new Set(accounts.map((a) => a.email.toLowerCase()))) : []), [spaceId, threads, accounts]);
+  const spaceCounts = useMemo(() => ({ files: spaceFiles.length, people: spaceFolks.length }), [spaceFiles.length, spaceFolks.length]);
+  const openFromTab = useCallback(
+    (threadId: string) => {
+      setSpaceTab("conversations");
+      onSelect(threadId);
+    },
+    [setSpaceTab, onSelect],
+  );
   const savedCurrent = !!query && props.savedSearches.some((s) => s.query === query);
   const remote = props.remoteSearch?.query === query ? props.remoteSearch : null;
 
@@ -497,7 +520,14 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
             ) : null}
           </div>
         ) : view.kind === "space" && !props.query ? (
-          <SpaceHeader spaceId={view.spaceId} spaces={props.spaces} count={threads.length} actions={props.spaceActions} />
+          <>
+            <SpaceHeader spaceId={view.spaceId} spaces={props.spaces} count={threads.length} actions={props.spaceActions} />
+            {tabbed ? (
+              <div className="pb-1">
+                <SpaceTabs value={spaceTab} counts={spaceCounts} onChange={setSpaceTab} />
+              </div>
+            ) : null}
+          </>
         ) : (
           <p className="px-1 pb-1 text-[12px] text-pane-muted">
             {isScreener
@@ -540,7 +570,11 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
         key={props.listKey}
         className="scroll-fade min-h-0 flex-1 touch-pan-y overflow-y-auto overflow-x-hidden overscroll-y-contain px-2 pb-2 pt-1"
       >
-        {threads.length === 0 && props.firstSync && !props.query ? (
+        {shownTab === "files" ? (
+          <SpaceFiles files={spaceFiles} onOpenConversation={openFromTab} />
+        ) : shownTab === "people" ? (
+          <SpacePeople people={spaceFolks} vips={props.vips} onOpenPerson={props.spaceActions.openPerson} />
+        ) : threads.length === 0 && props.firstSync && !props.query ? (
           <FirstSyncState progress={props.firstSync} />
         ) : threads.length === 0 && props.loading ? (
           <ListSkeleton />

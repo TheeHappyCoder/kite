@@ -1,4 +1,4 @@
-import type { Attachment } from "./types";
+import type { Attachment, FileItem, Thread } from "./types";
 
 const BY_EXTENSION: Record<string, string> = {
   jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", bmp: "image/bmp", avif: "image/avif",
@@ -48,4 +48,15 @@ export function isInlineIn(html: string, attachment: Pick<Attachment, "name" | "
 export function canPreview(attachment: Pick<Attachment, "name" | "mimeType" | "kind">) {
   const type = inferMimeType(attachment.name, attachment.mimeType);
   return attachment.kind === "pdf" || /^image\/(png|jpeg|gif|webp|bmp|avif)$/.test(type) || type === "text/plain" || type === "text/csv" || /^(audio|video)\//.test(type);
+}
+
+/** The files in these conversations (not inline images), newest first: from the slim list copy, which keeps attachments. */
+export function threadFiles(threads: Thread[]): FileItem[] {
+  return threads
+    .flatMap((t) =>
+      t.messages.flatMap((m) =>
+        (m.attachments ?? []).filter((a) => !a.inline).map((a) => ({ ...a, accountId: t.accountId, threadId: t.id, messageId: m.id, subject: t.subject, from: m.from, date: m.date })),
+      ),
+    )
+    .sort((a, b) => b.date.localeCompare(a.date));
 }

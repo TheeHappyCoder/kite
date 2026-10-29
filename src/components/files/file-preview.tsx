@@ -66,7 +66,8 @@ export function FileThumb({ file, size = 20, className }: { file: FileRef; size?
 }
 
 /** Shows an attachment inside Kite when the browser can render it; everything else downloads. */
-export function FilePreview({ file, onClose, onOpenEmail }: { file: FileRef | null; onClose: () => void; onOpenEmail?: (file: FileRef) => void }) {
+/** `openLabel`: the words on the button that goes to the file's mail ("Show email"). */
+export function FilePreview({ file, onClose, onOpenEmail, openLabel }: { file: FileRef | null; onClose: () => void; onOpenEmail?: (file: FileRef) => void; openLabel?: string }) {
   const [shown, setShown] = useState<FileRef | null>(file);
   // Keep the last file while the dialog animates out.
   if (file && file !== shown) setShown(file);
@@ -79,14 +80,14 @@ export function FilePreview({ file, onClose, onOpenEmail }: { file: FileRef | nu
       title={current?.attachment.name ?? ""}
       description={current ? [current.attachment.size, current.subject].filter(Boolean).join(" · ") : undefined}
       className="w-[min(960px,calc(100vw-32px))]"
-      footer={current ? <PreviewActions file={current} onOpenEmail={onOpenEmail} onClose={onClose} /> : null}
+      footer={current ? <PreviewActions file={current} onOpenEmail={onOpenEmail} openLabel={openLabel} onClose={onClose} /> : null}
     >
       {current ? <PreviewBody file={current} /> : null}
     </Dialog>
   );
 }
 
-function PreviewActions({ file, onOpenEmail, onClose }: { file: FileRef; onOpenEmail?: (file: FileRef) => void; onClose: () => void }) {
+function PreviewActions({ file, onOpenEmail, openLabel = "Show email", onClose }: { file: FileRef; onOpenEmail?: (file: FileRef) => void; openLabel?: string; onClose: () => void }) {
   const open = fileUrl(file);
   const download = fileUrl(file, true);
   const fillSign = useFillSign();
@@ -102,7 +103,7 @@ function PreviewActions({ file, onOpenEmail, onClose }: { file: FileRef; onOpenE
           }}
           className={ghostClass}
         >
-          <Icon icon={Mail01Icon} size={14} /> Show email
+          <Icon icon={Mail01Icon} size={14} /> {openLabel}
         </button>
       ) : null}
       {pdf && layout ? (

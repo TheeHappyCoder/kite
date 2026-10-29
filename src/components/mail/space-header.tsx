@@ -17,6 +17,8 @@ export type SpaceHeaderActions = {
   update: (id: string, patch: SpacePatch) => void;
   /** Deletes it and its pockets (with Undo); the mail stays where it is. */
   remove: (id: string) => void;
+  /** The People tab: opens Contacts on this person. */
+  openPerson: (email: string) => void;
 };
 
 /**
