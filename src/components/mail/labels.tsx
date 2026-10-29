@@ -147,6 +147,8 @@ export function LabelPicker({
           }}
           className="relative flex h-9 cursor-default items-center gap-2.5 rounded-lg px-2.5 text-[13px] touch:h-11"
         >
+          {/* One child: cmdk hands an Item's children on as one array, which React then wants keys for. */}
+          <>
           {folder ? (
             <span
               className={cn("grid size-4 shrink-0 place-items-center rounded-full border", n ? "border-accent" : "border-pane-muted/60")}
@@ -168,6 +170,7 @@ export function LabelPicker({
           <span className="min-w-0 flex-1 truncate" style={searching ? undefined : { paddingLeft: labelDepth(label, spec) * 14 }} title={label.name}>
             {searching ? label.name : leafName(label, spec)}
           </span>
+          </>
         </Command.Item>
       );
     });
