@@ -18,10 +18,12 @@ const CAP = 132; // the capsule a right code becomes
 const POP_MS = 260;
 const SHAKE_MS = 620;
 const CHECK_MS = 420;
-/** The merge is a spring a little under critical, so the capsule overshoots and settles round. */
+/** How long "Unlocked" (or the like) shows on the settled capsule before `onDone`. */
+const HOLD_MS = 420;
+/** The merge is a spring a little under critical, so the capsule overshoots once and settles round. */
 const MERGE = (() => {
-  const k = 0.075;
-  const zeta = 0.42;
+  const k = 0.09;
+  const zeta = 0.62;
   return { k, d: 1 - 2 * zeta * Math.sqrt(k) };
 })();
 
@@ -80,11 +82,17 @@ export function CodeInput({
     merge: { m: 0, v: 0, to: 0 },
     popAt: [] as number[],
     shookAt: -Infinity,
+    /** A right code: `onDone` once the capsule has come to rest. */
+    doneWhenSettled: false,
     raf: 0,
     still: false,
     live: { code: "", n, phase: "type" as Phase, rowW },
   });
   const timers = useRef<number[]>([]);
+  const done = useRef(onDone);
+  useEffect(() => {
+    done.current = onDone;
+  });
   const goo = `code-goo-${useId().replace(/:/g, "")}`;
 
   /** Writes this frame's positions to the DOM; true while something still moves. */
@@ -155,11 +163,15 @@ export function CodeInput({
         }
       }
     }
-    const capW = CAP * smooth(0.3, 1, m) * (1 + Math.max(-0.12, over) * 0.9);
+    const capW = CAP * smooth(0.3, 1, m) * (1 + Math.max(-0.12, over) * 0.6);
     if (capsule.current) {
       capsule.current.style.display = capW > 0.5 ? "" : "none";
       capsule.current.style.width = `${capW}px`;
-      capsule.current.style.transform = `translateX(${((width - capW) / 2).toFixed(2)}px) scaleY(${(1 - Math.max(-0.12, over) * 0.55).toFixed(3)})`;
+      capsule.current.style.transform = `translateX(${((width - capW) / 2).toFixed(2)}px) scaleY(${(1 - Math.max(-0.12, over) * 0.3).toFixed(3)})`;
+    }
+    if (ph === "ok" && s.doneWhenSettled && mg.m === mg.to && mg.v === 0) {
+      s.doneWhenSettled = false;
+      timers.current.push(window.setTimeout(() => done.current?.(), HOLD_MS));
     }
     if (caretEl.current) {
       caretEl.current.style.transform = `translateX(${(k.x - 1).toFixed(2)}px) scaleX(${(1 + Math.min(5, Math.abs(k.v) * 0.9)).toFixed(3)})`;
@@ -221,9 +233,9 @@ export function CodeInput({
             if (ok) {
               setPhase("ok");
               motion.current.merge.to = 1;
+              motion.current.doneWhenSettled = true;
               input.current?.blur();
               wake();
-              later(() => onDone?.(), still ? 0 : 650);
             } else {
               setPhase("no");
               motion.current.shookAt = performance.now();
@@ -280,7 +292,8 @@ export function CodeInput({
               slots.current[i] = el;
             }}
             className="code-input-slot"
-            style={{ width: W }}
+            data-next={phase === "type" && focus && i === code.length}
+            style={{ width: W, borderRadius: r }}
             aria-hidden="true"
           >
             {code[i] ? (

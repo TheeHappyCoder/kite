@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { SquareLock02Icon } from "@hugeicons/core-free-icons";
 import { PIN_LENGTH } from "@/lib/lock";
-import { blurFade } from "@/lib/motion";
+import { blurFade, exitFor } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { Icon } from "./icon";
 import { CodeInput } from "./ui/code-input";
@@ -33,12 +33,14 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   };
 
   return (
-    <div
+    <motion.div
       role="dialog"
       aria-modal="true"
       aria-label="Kite is locked"
       // Covers everything (mail, compose windows, toasts) and keeps keys from reaching the app.
       onKeyDown={(e) => e.stopPropagation()}
+      // Unlocked, the cover lifts away: the app shows through as it fades and blurs out.
+      exit={{ opacity: 0, filter: "blur(12px)", scale: 1.03, transition: exitFor.slow }}
       className="on-sky bg-sky fixed inset-0 z-[200] grid place-items-center text-frame-fg"
     >
       <motion.div {...blurFade({ y: 8, blur: 8 })} className="flex w-full max-w-80 flex-col items-center gap-4 px-4 text-center">
@@ -65,6 +67,6 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
           {error ?? ""}
         </p>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }

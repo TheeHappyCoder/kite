@@ -470,6 +470,17 @@ body {
   place-items: center;
   --code-cell: var(--frame-hover);
   --code-ink: var(--frame-fg);
+  /* Each empty cell's outline, so the row reads as something to type in before it has focus. */
+  --code-ring: color-mix(in srgb, var(--code-ink) 24%, transparent);
+}
+/*
+  Over the sky (the lock screen) the cells need more body than a hover tint. The cell colour must be
+  opaque (the merge filter's alpha threshold turns a see-through fill invisible alone and solid where
+  cells overlap), so the see-through part is the whole layer's opacity, applied after the filter.
+*/
+.on-sky .code-input {
+  --code-cell: #fff;
+  --code-cell-alpha: 0.22;
 }
 .code-input-row {
   position: relative;
@@ -477,6 +488,7 @@ body {
 .code-input-goo {
   position: absolute;
   inset: 0;
+  opacity: var(--code-cell-alpha, 1);
 }
 /* One colour under the filter, or the threshold smears two. */
 .code-input-cell {
@@ -494,6 +506,13 @@ body {
   display: grid;
   place-items: center;
   pointer-events: none;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--code-ring);
+  transition: box-shadow 150ms ease;
+}
+/* The cell the next digit goes into, while the row has focus. */
+.code-input-slot[data-next="true"] {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--code-ink) 70%, transparent);
 }
 .code-input-digit {
   font-size: 19px;
