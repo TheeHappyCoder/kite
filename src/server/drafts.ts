@@ -85,7 +85,7 @@ async function findDraft(account: AccountRow, { messageId, threadId }: { message
  * Deletes a draft at the provider and here. Uploaded files go too, unless `keepFiles` (the
  * message was sent or queued and still needs them).
  */
-export async function discardDraft(account: AccountRow, ref: { draftId?: string; messageId?: string; threadId?: string }, keepFiles = false) {
+export async function discardDraft(account: AccountRow, ref: { draftId?: string; messageId?: string; threadId?: string }, keepFiles = false, settle = false) {
   const draftId = ref.draftId ?? (await findDraft(account, ref))?.id;
   if (!draftId) return false;
   const local = row(draftId);
@@ -97,8 +97,11 @@ export async function discardDraft(account: AccountRow, ref: { draftId?: string;
       if (payload.success) await removeUploads(payload.data.attachments.flatMap((a) => (a.type === "upload" ? [a.id] : [])));
     }
   }
+  // `settle` (the reader's Discard): the stored copy follows before the answer, so the list read right
+  // after no longer shows the draft. A send doesn't wait for it.
   const threadId = local?.thread_id ?? ref.threadId;
-  if (threadId) void syncThread(account, threadId).catch(() => {});
+  const synced = threadId ? syncThread(account, threadId).catch(() => {}) : null;
+  if (settle) await synced;
   return true;
 }
 

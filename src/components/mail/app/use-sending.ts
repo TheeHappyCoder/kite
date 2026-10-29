@@ -314,8 +314,11 @@ export function useSending({
         if (!res.ok || !data.draft) throw new Error(data.error ?? "That draft couldn't be opened.");
         openCompose(data.draft, undefined, { key: `reply:${selected.id}` });
       } else {
-        await postJson(`/api/mail/drafts?${query}`, null, "DELETE");
-        setToast({ message: "Draft discarded" });
+        // Gone from the reader at once (and the banner with it), as "Delete this message" does.
+        const thread = selected;
+        dispatch({ type: "patch", id: thread.id, patch: { messages: thread.messages.filter((m) => !m.draft) } });
+        const { ok } = await postJson<{ ok: boolean }>(`/api/mail/drafts?${query}`, null, "DELETE");
+        setToast({ message: ok ? "Draft discarded" : "That draft was already sent or deleted." });
         reload();
       }
     } catch (error) {

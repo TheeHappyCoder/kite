@@ -59,7 +59,7 @@ export async function DELETE(request: Request) {
   const ref = refFrom(search);
   if (!ref.draftId && !ref.messageId && !ref.threadId) return NextResponse.json({ error: "Missing draft" }, { status: 400 });
   try {
-    return NextResponse.json({ ok: await discardDraft(account, ref) });
+    return NextResponse.json({ ok: await discardDraft(account, ref, false, true) });
   } catch (error) {
     return errorResponse(error);
   }
