@@ -42,6 +42,38 @@ export function useSidebarMode(): SidebarMode {
   return useSyncExternalStore(subscribe, sidebarMode, () => "full");
 }
 
+/** The mail column folded away by choice (wide windows): the sidebar is a rail, and hovering it peeks. Remembered on this computer. */
+const COLUMN_KEY = "kite-sidebar-column";
+const columnListeners = new Set<() => void>();
+function readColumnCollapsed() {
+  try {
+    return localStorage.getItem(COLUMN_KEY) === "collapsed";
+  } catch {
+    return false;
+  }
+}
+
+export function useColumnCollapsed(): [boolean, () => void] {
+  const collapsed = useSyncExternalStore(
+    (listener) => {
+      columnListeners.add(listener);
+      return () => columnListeners.delete(listener);
+    },
+    readColumnCollapsed,
+    () => false,
+  );
+  const toggle = () => {
+    try {
+      if (collapsed) localStorage.removeItem(COLUMN_KEY);
+      else localStorage.setItem(COLUMN_KEY, "collapsed");
+    } catch {
+      // Storage unavailable: nothing to remember it in, so it stays as it is.
+    }
+    columnListeners.forEach((l) => l());
+  };
+  return [collapsed, toggle];
+}
+
 /**
  * An element's width, measured before paint and kept current (null until it's on screen). Pass
  * the returned ref to the element; it follows the element when it mounts later.

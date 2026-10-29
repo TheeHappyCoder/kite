@@ -32,7 +32,7 @@ import { MergePicker } from "./merge-picker";
 import { PeoplePanel } from "./people-panel";
 import { Sidebar, SidebarDrawer, SidebarTopBar } from "./sidebar";
 import { MailPanes, WithPaneBack } from "./mail-panes";
-import { TWO_PANES_MIN, useSidebarMode, useWidth, type SidebarMode } from "@/lib/layout";
+import { TWO_PANES_MIN, useColumnCollapsed, useSidebarMode, useWidth, type SidebarMode } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import { useSkyPhase } from "@/lib/use-sky";
 import type { CalendarEvent } from "@/lib/calendar/event";
@@ -180,7 +180,10 @@ export function MailApp() {
   // Narrow windows: the sidebar becomes a rail, then a drawer (opened for the form it was opened
   // in, so it never pops back open when the window changes); below two panes' minimums, the list
   // and the reader take turns (`paneDetail`: the reader's turn).
-  const sidebarMode = useSidebarMode();
+  // A wide window can fold the mail column away by choice: the sidebar is then a rail that peeks on hover.
+  const windowMode = useSidebarMode();
+  const [columnCollapsed, toggleColumn] = useColumnCollapsed();
+  const sidebarMode: SidebarMode = windowMode === "full" && columnCollapsed ? "rail" : windowMode;
   const [drawerFor, setDrawerFor] = useState<SidebarMode | null>(null);
   const drawerOpen = drawerFor === sidebarMode && sidebarMode !== "full";
   const openDrawer = useCallback(() => setDrawerFor(sidebarMode), [sidebarMode]);
@@ -760,7 +763,8 @@ export function MailApp() {
       prev: () => (selecting || (onePane && !paneDetail) ? focus(-1) : move(-1)),
       open: onePane && !paneDetail && listVisible && state.selectedId ? () => openThread(state.selectedId) : undefined,
       back: state.view.kind === "home" && state.selectedId ? () => selectThread(null) : onePane && paneDetail ? () => setPaneDetail(false) : undefined,
-      menu: sidebarMode !== "full" ? () => (drawerOpen ? closeDrawer() : openDrawer()) : undefined,
+      // Wide windows fold the mail column away or bring it back; narrower ones open the drawer.
+      menu: windowMode === "full" ? toggleColumn : () => (drawerOpen ? closeDrawer() : openDrawer()),
       archive: either("archive", () => actions.archive()),
       delete: either("delete", () => actions.remove()),
       spam: either("spam", () => actions.spam()),
@@ -986,7 +990,7 @@ export function MailApp() {
       <FirstSyncContext value={firstSyncs}>
       <div className="on-sky bg-sky relative isolate flex h-screen w-screen overflow-hidden">
         <div aria-hidden className="sky-layer" />
-        {sidebarMode === "drawer" ? null : <Sidebar {...sidebarProps} mode={sidebarMode} onExpand={openDrawer} />}
+        {sidebarMode === "drawer" ? null : <Sidebar {...sidebarProps} mode={sidebarMode} onToggleColumn={windowMode === "full" ? toggleColumn : undefined} />}
         <SidebarDrawer {...sidebarProps} open={drawerOpen} onClose={closeDrawer} />
 
         <div className="flex min-w-0 flex-1 flex-col">

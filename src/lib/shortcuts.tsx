@@ -86,7 +86,7 @@ export const SHORTCUT_DEFINITIONS: Definition[] = [
   { id: "prev", label: "Previous conversation", group: "Navigation", defaults: ["k", "ArrowUp"] },
   { id: "open", label: "Open conversation (one pane at a time)", group: "Navigation", defaults: ["Enter", "o"] },
   { id: "back", label: "Back to the list (one pane at a time)", group: "Navigation", defaults: ["Backspace"] },
-  { id: "menu", label: "Sidebar (narrow windows)", group: "Navigation", defaults: ["g"] },
+  { id: "menu", label: "Show or hide the sidebar", group: "Navigation", defaults: ["g"] },
   { id: "search", label: "Search", group: "Navigation", defaults: ["/"] },
   { id: "tab1", label: "Primary tab", group: "Navigation", defaults: ["1"] },
   { id: "tab2", label: "Second inbox tab", group: "Navigation", defaults: ["2"] },

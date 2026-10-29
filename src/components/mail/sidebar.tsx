@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 
 import {
@@ -33,6 +33,7 @@ import {
   ArrowDown01Icon,
   Add01Icon,
   CloudDownloadIcon,
+  SidebarLeftIcon,
 } from "@hugeicons/core-free-icons";
 import { accountName, type Account, type Mailbox } from "@/lib/mail/types";
 import type { View } from "@/lib/mail/store";
@@ -122,8 +123,8 @@ type Props = {
   onRemoveSearch: (id: string) => void;
   /** `full` (labels and all) or `rail` (icons only, labels in tooltips); see lib/layout.ts. */
   mode?: "full" | "rail";
-  /** The rail's "Show sidebar": opens the full sidebar as a drawer. */
-  onExpand?: () => void;
+  /** Wide windows: folds the mail column away (the rail then peeks it on hover) or brings it back. */
+  onToggleColumn?: () => void;
   /** Kite's spaces and pockets (lib/spaces.ts). */
   spaces: Space[];
   onCreateSpace: (name: string, parentId: string | null) => Promise<Space | null>;
@@ -330,31 +331,153 @@ const MAIL_VIEWS = new Set<View["kind"]>(["mailbox", "label", "space", "home", "
 export const Sidebar = stableHandlers(function Sidebar(props: Props) {
   const mail = MAIL_VIEWS.has(props.view.kind);
   const column = !!props.inDrawer || (props.mode !== "rail" && mail);
+  const peek = usePeek(props.mode === "rail" && mail && !props.inDrawer);
+  // Going somewhere from the peeked column closes it.
+  const closing = Object.fromEntries(
+    CLOSES_DRAWER.map((key) => [
+      key,
+      (...args: unknown[]) => {
+        peek.close(true);
+        (props[key] as (...a: unknown[]) => void)(...args);
+      },
+    ]),
+  ) as Pick<Props, (typeof CLOSES_DRAWER)[number]>;
   return (
-    <div
-      className={cn(
-        "ink-chrome flex shrink-0 overflow-hidden bg-[rgb(22_24_30/0.86)] text-frame-fg backdrop-blur-2xl backdrop-saturate-150",
-        props.inDrawer ? "h-full w-full" : "my-2 ml-2 mr-2 rounded-2xl shadow-[0_24px_60px_-28px_rgb(5_15_35/0.65),inset_0_1px_0_rgb(255_255_255/0.07)]",
-      )}
-    >
-      <LayoutGroup id="sidebar-rail">
-        <SectionRail {...props} mail={mail} column={column} />
-      </LayoutGroup>
-      {column ? (
-        <LayoutGroup id="sidebar-column">
-          <MailColumn {...props} />
+    <div className={cn("relative flex shrink-0", props.inDrawer && "h-full w-full")} {...peek.area}>
+      <div
+        className={cn(
+          "ink-chrome flex shrink-0 overflow-hidden bg-[rgb(22_24_30/0.86)] text-frame-fg backdrop-blur-2xl backdrop-saturate-150",
+          props.inDrawer ? "h-full w-full" : "my-2 ml-2 mr-2 rounded-2xl shadow-[0_24px_60px_-28px_rgb(5_15_35/0.65),inset_0_1px_0_rgb(255_255_255/0.07)]",
+        )}
+      >
+        <LayoutGroup id="sidebar-rail">
+          <SectionRail
+            {...props}
+            mail={mail}
+            column={column}
+            peek={peek.enabled ? peek.rail : undefined}
+            onToggleColumn={
+              props.onToggleColumn
+                ? () => {
+                    peek.close(true);
+                    props.onToggleColumn?.();
+                  }
+                : undefined
+            }
+          />
         </LayoutGroup>
-      ) : null}
+        {column ? (
+          <LayoutGroup id="sidebar-column">
+            <MailColumn {...props} />
+          </LayoutGroup>
+        ) : null}
+      </div>
+      {/* The mail column peeking over the panes beside the rail: nothing under it moves. */}
+      <AnimatePresence>
+        {peek.open ? (
+          <motion.div
+            key="peek"
+            {...blurFade({ x: -10, blur: 6, speed: "moderate" })}
+            className="ink-chrome absolute bottom-2 left-full top-2 z-30 -ml-1 flex overflow-hidden rounded-2xl bg-[rgb(22_24_30/0.94)] text-frame-fg shadow-[0_24px_60px_-20px_rgb(5_15_35/0.75),inset_0_1px_0_rgb(255_255_255/0.07)] backdrop-blur-2xl backdrop-saturate-150"
+          >
+            <LayoutGroup id="sidebar-peek">
+              <MailColumn {...props} {...closing} />
+            </LayoutGroup>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 });
 
-function SectionRail(props: Props & { mail: boolean; column: boolean }) {
+/** How long the pointer rests on the rail before the column peeks, and how long it may stray before it goes. */
+const PEEK_OPEN_MS = 220;
+const PEEK_CLOSE_MS = 280;
+
+/**
+ * The folded mail column's hover peek: opens after the pointer rests on the rail (a mouse only, so
+ * touch keeps the drawer), stays while the pointer is over the rail or the column, and closes a beat
+ * after it leaves, on Escape, or on going somewhere. A conversation dragged over the rail opens it at
+ * once, so spaces still take drops. Folding the column by hand doesn't peek it again until the
+ * pointer has left the rail.
+ */
+function usePeek(enabled: boolean) {
+  const [open, setOpen] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const held = useRef(false);
+  const after = (next: boolean, ms: number) => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setOpen(next), ms);
+  };
+  const close = (hold = false) => {
+    clearTimeout(timer.current);
+    held.current = hold;
+    setOpen(false);
+  };
+  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented) setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+  return {
+    enabled,
+    open: enabled && open,
+    close,
+    /** The rail's sections and accounts: resting there peeks; passing through (to Search or Settings below) doesn't. */
+    rail: {
+      onPointerEnter: (e: React.PointerEvent) => {
+        if (e.pointerType === "mouse" && !held.current && !open) after(true, PEEK_OPEN_MS);
+      },
+      onPointerLeave: () => {
+        if (!open) clearTimeout(timer.current);
+      },
+    },
+    area: enabled
+      ? {
+          onPointerEnter: () => open && clearTimeout(timer.current),
+          onPointerLeave: () => {
+            held.current = false;
+            after(false, open ? PEEK_CLOSE_MS : 0);
+          },
+          onDragEnter: (e: React.DragEvent) => {
+            if (e.dataTransfer.types.includes(THREAD_DRAG)) {
+              clearTimeout(timer.current);
+              setOpen(true);
+            }
+          },
+          // Over children the drag leaves and enters again: dragover keeps cancelling the close.
+          onDragOver: () => open && clearTimeout(timer.current),
+          onDragLeave: () => open && after(false, PEEK_CLOSE_MS),
+          onDrop: () => after(false, 0),
+        }
+      : {},
+  };
+}
+
+function SectionRail(props: Props & { mail: boolean; column: boolean; peek?: ReturnType<typeof usePeek>["rail"] }) {
   const { view, counts } = props;
   return (
     <RailContext value>
       <aside className="flex min-h-0 w-[60px] shrink-0 flex-col bg-black/25 pb-3 pt-3 short:pb-2 short:pt-2">
-        <div className="scroll-fade flex min-h-0 flex-1 flex-col overflow-y-auto px-2 [scrollbar-width:none]">
+        {props.onToggleColumn && props.mail ? (
+          <div className="mb-2 flex justify-center px-2 short:mb-1">
+            <Tooltip label={props.column ? "Hide the mail column" : "Show the mail column"} shortcut="menu" side="right">
+              <button
+                aria-label={props.column ? "Hide the mail column" : "Show the mail column"}
+                aria-pressed={props.column}
+                onClick={props.onToggleColumn}
+                className="grid h-8 w-full place-items-center rounded-[10px] text-frame-fg/55 transition-colors duration-150 hover:bg-white/[0.06] hover:text-frame-fg hover:transition-none"
+              >
+                <Icon icon={SidebarLeftIcon} size={18} />
+              </button>
+            </Tooltip>
+          </div>
+        ) : null}
+        <div {...props.peek} className="scroll-fade flex min-h-0 flex-1 flex-col overflow-y-auto px-2 [scrollbar-width:none]">
         <FluidList className="flex flex-col gap-1 short:gap-0.5">
           <NavItem icon={InboxIcon} label="Mail" count={props.column ? undefined : counts.mailbox.inbox} emphasis active={props.mail} onClick={() => props.onView({ kind: "mailbox", mailbox: "inbox" })} />
           <NavItem icon={Calendar03Icon} label="Calendar" active={view.kind === "calendar"} onClick={() => props.onView({ kind: "calendar" })} />
@@ -585,7 +708,7 @@ export function SidebarDrawer({ open, onClose, ...props }: Props & { open: boole
           >
             {/* Its own layout group, so its highlight never flies over from the rail. */}
             <LayoutGroup id="sidebar-drawer">
-              <Sidebar {...props} {...closing} mode="full" inDrawer onExpand={undefined} />
+              <Sidebar {...props} {...closing} mode="full" inDrawer onToggleColumn={undefined} />
             </LayoutGroup>
           </motion.div>
         </div>
