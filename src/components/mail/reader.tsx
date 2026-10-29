@@ -107,6 +107,8 @@ type Props = {
   onSender: (action: "allow" | "block") => void;
   /** Local split: this message (and, with `following`, the later ones) becomes its own conversation. */
   onSplit: (messageId: string, following: boolean) => void;
+  /** "Delete this message": just that message to Trash. */
+  onDeleteMessage: (messageId: string) => void;
   /** Opens the "Merge with…" picker. */
   onMerge: () => void;
   onAddToCalendar: () => void;
@@ -611,6 +613,7 @@ function Conversation(props: Props & { thread: Thread; onPreview: (file: FileRef
                 highlighted={highlight === message.id}
                 onPreview={props.onPreview}
                 onSplit={thread.messages.length > 1 && !thread.scheduled ? (following) => props.onSplit(message.id, following) : undefined}
+                onDelete={thread.messages.length > 1 && !thread.scheduled && thread.mailbox !== "trash" ? () => props.onDeleteMessage(message.id) : undefined}
                 onScreenshot={() => props.onScreenshot(message.id)}
                 later={thread.messages.length - index - 1}
                 onPerson={props.account && message.from.email.toLowerCase() !== props.account.email.toLowerCase() && message.from.name !== "You" ? props.onPerson : undefined}
@@ -811,6 +814,7 @@ function MessageView({
   highlighted,
   onPreview,
   onSplit,
+  onDelete,
   onScreenshot,
   later,
   onPerson,
@@ -826,6 +830,7 @@ function MessageView({
   highlighted: boolean;
   onPreview: (file: FileRef) => void;
   onSplit?: (following: boolean) => void;
+  onDelete?: () => void;
   onScreenshot?: () => void;
   /** Messages after this one in the conversation. */
   later: number;
@@ -931,11 +936,12 @@ function MessageView({
               </button>
             </Tooltip>
           ) : null}
-          {onScreenshot || onSplit ? (
+          {onScreenshot || onSplit || onDelete ? (
             <ThreadMenu
               items={[
                 ...(onScreenshot ? [{ id: "screenshot", icon: Camera01Icon, label: "Screenshot this message", onSelect: onScreenshot }] : []),
                 ...(onSplit ? [{ id: "split", icon: Scissor01Icon, label: "Split into its own conversation", onSelect: () => setSplitting(true) }] : []),
+                ...(onDelete ? [{ id: "delete", section: true, danger: true, icon: Delete02Icon, label: "Delete this message", onSelect: onDelete }] : []),
               ]}
               trigger={(menuOpen, toggle) => (
                 <Tooltip label="Message actions">

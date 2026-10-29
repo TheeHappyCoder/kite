@@ -8,7 +8,7 @@ import { getAccount } from "@/server/db";
 import { errorResponse } from "@/server/errors";
 import type { ThreadOp } from "@/server/mail/ops";
 import { rejectCrossSite } from "@/server/guard";
-import { loadFullThread, runOp } from "@/server/sync";
+import { loadFullThread, runMessageOp, runOp } from "@/server/sync";
 import { getPrepared } from "@/server/prepared";
 
 export const runtime = "nodejs";
@@ -44,11 +44,24 @@ export async function POST(request: Request, { params }: Context) {
   const rejected = rejectCrossSite(request);
   if (rejected) return rejected;
   const { id } = await params;
-  const body = (await request.json()) as { account?: string; op?: ThreadOp; until?: string };
+  // `messages`: only those messages of the conversation (trash / untrash: "Delete this message" and its Undo).
+  const body = (await request.json()) as { account?: string; op?: ThreadOp; until?: string; messages?: unknown };
   const account = getAccount(body.account ?? "");
   if (!account) return NextResponse.json({ error: "Unknown account" }, { status: 404 });
   if (!THREAD_KEY.test(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!body.op || !OPS.includes(body.op)) return NextResponse.json({ error: "Unknown operation" }, { status: 400 });
+  if (body.messages !== undefined) {
+    const ids = body.messages;
+    if (!Array.isArray(ids) || !ids.length || ids.length > 200 || !ids.every((m) => typeof m === "string") || (body.op !== "trash" && body.op !== "untrash")) {
+      return NextResponse.json({ error: "Unknown operation" }, { status: 400 });
+    }
+    try {
+      await runMessageOp(account, id, body.op, ids);
+      return NextResponse.json({ ok: true });
+    } catch (error) {
+      return errorResponse(error);
+    }
+  }
   try {
     await runOp(account, id, body.op, body.until);
     return NextResponse.json({ ok: true });

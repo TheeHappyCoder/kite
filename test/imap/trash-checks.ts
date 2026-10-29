@@ -4,8 +4,8 @@ import type { MailBatchJob, MailBatchRequest } from "@/lib/mail/batch";
 import { previewMailBatch, executeMailBatch, undoMailBatch, refreshTrash, jobState } from "@/server/mail-batch";
 import { mailOf } from "@/server/providers/registry";
 import { queryThreads } from "@/server/store";
-import { runOp } from "@/server/sync";
-import { keyOf, sync, thread, type Mailbox } from "./harness";
+import { runMessageOp, runOp } from "@/server/sync";
+import { keyOf, storedThreads, sync, thread, type Mailbox } from "./harness";
 
 /** Waits for a job the way the window does, and answers with what it finished with. */
 async function settled(started: MailBatchJob) {
@@ -33,6 +33,25 @@ export function trashChecks(box: Mailbox) {
       expect(queryThreads("archive", box.account.id).some((r) => r.id === t.id)).toBe(false);
       await runOp(box.account, keyOf(box.account, t), "untrash");
       expect(queryThreads("inbox", box.account.id).some((r) => r.id === t.id)).toBe(true);
+      expect(queryThreads("trash", box.account.id).some((r) => r.id === t.id)).toBe(false);
+    });
+
+    it("deletes one message of a conversation, leaves the rest, and Undo puts it back", async () => {
+      await sync(box.account);
+      const mail = mailOf(box.account);
+      const t = storedThreads(box.account).find((c) => c.messages.length > 1 && !c.messages.some((m) => m.labels?.includes(TRASH)))!;
+      expect(t).toBeTruthy();
+      const [gone, ...kept] = t.messages;
+      await runMessageOp(box.account, keyOf(box.account, t), "trash", [gone.id, "not-in-this-conversation"]);
+      expect((await mail.fetchMessage(box.account, gone.id, false)).labels).toContain(TRASH);
+      for (const m of kept) expect((await mail.fetchMessage(box.account, m.id, false)).labels ?? []).not.toContain(TRASH);
+      await sync(box.account);
+      // The conversation keeps its other messages where they were; Trash holds just the deleted one.
+      const trashed = queryThreads("trash", box.account.id).find((r) => r.id === t.id);
+      expect(trashed?.messages.map((m) => m.id)).toEqual([gone.id]);
+      await runMessageOp(box.account, keyOf(box.account, t), "untrash", [gone.id]);
+      expect((await mail.fetchMessage(box.account, gone.id, false)).labels ?? []).not.toContain(TRASH);
+      await sync(box.account);
       expect(queryThreads("trash", box.account.id).some((r) => r.id === t.id)).toBe(false);
     });
 

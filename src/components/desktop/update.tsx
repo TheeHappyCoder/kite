@@ -292,11 +292,15 @@ const DEMO_NOTES = `- Kite feels lighter: dragging the divider between the list 
 const DEMO_SIZE = 38.4 * 1048576;
 
 const demoParam = () => (process.env.NODE_ENV !== "production" ? new URLSearchParams(window.location.search).get("update-demo") : null);
-const noSubscribe = () => () => {};
+/** The URL never changes under it, but React must look once after hydrating (the server knows no URL). */
+const lookOnce = (changed: () => void) => {
+  const timer = setTimeout(changed, 0);
+  return () => clearTimeout(timer);
+};
 
 /** Plays the whole update with made-up numbers: available, a five-second download, installing, then back to the start. */
 function useUpdateDemo() {
-  const param = useSyncExternalStore(noSubscribe, demoParam, () => null);
+  const param = useSyncExternalStore(lookOnce, demoParam, () => null);
   const on = param !== null;
   const [state, setState] = useState<UpdateState>(() => ({
     phase: "available",

@@ -159,6 +159,40 @@ export function useThreadActions({
     [takeOut, dispatch, remoteMany],
   );
 
+  /**
+   * "Delete this message": one message of a conversation to Trash, the rest left where it is, with
+   * Undo. The last message left takes the whole conversation, as Delete always has.
+   */
+  const deleteMessage = useCallback(
+    (threadId: string, messageId: string) => {
+      const thread = state.threads.find((t) => t.id === threadId);
+      if (!thread || thread.scheduled) return;
+      const before = thread.messages;
+      const after = before.filter((m) => m.id !== messageId);
+      if (!after.length) return moveThread(threadId, { mailbox: "trash" }, "Moved to Trash", ["trash", "untrash"]);
+      const send = (op: "trash" | "untrash") => {
+        if (!live || !thread.remoteId) return;
+        const finish = mailChanges.begin();
+        postJson(`/api/mail/threads/${threadKey(thread)}`, { account: thread.accountId, op, messages: [messageId] })
+          .catch(() => setToast({ message: `${serviceOf([thread.accountId])} didn't accept that change. Refreshing.` }))
+          .finally(() => {
+            finish();
+            reload();
+          });
+      };
+      dispatch({ type: "patch", id: threadId, patch: { messages: after } });
+      send("trash");
+      setToast({
+        message: "Message moved to Trash",
+        onUndo: () => {
+          dispatch({ type: "patch", id: threadId, patch: { messages: before } });
+          send("untrash");
+        },
+      });
+    },
+    [state.threads, live, moveThread, dispatch, setToast, serviceOf, reload],
+  );
+
   const senderAction = useCallback(
     (id: string, action: "allow" | "block") => {
       const thread = state.threads.find((t) => t.id === id);
@@ -350,6 +384,7 @@ export function useThreadActions({
     remoteMany,
     selectThread,
     moveThread,
+    deleteMessage,
     archiveQuietly,
     senderAction,
     actions,

@@ -985,6 +985,21 @@ export async function runOp(account: AccountRow, key: string, op: ThreadOp, unti
 }
 
 /**
+ * Moves some messages of one conversation to Trash, or back (`untrash`): "Delete this message" and
+ * its Undo. Only ids the stored conversation holds are touched; the rest of it stays where it is.
+ */
+export async function runMessageOp(account: AccountRow, key: string, op: "trash" | "untrash", messageIds: string[]) {
+  const id = `${account.id}:${key}`;
+  const row = getThreadRow(id);
+  const held = new Set(row ? (JSON.parse(row.data) as Thread).messages.map((m) => m.id) : []);
+  const messages = messageIds.filter((m) => held.has(m));
+  if (!messages.length) return;
+  await mailOf(account).modifyMessages(account, messages, LABEL_OPS[op]);
+  updateMessageLabels(id, messages, LABEL_OPS[op].add, LABEL_OPS[op].remove);
+  notifyChanged(account.id);
+}
+
+/**
  * Adds and removes the user's own labels on many conversations: tags stay where they are, a
  * folder moves the mail into it (`undo` then names the way back). Only labels the account really
  * has are accepted, so this path can never move mail between built-in mailboxes. A few at a

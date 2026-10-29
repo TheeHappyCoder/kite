@@ -227,6 +227,7 @@ export function MailApp() {
     remoteMany,
     selectThread,
     moveThread,
+    deleteMessage,
     archiveQuietly,
     senderAction,
     actions,
@@ -943,6 +944,7 @@ export function MailApp() {
       onManageSnippets={() => setView({ kind: "settings", section: "compose" })}
       onSender={(action) => selected && senderAction(selected.id, action)}
       onSplit={splitThread}
+      onDeleteMessage={(messageId) => selected && deleteMessage(selected.id, messageId)}
       onPin={() => togglePin()}
       onMute={() => toggleMute()}
       onNote={saveNote}

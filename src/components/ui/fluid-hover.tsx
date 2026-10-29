@@ -164,20 +164,26 @@ export function FluidList({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- motion values and refs are stable; glide never changes for a list
   }, [follow]);
 
+  // Only events on the list itself: React bubbles a portal's events (a dialog opened from a row) up
+  // through here too, and those would light and click the row nearest the pointer under the dialog.
+  const outside = (e: React.MouseEvent) => !root.current?.contains(e.target as Node);
   const pointer = follow
     ? {}
     : {
         onMouseEnter: (e: React.MouseEvent) => {
+          if (outside(e)) return;
           measure();
           light(nearest(e.clientX, e.clientY), "pointer");
         },
         onMouseMove: (e: React.MouseEvent) => {
+          if (outside(e)) return light(null, "pointer");
           if (stale.current) measure();
           light((e.target as HTMLElement).closest("[data-fluid-ignore]") ? null : nearest(e.clientX, e.clientY), "pointer");
         },
         onMouseLeave: () => light(null, "pointer"),
         onClick: (e: React.MouseEvent) => {
           // A click in a gap between rows goes to the lit row.
+          if (outside(e)) return;
           if (lit.current && !(e.target as HTMLElement).closest("[data-fluid-item]")) lit.current.click();
         },
       };
