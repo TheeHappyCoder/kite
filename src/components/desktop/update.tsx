@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Cancel01Icon, SecurityCheckIcon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { ArrowRight01Icon, Cancel01Icon, SecurityCheckIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { desktopInvoke, inDesktopApp, type DesktopUpdateState } from "@/lib/desktop";
+import { parseReleaseNotes, type ReleaseFeature, type ReleaseNotes } from "@/lib/release-notes";
+import { FLUID_ITEM, FluidList } from "../ui/fluid-hover";
 import { blurFade } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { Dialog } from "../ui/dialog";
@@ -59,12 +61,21 @@ function UpdateDialog({ open, onClose, state, progress, onInstall }: { open: boo
   // How high the kite flies: low while it waits, climbing with the download, at the top to install.
   const height = state.phase === "installing" ? 1 : busy ? (progress ?? 0) : failed ? 0.15 : 0.35;
   const percent = progress === null ? null : Math.round(progress * 100);
+  const notes = useMemo(() => parseReleaseNotes(state.notes), [state.notes]);
+  // Notes with features get a tab each (and keep the width through the download, so nothing jumps).
+  const wide = notes.features.length > 0;
   return (
-    <Dialog open={open} onClose={onClose} title={title} bare className="w-[460px] rounded-3xl border-0 shadow-[0_30px_80px_-24px_rgb(0_0_0/0.5)] ring-1 ring-white/[0.07]">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={title}
+      bare
+      className={cn("rounded-3xl border-0 shadow-[0_30px_80px_-24px_rgb(0_0_0/0.5)] ring-1 ring-white/[0.07]", wide ? "w-[820px]" : "w-[460px]")}
+    >
       {/* A strip of the sky (the app's own, by the time of day), with Kite on its string. */}
-      <div className="on-sky bg-sky relative isolate h-44 shrink-0 overflow-hidden text-white">
+      <div className={cn("on-sky bg-sky relative isolate shrink-0 overflow-hidden text-white", wide ? "h-36" : "h-44")}>
         <div aria-hidden className="sky-layer" />
-        <SkyKite height={height} />
+        <SkyKite height={height} wide={wide} />
         <div className="relative flex items-center justify-between px-4 pt-4">
           <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11.5px] font-medium tracking-wide">
             {busy ? "Updating" : failed ? "Not finished" : "New version"}
@@ -110,30 +121,22 @@ function UpdateDialog({ open, onClose, state, progress, onInstall }: { open: boo
         </div>
       ) : null}
 
-      <div className="scroll-fade min-h-0 flex-1 overflow-y-auto px-5 pb-2 pt-4">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={view} {...blurFade({ y: 6, speed: "moderate" })}>
-            {view === "notes" ? <Notes text={state.notes} /> : view === "progress" ? <Steps state={state} starting={starting} /> : <Failure message={state.error} />}
-          </motion.div>
-        </AnimatePresence>
-      </div>
+      {wide && view === "notes" ? (
+        <Features notes={notes} />
+      ) : (
+        <div className="scroll-fade min-h-0 flex-1 overflow-y-auto px-5 pb-2 pt-4">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={view} {...blurFade({ y: 6, speed: "moderate" })} className={cn(wide && "max-w-[480px]")}>
+              {view === "notes" ? <Notes text={state.notes} /> : view === "progress" ? <Steps state={state} starting={starting} /> : <Failure message={state.error} />}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      )}
 
-      {/* The reassurance as one slim line of its own, so the buttons get a row to themselves. */}
-      <div className="mx-5 mt-2 flex min-w-0 items-center gap-2 whitespace-nowrap rounded-full bg-pane-hover px-3 py-1.5 text-[12px]">
-        <Icon icon={SecurityCheckIcon} size={14} className="shrink-0 text-accent" />
-        {view === "progress" ? (
-          <span className="truncate">
-            <span className="font-medium text-pane-fg">Kite opens again by itself</span>
-            <span className="text-pane-muted"> · you can close this</span>
-          </span>
-        ) : (
-          <span className="truncate">
-            <span className="font-medium text-pane-fg">Signed by Kite</span>
-            <span className="text-pane-muted"> · your mail and settings stay put</span>
-          </span>
-        )}
-      </div>
+      {/* The reassurance as one slim line: beside the buttons in the wide dialog, else a row of its own so the buttons keep theirs. */}
+      {wide ? null : <Reassurance progress={view === "progress"} className="mx-5 mt-2" />}
       <footer className="flex items-center justify-end gap-2 px-5 pb-4 pt-3">
+        {wide ? <Reassurance progress={view === "progress"} className="mr-auto max-sm:hidden" /> : null}
         {view === "progress" ? (
           <PillButton onClick={onClose}>Hide</PillButton>
         ) : (
@@ -149,15 +152,35 @@ function UpdateDialog({ open, onClose, state, progress, onInstall }: { open: boo
   );
 }
 
+function Reassurance({ progress, className }: { progress: boolean; className?: string }) {
+  return (
+    <div className={cn("flex min-w-0 items-center gap-2 whitespace-nowrap rounded-full bg-pane-hover px-3 py-1.5 text-[12px]", className)}>
+      <Icon icon={SecurityCheckIcon} size={14} className="shrink-0 text-accent" />
+      {progress ? (
+        <span className="truncate">
+          <span className="font-medium text-pane-fg">Kite opens again by itself</span>
+          <span className="text-pane-muted"> · you can close this</span>
+        </span>
+      ) : (
+        <span className="truncate">
+          <span className="font-medium text-pane-fg">Signed by Kite</span>
+          <span className="text-pane-muted"> · your mail and settings stay put</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
 /**
  * Kite's mark flying on a string over the sky strip. `height` 0–1: where it flies (the download lifts
  * it). It sways a little while the dialog is open; nothing else moves.
  */
-function SkyKite({ height }: { height: number }) {
-  const W = 460;
-  const H = 176;
-  const x = 360;
-  const y = 112 - height * 78;
+function SkyKite({ height, wide }: { height: number; wide: boolean }) {
+  // Drawn at the strip's own size (the wide dialog's strip is wider and shorter), so it never flies out of it.
+  const W = wide ? 820 : 460;
+  const H = wide ? 144 : 176;
+  const x = W - 100;
+  const y = H * 0.64 - height * H * 0.44;
   const tail = { x: x, y: y + 26 };
   const string = `M ${tail.x} ${tail.y} Q ${tail.x - 40} ${H - 10} ${tail.x - 120} ${H + 6}`;
   return (
@@ -195,6 +218,122 @@ function Notes({ text }: { text: string | null }) {
         })}
       </ul>
     </section>
+  );
+}
+
+/**
+ * What's new as tabs (lib/release-notes.ts): a feature each, its picture or animated picture under its
+ * text, and the smaller fixes last. ↑ / ↓ move through them; one column of pills on narrow windows.
+ */
+function Features({ notes }: { notes: ReleaseNotes }) {
+  const tabs: (ReleaseFeature & { polish?: boolean })[] = [
+    ...notes.features,
+    ...(notes.polish.length ? [{ title: "Smaller things", media: null, polish: true, lines: notes.polish.map((text) => ({ bullet: true, text })) }] : []),
+  ];
+  const [at, setAt] = useState(0);
+  const tab = tabs[Math.min(at, tabs.length - 1)];
+  const next = tabs[at + 1];
+  const move = (by: number) => setAt((i) => Math.max(0, Math.min(tabs.length - 1, i + by)));
+  return (
+    <div className="flex h-[min(440px,54vh)] min-h-0 border-b border-pane-border max-sm:h-[min(520px,62vh)] max-sm:flex-col">
+      <nav
+        aria-label="What’s new"
+        onKeyDown={(e) => {
+          if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+          e.preventDefault();
+          move(e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : -1);
+        }}
+        className="scroll-fade w-[17rem] shrink-0 overflow-y-auto border-r border-pane-border p-2 max-sm:w-auto max-sm:overflow-x-auto max-sm:border-b max-sm:border-r-0"
+      >
+        <h3 className="px-2.5 pb-1.5 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-pane-muted max-sm:hidden">What’s new</h3>
+        <FluidList tone="pane" follow="[data-selected=true]" className="flex flex-col gap-0.5 max-sm:flex-row">
+          {tabs.map((t, i) => (
+            <button
+              key={t.title}
+              {...FLUID_ITEM}
+              role="tab"
+              aria-selected={i === at}
+              data-selected={i === at}
+              tabIndex={i === at ? 0 : -1}
+              onClick={() => setAt(i)}
+              className={cn(
+                "flex h-9 shrink-0 items-center gap-2 rounded-lg px-2.5 text-left text-[13px] transition-[background-color,color] duration-150 data-[lit]:bg-pane-hover touch:h-11",
+                i === at ? "bg-pane-hover font-medium text-pane-fg" : "text-pane-muted data-[lit]:text-pane-fg",
+              )}
+            >
+              <span className="min-w-0 flex-1 truncate">{t.title}</span>
+              {t.polish ? (
+                // The fixes: a wink, not a number.
+                <span className="rounded-full bg-accent-soft px-1.5 py-px text-[10.5px] font-semibold text-accent">Nerd stuff</span>
+              ) : (
+                <span className="rounded-full bg-lime px-1.5 py-px text-[10.5px] font-semibold text-lime-fg">New</span>
+              )}
+            </button>
+          ))}
+        </FluidList>
+      </nav>
+
+      <div role="tabpanel" aria-label={tab.title} className="scroll-fade min-w-0 flex-1 overflow-y-auto px-6 py-5">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div key={at} {...blurFade({ y: 6, speed: "moderate" })}>
+            {at === 0 && notes.intro.length ? <p className="mb-3 text-[12.5px] leading-relaxed text-pane-muted">{notes.intro.join(" ")}</p> : null}
+            <h3 className="text-[19px] font-semibold leading-tight tracking-tight">
+              <AccentTitle text={tab.title} />
+            </h3>
+            <NoteText lines={tab.lines} />
+            {tab.media ? <FeatureMedia key={tab.media} src={tab.media} alt={tab.title} /> : null}
+            {next ? (
+              <button onClick={() => move(1)} className="mt-5 flex items-center gap-1 text-[12.5px] font-medium text-accent hover:underline">
+                Next: {next.title}
+                <Icon icon={ArrowRight01Icon} size={13} />
+              </button>
+            ) : null}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+/** A feature's text: paragraphs, and "- " lines as a list. */
+function NoteText({ lines }: { lines: ReleaseFeature["lines"] }) {
+  return (
+    <div className="mt-2 flex flex-col gap-2 text-[13.5px] leading-relaxed text-pane-fg/90">
+      {lines.map((line, i) =>
+        line.bullet ? (
+          <div key={i} className="flex gap-2.5">
+            <span aria-hidden className="mt-[0.6em] size-1.5 shrink-0 rounded-full bg-accent" />
+            <span className="min-w-0">{line.text}</span>
+          </div>
+        ) : (
+          <p key={i}>{line.text}</p>
+        ),
+      )}
+    </div>
+  );
+}
+
+/** The feature's picture (an animated WebP or GIF plays by itself), framed like a card; gone if it doesn't load. */
+function FeatureMedia({ src, alt }: { src: string; alt: string }) {
+  const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
+  if (state === "failed") return null;
+  return (
+    <figure className="relative mt-4 aspect-[16/10] overflow-hidden rounded-xl border border-pane-border bg-pane-2">
+      {state === "loading" ? (
+        <span className="absolute inset-0 grid place-items-center text-pane-muted">
+          <Spinner />
+        </span>
+      ) : null}
+      {/* eslint-disable-next-line @next/next/no-img-element -- a remote picture from the release, not a page asset */}
+      <img
+        src={src}
+        alt={alt}
+        referrerPolicy="no-referrer"
+        onLoad={() => setState("ready")}
+        onError={() => setState("failed")}
+        className={cn("size-full object-cover object-top transition-opacity duration-150", state === "ready" ? "opacity-100" : "opacity-0")}
+      />
+    </figure>
   );
 }
 
@@ -297,10 +436,29 @@ function useShellUpdate(enabled: boolean) {
 
 // ---- Development demo: ?update-demo ----------------------------------------------------------
 
-const DEMO_NOTES = `- Kite feels lighter: dragging the divider between the list and the reader, resizing the window and switching screens are smoother and quicker.
+// The recordings in docs/whats-new/0.2.5 (scripts/whats-new-media.mjs), through a dev-only route; a release links the website's copies.
+const SHOTS = "/api/dev/whats-new/0.2.5";
+const DEMO_NOTES = `Four new ways to get from Windows to your mail, and back.
+- Kite feels lighter: dragging the divider between the list and the reader, resizing the window and switching screens are smoother and quicker.
 - Coming back to Mail from another screen is near instant.
 - Moving through conversations with J and K is quicker.
-- The sky's clouds hold still while you work and drift again when you pause.`;
+- The sky's clouds hold still while you work and drift again when you pause.
+## Show the email in Kite
+media: ${SHOTS}/show-email.webp
+Right-click any file in Explorer and choose Show the email in Kite: the conversation it came in opens. Renamed or edited since you saved it, Kite still knows.
+You can also drop a file onto Kite to find its email.
+## Send back in Kite
+media: ${SHOTS}/send-back.webp
+Edited a contract or signed a form? Right-click it and choose Send back in Kite: a reply to whoever sent it opens, with the file attached.
+## Forward with parts removed
+media: ${SHOTS}/forward.webp
+Forwarding something with an account number or someone's address in it? Remove parts… shows the message as it will go. Select what to take out, or click a picture.
+- Removed text is taken out of the message, not covered, so there's nothing to lift.
+- Leave out who it was first sent to, in one switch.
+## Print to Kite
+media: ${SHOTS}/print.webp
+A printer called Kite in every app's Print window. Print an invoice from your accounting app and a new message opens with the PDF, named after the document.
+Switch it on in Settings → Files. Windows asks for permission once.`;
 const DEMO_SIZE = 38.4 * 1048576;
 
 const demoParam = () => (process.env.NODE_ENV !== "production" ? new URLSearchParams(window.location.search).get("update-demo") : null);
@@ -316,8 +474,8 @@ function useUpdateDemo() {
   const on = param !== null;
   const [state, setState] = useState<UpdateState>(() => ({
     phase: "available",
-    current: "0.2.1",
-    version: "0.2.2",
+    current: "0.2.4",
+    version: "0.2.5",
     notes: DEMO_NOTES,
     downloaded: 0,
     total: null,
