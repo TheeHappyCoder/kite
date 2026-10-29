@@ -1,6 +1,6 @@
 //! Updates from GitHub: the latest release's `latest.json` (tauri.conf.json `plugins.updater`), signed
 //! with Kite's update key, so only a build Kite made installs. Checked shortly after start and every
-//! six hours; the main window reads the state through the `update` command and shows the rail's
+//! six hours (and from Settings → About on request); the main window reads the state through the `update` command and shows the rail's
 //! update button when there's one. Installing: download (with progress), stop the bundled server so no
 //! file is in use, then the installer runs (passive), clears the old version's files
 //! (installer-hooks.nsh) and opens Kite again. The user's data is never touched.
@@ -62,13 +62,14 @@ pub fn start(app: &AppHandle) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_secs(20)).await;
         loop {
-            check(&handle).await;
+            check(&handle, false).await;
             tokio::time::sleep(EVERY).await;
         }
     });
 }
 
-async fn check(app: &AppHandle) {
+/// `manual`: Settings → About asked, so a failure is reported; the timed checks stay quiet.
+async fn check(app: &AppHandle, manual: bool) {
     let updates = app.state::<Updates>();
     let Some(_operation) = begin(&updates) else { return };
     // Not while one is on its way in.
@@ -90,7 +91,8 @@ async fn check(app: &AppHandle) {
             s.notes = None;
             s.error = None;
         }),
-        // Offline or GitHub unreachable: try again next time, quietly.
+        // Offline or GitHub unreachable: the timed checks try again next time, quietly.
+        Err(_) if manual => set(app, |s| s.error = Some("Couldn't reach GitHub. Check your connection and try again.".into())),
         Err(_) => {}
     }
 }
@@ -153,7 +155,7 @@ async fn install(app: AppHandle) {
 #[tauri::command]
 pub async fn update(app: AppHandle, action: String) -> UpdateState {
     match action.as_str() {
-        "check" if !cfg!(debug_assertions) => check(&app).await,
+        "check" if !cfg!(debug_assertions) => check(&app, true).await,
         "install" if !cfg!(debug_assertions) => {
             let handle = app.clone();
             tauri::async_runtime::spawn(install(handle));

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { version } from "./package.json";
 
 // `pnpm perf` builds into its own folder with browser source maps (to attribute bundle bytes
 // to packages), so it never touches the normal `.next` build or the running dev server.
@@ -29,6 +30,8 @@ const csp = [
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  // Settings → About shows it (the desktop shell's version is the same number, tauri.conf.json).
+  env: { KITE_VERSION: version },
   ...(perf ? { distDir: ".next-perf", productionBrowserSourceMaps: true } : {}),
   // A second dev server beside `pnpm dev` (own build folder; give it its own KITE_DATA_DIR): `pnpm dev:scratch`.
   ...(process.env.KITE_DIST_DIR ? { distDir: process.env.KITE_DIST_DIR } : {}),

@@ -8,6 +8,7 @@ import {
   ArrowUpRight01Icon,
   ComputerIcon,
   DatabaseIcon,
+  InformationCircleIcon,
   FilePenIcon,
   KeyboardIcon,
   LayoutTemplateIcon,
@@ -28,6 +29,7 @@ import {
 import { accountName, type Account } from "@/lib/mail/types";
 import { blurFade, springSnappy } from "@/lib/motion";
 import { inDesktopApp } from "@/lib/desktop";
+import { AboutSection } from "./about-section";
 import { DEFAULT_CODE_SHORTCUT, UNDO_SEND_CHOICES, WAIT_DAY_CHOICES, type NotificationKind, type Preferences, type PreferencesPatch, type StartView, type StorageInfo } from "@/lib/settings";
 import { useShortcuts } from "@/lib/shortcuts";
 import type { ThemePref } from "@/lib/theme";
@@ -70,7 +72,7 @@ function shortcutLabel(accelerator: string) {
   return accelerator.replace("CommandOrControl", /Mac/.test(navigator.userAgent) ? "Cmd" : "Ctrl");
 }
 
-export type SettingsSection = "accounts" | "labels" | "compose" | "signatures" | "templates" | "fillSign" | "notifications" | "bar" | "ai" | "privacy" | "appearance" | "data";
+export type SettingsSection = "accounts" | "labels" | "compose" | "signatures" | "templates" | "fillSign" | "notifications" | "bar" | "ai" | "privacy" | "appearance" | "data" | "about";
 
 type NavItem = { id: SettingsSection; label: string; icon: IconData } | { id: "shortcuts"; label: string; icon: IconData; opens: true };
 
@@ -102,6 +104,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
       { id: "privacy", label: "Privacy", icon: Shield01Icon },
       { id: "shortcuts", label: "Shortcuts", icon: KeyboardIcon, opens: true },
       { id: "data", label: "Data", icon: DatabaseIcon },
+      { id: "about", label: "About", icon: InformationCircleIcon },
     ],
   },
 ];
@@ -158,6 +161,7 @@ const SEARCH: { section: SettingsSection | "shortcuts"; label: string; words?: s
   { section: "data", label: "Clear pictures and files", words: "cache storage avatars attachments" },
   { section: "data", label: "Reset local copy", words: "resync download again" },
   { section: "data", label: "Erase everything", words: "delete reset" },
+  { section: "about", label: "Kite", words: "about version update check for updates new release install restart" },
 ];
 
 const SWIPE_OPTIONS = SWIPE_ACTIONS.map((value: SwipeAction) => ({ value, label: value === "none" ? "Nothing" : SWIPE_INFO[value].label }));
@@ -623,6 +627,12 @@ export function SettingsView(props: Props) {
             ) : (
               <DataSection storage={storage} onChanged={setStorage} onToast={props.onToast} />
             )}
+          </Page>
+        );
+      case "about":
+        return (
+          <Page icon={InformationCircleIcon} title="About" description="Which Kite this is, and its updates.">
+            <AboutSection desktop={desktop} />
           </Page>
         );
     }

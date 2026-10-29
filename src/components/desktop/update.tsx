@@ -2,20 +2,12 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CloudDownloadIcon } from "@hugeicons/core-free-icons";
-import { desktopInvoke, inDesktopApp } from "@/lib/desktop";
+import { desktopInvoke, inDesktopApp, type DesktopUpdateState } from "@/lib/desktop";
 import { Dialog } from "../ui/dialog";
 import { Icon } from "../icon";
 import "./update.css";
 
-type UpdateState = {
-  phase: "idle" | "available" | "downloading" | "installing" | "error";
-  current: string;
-  version: string | null;
-  notes: string | null;
-  downloaded: number;
-  total: number | null;
-  error: string | null;
-};
+type UpdateState = DesktopUpdateState;
 const mb = (bytes: number) => `${(bytes / 1048576).toFixed(1)} MB`;
 
 export function DesktopUpdate({ trigger }: { trigger: (open: () => void, label: string) => ReactNode }) {

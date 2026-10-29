@@ -74,6 +74,21 @@ export type DesktopState = {
   showContent: boolean;
 };
 
+/** The shell's updater (src-tauri/src/updater.rs `UpdateState`), read with the `update` command. */
+export type DesktopUpdateState = {
+  phase: "idle" | "available" | "downloading" | "installing" | "error";
+  /** This version. */
+  current: string;
+  version: string | null;
+  notes: string | null;
+  downloaded: number;
+  total: number | null;
+  error: string | null;
+};
+
+/** `status` (what's known), `check` (look now), `install` (download, install, restart). */
+export const desktopUpdate = (action: "status" | "check" | "install") => desktopInvoke("update", { action }) as Promise<DesktopUpdateState>;
+
 type ShellWindow = {
   __KITE_DESKTOP__?: true;
   __TAURI_INTERNALS__?: { invoke: (command: string, args?: Record<string, unknown>) => Promise<unknown> };
