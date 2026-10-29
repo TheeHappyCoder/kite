@@ -16,6 +16,7 @@ type SpaceRow = {
   name: string;
   color: string;
   note: string | null;
+  logo: string | null;
   position: number;
   created_at: string;
   threads: number;
@@ -31,6 +32,7 @@ const fromRow = (row: SpaceRow): Space => ({
   name: row.name,
   color: row.color,
   note: row.note,
+  logo: row.logo,
   position: row.position,
   createdAt: row.created_at,
   threads: row.threads,
@@ -81,11 +83,12 @@ export function updateSpace(id: string, patch: SpacePatch): Space {
   const parentId = patch.parentId === undefined ? space.parentId : patch.parentId;
   const now = new Date().toISOString();
   getDb()
-    .prepare("UPDATE spaces SET name = ?, color = ?, note = ?, parent_id = ?, updated_at = ? WHERE id = ?")
+    .prepare("UPDATE spaces SET name = ?, color = ?, note = ?, logo = ?, parent_id = ?, updated_at = ? WHERE id = ?")
     .run(
       patch.name ?? space.name,
       patch.color ?? space.color,
       patch.note === undefined ? space.note : patch.note?.trim() ? patch.note : null,
+      patch.logo === undefined ? space.logo : patch.logo,
       parentId,
       now,
       id,
@@ -97,6 +100,12 @@ export function updateSpace(id: string, patch: SpacePatch): Space {
     }
   }
   return getSpace(id)!;
+}
+
+/** Whether a logo is still worn by a space or an account picture (both use the same image store). */
+export function logoInUse(logo: string) {
+  const db = getDb();
+  return !!db.prepare("SELECT 1 FROM spaces WHERE logo = ?").get(logo) || !!db.prepare("SELECT 1 FROM accounts WHERE face = ?").get(`asset:${logo}`);
 }
 
 /** Puts spaces in this order (one level: siblings). */
@@ -124,8 +133,8 @@ export function restoreSpace(saved: ReturnType<typeof deleteSpace>) {
   const db = getDb();
   for (const s of saved.spaces) {
     db.prepare(
-      "INSERT OR REPLACE INTO spaces (id, parent_id, name, color, note, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-    ).run(s.id, s.parent_id, s.name, s.color, s.note, s.position, s.created_at, new Date().toISOString());
+      "INSERT OR REPLACE INTO spaces (id, parent_id, name, color, note, logo, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run(s.id, s.parent_id, s.name, s.color, s.note, s.logo, s.position, s.created_at, new Date().toISOString());
   }
   for (const i of saved.items) {
     db.prepare("INSERT OR IGNORE INTO space_items (space_id, kind, ref, account_id, added_at) VALUES (?, ?, ?, ?, ?)").run(i.space_id, i.kind, i.ref, i.account_id, i.added_at);

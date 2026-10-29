@@ -56,7 +56,7 @@ type TriggerProps = {
 
 const GAP = 6;
 
-type Spot = { left: number; width: number; top?: number; bottom?: number };
+export type Spot = { left: number; width: number; top?: number; bottom?: number };
 
 /**
  * A panel fixed beside its trigger: below if it fits, else above (anchored by its bottom edge), else pinned
@@ -131,8 +131,8 @@ function triggerProps(pop: Popover, label: string, show: () => void): TriggerPro
   };
 }
 
-/** The floating card both pickers open. */
-function Panel({
+/** The floating card both pickers open (and the space editor: the house look for a small editing card). */
+export function Panel({
   spot,
   panelRef,
   label,
@@ -440,8 +440,8 @@ export function DateTimePicker({
 }
 
 /** Shared by both halves, so their rows meet in one line. */
-const HEADER = "flex min-w-0 items-center border-b border-pane-fg/[0.06]";
-const FOOTER = "flex min-w-0 items-center border-t border-pane-fg/[0.06]";
+export const HEADER = "flex min-w-0 items-center border-b border-pane-fg/[0.06]";
+export const FOOTER = "flex min-w-0 items-center border-t border-pane-fg/[0.06]";
 /** The accent outline on whatever is chosen in a list or a segmented control. */
 const CHOSEN = "bg-accent/15 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_65%,transparent)]";
 

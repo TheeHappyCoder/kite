@@ -48,7 +48,7 @@ import { accountSpec, providerSpec, serviceNames } from "@/lib/mail/providers";
 import type { AiUsageSummary } from "@/lib/ai-pricing";
 import { AiUsageContext } from "../ai-usage-link";
 import { useScreenshot } from "./app/use-screenshot";
-import { AddEventDialog, AiSettings, AutomationsView, ContactsView, NotesView, ScreenshotEditor, CalendarView, Compose, FilesView, Onboarding, PdfEditor, SettingsView } from "./app/lazy";
+import { AddEventDialog, AiSettings, SpaceEditor, AutomationsView, ContactsView, NotesView, ScreenshotEditor, CalendarView, Compose, FilesView, Onboarding, PdfEditor, SettingsView } from "./app/lazy";
 import { AppToast, ScreenPrivacyBadge, useToastTimer } from "./app/toast";
 import { useAiMail } from "./app/use-ai-mail";
 import { useAppLock } from "./app/use-app-lock";
@@ -590,12 +590,15 @@ export function MailApp() {
     takeOut: (list, id, deep) => void spaces.takeOut(list, id, deep),
   });
   const { create: createSpace, update: updateSpace, remove: removeSpace } = spaces;
+  /** The space editor: which space, opened at which point (no point: closed, kept mounted so it fades out). */
+  const [spaceEdit, setSpaceEdit] = useState<{ id: string; at: { x: number; y: number } | null } | null>(null);
   const spaceActions = useMemo<SpaceHeaderActions>(
     () => ({
       open: (id) => dispatch({ type: "view", view: { kind: "space", spaceId: id } }),
       createPocket: (parentId, name) => void createSpace(name, parentId),
       update: (id, patch) => void updateSpace(id, patch),
       remove: (id) => void removeSpace(id),
+      edit: (id, at) => setSpaceEdit({ id, at }),
       openPerson: (email) => {
         dispatch({ type: "view", view: { kind: "contacts", email } });
         setPaneDetail(false);
@@ -829,7 +832,7 @@ export function MailApp() {
   };
   useAppKeys({
     locked: lock.locked,
-    blocked: !!(paletteOpen || shortcutsOpen || onboarding || mergeOpen || labelPick || spacePick || threadMenu.open || fillSign || drawerOpen || screenshot.shot),
+    blocked: !!(paletteOpen || shortcutsOpen || onboarding || mergeOpen || labelPick || spacePick || spaceEdit?.at || threadMenu.open || fillSign || drawerOpen || screenshot.shot),
     onPalette: () => setPaletteOpen((open) => !open),
     onMinimizeCompose: toggleComposer,
     handlers: keyHandlers,
@@ -889,6 +892,7 @@ export function MailApp() {
     onCreateSpace: spaces.create,
     onUpdateSpace: (id: string, patch: { name?: string; color?: string; parentId?: string | null }) => void spaces.update(id, patch),
     onDeleteSpace: (id: string) => void spaces.remove(id),
+    onEditSpace: (id: string, at: { x: number; y: number }) => setSpaceEdit({ id, at }),
     onNestSpace: (id: string, parentId: string) => void spaces.nest(id, parentId),
     onPlaceSpace: (id: string, targetId: string, before: boolean) => void spaces.placeNear(id, targetId, before),
     onDropOnSpace: (id: string, ids: string[], move: boolean) => {
@@ -1302,6 +1306,17 @@ export function MailApp() {
         ) : null}
 
         {threadMenu.element}
+        {spaceEdit ? (
+          <SpaceEditor
+            spaceId={spaceEdit.id}
+            spaces={state.spaces}
+            at={spaceEdit.at}
+            onClose={() => setSpaceEdit((edit) => edit && { ...edit, at: null })}
+            onUpdate={(id, patch) => void spaces.update(id, patch)}
+            onCreatePocket={(parentId, name) => void spaces.create(name, parentId)}
+            onError={(message) => setToast({ message })}
+          />
+        ) : null}
         <SpacePicker
           threads={spacePick?.threads ?? null}
           move={!!spacePick?.move}

@@ -4,7 +4,8 @@ import { clearUsageForAccount } from "@/server/ai-usage";
 import { clearAttachmentCache } from "@/server/attachments";
 import { ACCOUNT_COLORS, AccountFaceChoice, faceAsset, facePhoto } from "@/lib/mail/account-face";
 import { getAsset, removeAsset } from "@/server/assets";
-import { type AccountRow, compactSearchIndex, deleteAccount, faceInUse, getAccount, listAccounts, setAccountColor, setAccountFace, setAccountNickname } from "@/server/db";
+import { logoInUse } from "@/server/spaces";
+import { type AccountRow, compactSearchIndex, deleteAccount, getAccount, listAccounts, setAccountColor, setAccountFace, setAccountNickname } from "@/server/db";
 import { rejectCrossSite } from "@/server/guard";
 import { eventSource, usesMailCalendar } from "@/server/events";
 import { removeSignature } from "@/server/settings";
@@ -62,7 +63,8 @@ const Patch = z.object({
 /** An uploaded picture goes once no account shows it. */
 async function dropFace(face: string | null) {
   const asset = faceAsset(face);
-  if (asset && !faceInUse(face!)) await removeAsset(asset);
+  // The same image can also be a space's logo (assets are stored by content).
+  if (asset && !logoInUse(asset)) await removeAsset(asset);
 }
 
 /** How the account looks in Kite: its local name, ring colour and picture. Never sent to the provider. */

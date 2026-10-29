@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { deleteAccount, getDb, type AccountRow } from "@/server/db";
 import { upsertRecord } from "@/server/store";
-import { createSpace, deleteSpace, listSpaces, moveItems, restoreSpace, senderToSuggest, spaceThreads, threadSpaces, updateSpace } from "@/server/spaces";
+import { createSpace, deleteSpace, listSpaces, logoInUse, moveItems, restoreSpace, senderToSuggest, spaceThreads, threadSpaces, updateSpace } from "@/server/spaces";
 import { spaceLabel, spacePath, spaceTree, within } from "@/lib/spaces";
 
 const account = (id: string): AccountRow => ({ id, provider: "gmail", email: `${id}@example.test`, name: id, color: "blue", created_at: "2026-10-01", picture: null, nickname: null, face: null });
@@ -95,5 +95,19 @@ describe("spaces", () => {
     deleteAccount("gone");
     expect(threadSpaces([t])[t]).toEqual([]);
     expect(listSpaces().some((s) => s.id === space.id)).toBe(true);
+  });
+
+  it("wears a logo, keeps it through delete and Undo, and knows when nothing wears it", () => {
+    const logo = "0123456789abcdef01234567";
+    const space = createSpace({ name: "Logo Co" });
+    updateSpace(space.id, { logo });
+    expect(listSpaces().find((s) => s.id === space.id)?.logo).toBe(logo);
+    expect(logoInUse(logo)).toBe(true);
+    const saved = deleteSpace(space.id);
+    expect(logoInUse(logo)).toBe(false);
+    restoreSpace(saved);
+    expect(listSpaces().find((s) => s.id === space.id)?.logo).toBe(logo);
+    updateSpace(space.id, { logo: null });
+    expect(logoInUse(logo)).toBe(false);
   });
 });

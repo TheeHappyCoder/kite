@@ -20,6 +20,7 @@ const Saved = z.object({
       name: z.string().max(80),
       color: z.string().max(9),
       note: z.string().max(20_000).nullable(),
+      logo: z.string().max(40).nullable().default(null),
       position: z.number().int(),
       created_at: z.string().max(40),
     }),

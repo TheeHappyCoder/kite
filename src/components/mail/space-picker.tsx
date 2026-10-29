@@ -4,14 +4,31 @@ import { useRef, useState } from "react";
 import { Command } from "cmdk";
 import { Add01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import type { Thread } from "@/lib/mail/types";
-import { spaceLabel, spaceTree, type Space } from "@/lib/spaces";
+import { spaceLabel, spaceLogoUrl, spaceTree, type Space } from "@/lib/spaces";
 import { cn } from "@/lib/utils";
 import { Icon } from "../icon";
 import { Spinner } from "../ui/spinner";
 import { FluidList } from "../ui/fluid-hover";
 
-/** A space's mark: its colour as a dot (a pocket's a ring, so the two read apart). */
-export function SpaceDot({ space, className }: { space: Pick<Space, "color" | "parentId">; className?: string }) {
+/**
+ * A space's mark: its colour as a dot (a pocket's a ring, so the two read apart). Where there's room
+ * (`logo`: the sidebar, header, switcher, picker), an uploaded logo instead, `logoClassName` sized.
+ */
+export function SpaceDot({
+  space,
+  className,
+  logo = false,
+  logoClassName = "size-4",
+}: {
+  space: Pick<Space, "color" | "parentId"> & { logo?: string | null };
+  className?: string;
+  logo?: boolean;
+  logoClassName?: string;
+}) {
+  if (logo && space.logo) {
+    // eslint-disable-next-line @next/next/no-img-element -- a local asset
+    return <img src={spaceLogoUrl(space.logo)} alt="" aria-hidden className={cn("shrink-0 rounded-[5px] object-cover", logoClassName)} />;
+  }
   return (
     <span
       aria-hidden
@@ -95,7 +112,7 @@ export function SpacePicker({
         className="relative flex h-9 cursor-default items-center gap-2.5 rounded-lg px-2.5 text-[13px] touch:h-11"
       >
         <span style={{ paddingLeft: typed ? 0 : depth * 14 }} className="flex min-w-0 flex-1 items-center gap-2.5">
-          <SpaceDot space={space} />
+          <SpaceDot space={space} logo logoClassName="size-3.5" />
           <span className="min-w-0 flex-1 truncate">{typed || key.startsWith("recent") ? spaceLabel(spaces, space.id) : space.name}</span>
         </span>
         {n ? <Icon icon={Tick02Icon} size={13} className={cn("shrink-0", all ? "text-accent" : "text-pane-muted")} /> : null}

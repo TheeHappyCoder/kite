@@ -57,7 +57,7 @@ describe("a space's Files and People tabs", () => {
 });
 
 describe("dragging spaces in the sidebar", () => {
-  const space = (id: string, parentId: string | null, position = 0): Space => ({ id, parentId, name: id, color: "#000000", note: null, position, createdAt: "", threads: 0 });
+  const space = (id: string, parentId: string | null, position = 0): Space => ({ id, parentId, name: id, color: "#000000", note: null, logo: null, position, createdAt: "", threads: 0 });
   // acme > web > phase > copy (four levels), house (on its own), trip > flights
   const spaces = [
     space("acme", null, 0),

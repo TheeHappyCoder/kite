@@ -14,6 +14,9 @@ export const SPACE_DEPTH = 4;
 /** The colours a space can wear: the account ring presets, which read on the frame and on panes. */
 export const SPACE_COLORS = ACCOUNT_COLORS;
 
+/** A space's logo, served from this computer. */
+export const spaceLogoUrl = (logo: string) => `/api/assets/${logo}`;
+
 export type Space = {
   id: string;
   /** The space this pocket is inside; null for a top-level space. */
@@ -22,6 +25,8 @@ export type Space = {
   color: string;
   /** A private note on the space (markup, like message bodies). Never sent. */
   note: string | null;
+  /** An image the user uploaded (asset id), shown in place of the dot. */
+  logo: string | null;
   position: number;
   createdAt: string;
   /** Conversations directly in it (not counting its pockets). */
@@ -40,6 +45,8 @@ export const SpacePatch = z.object({
   name: SpaceName.optional(),
   color: z.string().regex(/^#[0-9a-f]{6}$/i).optional(),
   note: z.string().max(20_000).nullable().optional(),
+  /** An uploaded image (asset id), or null for the colour dot again. */
+  logo: z.string().regex(/^[0-9a-f]{24}$/).nullable().optional(),
   /** Moves it inside another space, or to the top (null). */
   parentId: z.string().max(40).nullable().optional(),
 });

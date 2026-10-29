@@ -294,6 +294,8 @@ export function getDb() {
       name TEXT NOT NULL,
       color TEXT NOT NULL,
       note TEXT,
+      -- An uploaded logo (an asset id in data/assets), shown in place of its colour dot.
+      logo TEXT,
       position INTEGER NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -617,11 +619,6 @@ export function setAccountColor(id: string, color: string) {
 
 export function setAccountFace(id: string, face: string | null) {
   getDb().prepare("UPDATE accounts SET face = ? WHERE id = ?").run(face, id);
-}
-
-/** Whether any account still shows this picture (one upload can be picked for several). */
-export function faceInUse(face: string) {
-  return !!getDb().prepare("SELECT 1 FROM accounts WHERE face = ?").get(face);
 }
 
 export function deleteAccount(id: string) {

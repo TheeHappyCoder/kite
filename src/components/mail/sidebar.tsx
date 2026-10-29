@@ -52,7 +52,7 @@ import { ringLabel, type AiUsageSummary } from "@/lib/ai-pricing";
 import { accountSpec, labelDepth, leafName, sortLabels, type MailLabel } from "@/lib/mail/providers";
 import { stableHandlers } from "../ui/stable";
 import { DesktopUpdate } from "../desktop/update";
-import { SPACE_COLORS, SPACE_DRAG, THREAD_DRAG, placeProblem, spaceTree, within, type Space } from "@/lib/spaces";
+import { SPACE_DRAG, THREAD_DRAG, placeProblem, spaceTree, within, type Space } from "@/lib/spaces";
 import { setSpaceDragImage } from "./drag-image";
 import { ContextMenu, type MenuItem, type MenuPoint } from "../ui/context-menu";
 import { SpaceDot } from "./space-picker";
@@ -131,6 +131,8 @@ type Props = {
   onDeleteSpace: (id: string) => void;
   /** Conversations dropped on a space (Shift held: moved out of the Inbox too). */
   onDropOnSpace: (spaceId: string, threadIds: string[], move: boolean) => void;
+  /** Opens the space editor (name, colour, logo, pockets) at a point. */
+  onEditSpace: (id: string, at: { x: number; y: number }) => void;
   /** A space dropped on another: a pocket of it. */
   onNestSpace: (id: string, parentId: string) => void;
   /** A space dropped in the gap before or after another: beside it, at its level. */
@@ -706,7 +708,8 @@ function LabelSection({ accounts, labels, view, onView }: { accounts: Account[];
   );
 }
 
-type SpaceEdit = { kind: "new"; parentId: string | null } | { kind: "rename"; id: string } | null;
+/** A space or pocket being named in place (renaming and the rest are in the space editor). */
+type SpaceEdit = { kind: "new"; parentId: string | null } | null;
 
 /** Where a space dragged over a row would land: inside it, or in the gap before or after it. `threads`: conversations over it. */
 type SpaceDropMode = "nest" | "before" | "after" | "threads";
@@ -729,29 +732,15 @@ function SpaceSection(props: Props) {
     const current = edit;
     setEdit(null);
     if (!name?.trim() || !current) return;
-    if (current.kind === "new") {
-      const made = await props.onCreateSpace(name.trim(), current.parentId);
-      if (made) props.onView({ kind: "space", spaceId: made.id });
-    } else props.onUpdateSpace(current.id, { name: name.trim() });
+    const made = await props.onCreateSpace(name.trim(), current.parentId);
+    if (made) props.onView({ kind: "space", spaceId: made.id });
   };
-  const items = (space: Space): MenuItem[] => {
+  const items = (space: Space, at: MenuPoint): MenuItem[] => {
     const depth = tree.find((t) => t.space.id === space.id)?.depth ?? 0;
     return [
       { id: "open", label: "Open", icon: ArrowRight01Icon, onSelect: () => props.onView({ kind: "space", spaceId: space.id }) },
       ...(depth < 3 ? [{ id: "pocket", label: "New pocket inside", icon: Add01Icon, onSelect: () => setEdit({ kind: "new", parentId: space.id }) }] : []),
-      { id: "rename", label: "Rename", icon: PencilEdit02Icon, onSelect: () => setEdit({ kind: "rename", id: space.id }) },
-      {
-        id: "colour",
-        label: "Colour",
-        icon: Folder02Icon,
-        submenu: SPACE_COLORS.map((color) => ({
-          id: color,
-          label: color === space.color ? "This one" : "Use this colour",
-          leading: <span className="size-3 shrink-0 rounded-full" style={{ background: color }} />,
-          checked: color === space.color,
-          onSelect: () => props.onUpdateSpace(space.id, { color }),
-        })),
-      },
+      { id: "edit", label: "Edit…", icon: PencilEdit02Icon, onSelect: () => props.onEditSpace(space.id, at) },
       ...(space.parentId ? [{ id: "lift", label: "Make it a space of its own", icon: ArrowRight01Icon, onSelect: () => props.onUpdateSpace(space.id, { parentId: null }) }] : []),
       { id: "delete", label: "Delete", icon: Delete02Icon, danger: true, section: true, onSelect: () => props.onDeleteSpace(space.id) },
     ];
@@ -786,7 +775,7 @@ function SpaceSection(props: Props) {
           <span className="truncate">Make a space, like a client</span>
         </button>
       ) : null}
-      <ContextMenu at={menu?.at ?? null} items={menu ? items(menu.space) : []} label={menu?.space.name} onClose={() => setMenu(null)} />
+      <ContextMenu at={menu?.at ?? null} items={menu ? items(menu.space, menu.at) : []} label={menu?.space.name} onClose={() => setMenu(null)} />
     </Section>
   );
 }
@@ -816,7 +805,6 @@ function SpaceRow({
   const active = props.view.kind === "space" && props.view.spaceId === space.id;
   const making = edit?.kind === "new" && edit.parentId === space.id;
   const open = !collapsed || making;
-  if (edit?.kind === "rename" && edit.id === space.id && !rail) return <SpaceInput depth={depth} initial={space.name} onDone={onCommit} />;
   /** Where a dragged space would go from this point on the row: the top or bottom quarter is the gap beside it. */
   const spaceMode = (e: React.DragEvent<HTMLElement>): SpaceDropMode | null => {
     const dragged = draggedSpace;
@@ -904,7 +892,7 @@ function SpaceRow({
           icon={Folder02Icon}
           leading={
             <span className="grid size-[18px] shrink-0 place-items-center">
-              <SpaceDot space={space} className="size-2.5" />
+              <SpaceDot space={space} className="size-2.5" logo />
             </span>
           }
           label={space.name}

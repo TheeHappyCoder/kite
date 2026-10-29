@@ -188,7 +188,7 @@ export function MailboxSwitcher({
                       icon={Folder01Icon}
                       leading={
                         <span className="grid size-4 shrink-0 place-items-center">
-                          <SpaceDot space={space} className="size-2.5" />
+                          <SpaceDot space={space} className="size-2.5" logo />
                         </span>
                       }
                       label={space.name}

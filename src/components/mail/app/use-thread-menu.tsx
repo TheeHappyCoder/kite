@@ -95,7 +95,7 @@ function build(targets: Thread[], d: Deps): MenuItem[] {
           id: space.id,
           label: space.name,
           depth,
-          leading: <SpaceDot space={space} />,
+          leading: <SpaceDot space={space} logo logoClassName="size-3.5" />,
           checked: all,
           disabled: all && !move,
           onSelect: () => d.put(targets, space.id, move),

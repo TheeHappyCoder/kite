@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Add01Icon, ArrowRight01Icon, Delete02Icon, Folder02Icon, MoreHorizontalIcon, Note01Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
-import { SPACE_COLORS, SPACE_DEPTH, spacePath, type Space, type SpacePatch } from "@/lib/spaces";
+import { Add01Icon, ArrowRight01Icon, Delete02Icon, MoreHorizontalIcon, Note01Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
+import { SPACE_DEPTH, spacePath, type Space, type SpacePatch } from "@/lib/spaces";
 import { ContextMenu, type MenuItem, type MenuPoint } from "../ui/context-menu";
 import { plural } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,8 @@ export type SpaceHeaderActions = {
   update: (id: string, patch: SpacePatch) => void;
   /** Deletes it and its pockets (with Undo); the mail stays where it is. */
   remove: (id: string) => void;
+  /** The space editor (name, colour, logo, pockets) at a point. */
+  edit: (id: string, at: { x: number; y: number }) => void;
   /** The People tab: opens Contacts on this person. */
   openPerson: (email: string) => void;
 };
@@ -31,30 +33,13 @@ export function SpaceHeader({ spaceId, spaces, count, tabs, actions }: { spaceId
   const [name, setName] = useState("");
   const [noting, setNoting] = useState(false);
   const [menu, setMenu] = useState<MenuPoint | null>(null);
-  const [renaming, setRenaming] = useState<string | null>(null);
   if (!space) return null;
-  const rename = () => {
-    if (renaming?.trim() && renaming.trim() !== space.name) actions.update(space.id, { name: renaming.trim() });
-    setRenaming(null);
-  };
   const path = spacePath(spaces, spaceId);
   const deep = path.length >= SPACE_DEPTH;
   const items: MenuItem[] = [
     ...(deep ? [] : [{ id: "pocket", label: "New pocket", icon: Add01Icon, onSelect: () => setMaking(true) }]),
     ...(space.note ? [] : [{ id: "note", label: "Add a note", icon: Note01Icon, onSelect: () => setNoting(true) }]),
-    { id: "rename", label: "Rename", icon: PencilEdit02Icon, onSelect: () => setRenaming(space.name) },
-    {
-      id: "colour",
-      label: "Colour",
-      icon: Folder02Icon,
-      submenu: SPACE_COLORS.map((color) => ({
-        id: color,
-        label: color === space.color ? "This one" : "Use this colour",
-        leading: <span className="size-3 shrink-0 rounded-full" style={{ background: color }} />,
-        checked: color === space.color,
-        onSelect: () => actions.update(space.id, { color }),
-      })),
-    },
+    { id: "edit", label: "Edit…", icon: PencilEdit02Icon, onSelect: () => actions.edit(space.id, menu ?? { x: 0, y: 0 }) },
     ...(space.parentId ? [{ id: "lift", label: "Make it a space of its own", icon: ArrowRight01Icon, onSelect: () => actions.update(space.id, { parentId: null }) }] : []),
     { id: "delete", label: space.parentId ? "Delete this pocket" : "Delete this space", icon: Delete02Icon, danger: true, section: true, onSelect: () => actions.remove(space.id) },
   ];
@@ -67,23 +52,6 @@ export function SpaceHeader({ spaceId, spaces, count, tabs, actions }: { spaceId
   return (
     <div className="flex flex-col gap-1.5 pb-1">
       <ContextMenu at={menu} items={items} label={space.name} onClose={() => setMenu(null)} />
-      {renaming !== null ? (
-        <input
-          autoFocus
-          value={renaming}
-          maxLength={80}
-          onChange={(e) => setRenaming(e.target.value)}
-          onFocus={(e) => e.currentTarget.select()}
-          onBlur={rename}
-          onKeyDown={(e) => {
-            e.stopPropagation();
-            if (e.key === "Enter") rename();
-            if (e.key === "Escape") setRenaming(null);
-          }}
-          aria-label="Space name"
-          className="h-9 rounded-full border border-accent/60 bg-transparent px-3.5 text-[14px] outline-none"
-        />
-      ) : null}
       <div className={cn("flex min-w-0 items-center gap-1 text-[12px] text-pane-muted", !tabs && "px-1")}>
         {path.slice(0, -1).map((p) => (
           <span key={p.id} className="flex min-w-0 items-center gap-1">
@@ -139,7 +107,7 @@ export function SpaceHeader({ spaceId, spaces, count, tabs, actions }: { spaceId
               style={{ "--i": i } as React.CSSProperties}
               className="blur-fade relative flex h-7 shrink-0 items-center gap-2 rounded-full border border-pane-border px-2.5 text-[12.5px] transition-[background-color] duration-150"
             >
-              <SpaceDot space={pocket} />
+              <SpaceDot space={pocket} logo logoClassName="size-3.5" />
               <span className="max-w-[160px] truncate">{pocket.name}</span>
               {pocket.threads ? <span className="tabular-nums text-pane-muted">{pocket.threads}</span> : null}
             </button>

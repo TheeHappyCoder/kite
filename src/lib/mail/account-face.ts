@@ -19,6 +19,23 @@ export const ACCOUNT_COLORS = [
   "#94a3b8",
 ] as const;
 
+/** What each colour is called (tooltips). */
+export const COLOR_NAMES: Record<(typeof ACCOUNT_COLORS)[number], string> = {
+  "#f59e0b": "Amber",
+  "#38bdf8": "Sky",
+  "#a78bfa": "Violet",
+  "#34d399": "Green",
+  "#f472b6": "Pink",
+  "#fb7185": "Rose",
+  "#fb923c": "Orange",
+  "#2dd4bf": "Teal",
+  "#818cf8": "Indigo",
+  "#a3e635": "Lime",
+  "#e879f9": "Fuchsia",
+  "#94a3b8": "Slate",
+};
+
+
 /** The first colour no other account wears (round the list again once all are taken). */
 export function freeColor(taken: string[]) {
   return ACCOUNT_COLORS.find((c) => !taken.includes(c)) ?? ACCOUNT_COLORS[taken.length % ACCOUNT_COLORS.length];

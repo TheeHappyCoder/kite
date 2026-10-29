@@ -3,49 +3,18 @@
 import { useRef, useState } from "react";
 import { motion } from "motion/react";
 import { ShuffleIcon, Tick02Icon, Upload01Icon } from "@hugeicons/core-free-icons";
-import { ACCOUNT_COLORS, facePhoto, gradientAvatar, gradientSeeds, type AccountFaceChoice } from "@/lib/mail/account-face";
+import { ACCOUNT_COLORS, COLOR_NAMES, facePhoto, gradientAvatar, gradientSeeds, type AccountFaceChoice } from "@/lib/mail/account-face";
 import { accountName, type Account } from "@/lib/mail/types";
 import { serviceName } from "@/lib/mail/providers";
 import { blurFade } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-import { uploadAsset } from "../design/assets";
+import { squareImage, uploadAsset } from "../design/assets";
 import { Icon } from "../icon";
 import { Avatar } from "../mail/avatar";
 import { Spinner } from "../ui/spinner";
 import { Tooltip } from "../ui/tooltip";
 
-const COLOR_NAMES: Record<(typeof ACCOUNT_COLORS)[number], string> = {
-  "#f59e0b": "Amber",
-  "#38bdf8": "Sky",
-  "#a78bfa": "Violet",
-  "#34d399": "Green",
-  "#f472b6": "Pink",
-  "#fb7185": "Rose",
-  "#fb923c": "Orange",
-  "#2dd4bf": "Teal",
-  "#818cf8": "Indigo",
-  "#a3e635": "Lime",
-  "#e879f9": "Fuchsia",
-  "#94a3b8": "Slate",
-};
 
-const PICTURE_SIZE = 256;
-
-/** Crops an image to its centre square and shrinks it, so an account picture stays a few KB. */
-async function squarePicture(file: File): Promise<File> {
-  const bitmap = await createImageBitmap(file).catch(() => {
-    throw new Error("That file isn't an image Kite can read.");
-  });
-  const side = Math.min(bitmap.width, bitmap.height);
-  const size = Math.min(PICTURE_SIZE, side);
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = size;
-  canvas.getContext("2d")?.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, size, size);
-  bitmap.close();
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.9));
-  if (!blob) throw new Error("Kite couldn't read that image. Try a PNG or JPG.");
-  return new File([blob], "account.webp", { type: blob.type });
-}
 
 const tileClass = "relative grid size-8 shrink-0 place-items-center rounded-full outline-offset-2 transition-[outline-color] duration-150";
 
@@ -89,7 +58,7 @@ export function AccountLook({
   const upload = async (file: File) => {
     setUploading(true);
     try {
-      const asset = await uploadAsset(await squarePicture(file), { private: true });
+      const asset = await uploadAsset(await squareImage(file, "account.webp"), { private: true });
       await save({ face: `asset:${asset.id}` });
     } catch (error) {
       onError(error instanceof Error ? error.message : "The upload didn't go through. Try again.");

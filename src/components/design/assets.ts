@@ -6,6 +6,22 @@ const ASSET_LIMIT = 512 * 1024;
 /** Above this, every email gets noticeably heavier. */
 export const ASSET_WARN = 150 * 1024;
 
+/** Crops an image to its centre square and shrinks it (256 px WebP), so a picture or logo stays a few KB. */
+export async function squareImage(file: File, name: string, max = 256): Promise<File> {
+  const bitmap = await createImageBitmap(file).catch(() => {
+    throw new Error("That file isn't an image Kite can read.");
+  });
+  const side = Math.min(bitmap.width, bitmap.height);
+  const size = Math.min(max, side);
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  canvas.getContext("2d")?.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, size, size);
+  bitmap.close();
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.9));
+  if (!blob) throw new Error("Kite couldn't read that image. Try a PNG or JPG.");
+  return new File([blob], name, { type: blob.type });
+}
+
 function readAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();

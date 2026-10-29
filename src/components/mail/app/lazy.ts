@@ -14,6 +14,8 @@ export const NotesView = dynamic(() => import("../../notes/notes-view").then((m)
 export const AutomationsView = dynamic(() => import("../../automations/automations-view").then((m) => m.AutomationsView), { ssr: false });
 export const ContactsView = dynamic(() => import("../../contacts/contacts-view").then((m) => m.ContactsView), { ssr: false });
 export const FilesView = dynamic(() => import("../../files/files-view").then((m) => m.FilesView), { ssr: false });
+/** A space's name, colour, logo and pockets in one card (components/mail/space-editor.tsx). */
+export const SpaceEditor = dynamic(() => import("../space-editor").then((m) => m.SpaceEditor), { ssr: false });
 export const AiSettings = dynamic(() => import("../../ai-settings").then((m) => m.AiSettings), { ssr: false });
 // Compose (editor, recipients, attach picker) loads when the first draft opens; it's cached after.
 export const Compose = dynamic(() => import("../compose").then((m) => m.Compose), { ssr: false });
