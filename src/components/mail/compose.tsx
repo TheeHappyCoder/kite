@@ -11,6 +11,7 @@ import {
   Briefcase01Icon,
   Cancel01Icon,
   Delete02Icon,
+  EraserIcon,
   Forward01Icon,
   HappyIcon,
   MinusSignIcon,
@@ -54,10 +55,13 @@ import { FormatBar, RichEditor, type FormatState, type RichEditorHandle } from "
 import { SendMenu, type SendOptions } from "./send-menu";
 
 import { FLUID_ITEM, FluidList } from "../ui/fluid-hover";
-import { formatBytes } from "@/lib/format";
+import { formatBytes, plural } from "@/lib/format";
+import { hasRedactions, redactText } from "@/lib/mail/redact";
 
 // Design mode (block editor, brand kit) loads when a draft switches to it.
 const DesignedBody = dynamic(() => import("./designed-body").then((m) => m.DesignedBody), { ssr: false });
+// Forward with parts removed: loads when it opens.
+const RedactDialog = dynamic(() => import("./redact-dialog").then((m) => m.RedactDialog), { ssr: false });
 
 type ComposeFile = {
   key: string;
@@ -171,6 +175,7 @@ export function Compose({
   const [dragging, setDragging] = useState(false);
   const [version, setVersion] = useState(0);
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [redacting, setRedacting] = useState(false);
   const [picking, setPicking] = useState(false);
   // Your AI at work on the body: what it's doing, for the Thinking line.
   const [aiBusy, setAiBusy] = useState<string[] | null>(null);
@@ -608,7 +613,27 @@ export function Compose({
           />
         )}
 
-        {draft.quote ? <QuoteCard draft={draft} open={quoteOpen} onToggle={() => setQuoteOpen((o) => !o)} onRemove={() => update({ quote: undefined })} /> : null}
+        {draft.quote ? (
+          <QuoteCard draft={draft} open={quoteOpen} onToggle={() => setQuoteOpen((o) => !o)} onRemove={() => update({ quote: undefined })} onRedact={() => setRedacting(true)} />
+        ) : null}
+        {draft.quote?.mode === "forward" && redacting ? (
+          <RedactDialog
+            open
+            onClose={() => setRedacting(false)}
+            accountId={draft.accountId}
+            threadId={draft.threadId}
+            quote={draft.quote}
+            subject={draft.subject}
+            live={live}
+            demoThreads={demoThreads}
+            demoThreadId={context?.threadId}
+            onChange={(redact) => {
+              setDraft((d) => (d.quote ? { ...d, quote: { ...d.quote, redact: hasRedactions(redact) ? redact : undefined } } : d));
+              touch();
+            }}
+            onSubject={(subject) => update({ subject })}
+          />
+        ) : null}
 
         {files.length ? (
           <div className="mt-3 flex flex-wrap gap-2">
@@ -840,9 +865,10 @@ function ModeSwitch({ design, onChange }: { design: boolean; onChange: (design: 
 }
 
 /** The message being forwarded (always sent along) or quoted (removable). */
-function QuoteCard({ draft, open, onToggle, onRemove }: { draft: ComposeDraft; open: boolean; onToggle: () => void; onRemove: () => void }) {
+function QuoteCard({ draft, open, onToggle, onRemove, onRedact }: { draft: ComposeDraft; open: boolean; onToggle: () => void; onRemove: () => void; onRedact: () => void }) {
   const quote = draft.quote!;
   const forward = quote.mode === "forward";
+  const removed = quote.redact ? quote.redact.phrases.length + quote.redact.images.length + (quote.redact.hideTo ? 1 : 0) : 0;
   return (
     <div className="blur-fade-up mt-3 rounded-xl border border-pane-border bg-pane-2/60">
       <div className="flex items-center gap-2 px-3 py-2 text-[12px]">
@@ -850,7 +876,18 @@ function QuoteCard({ draft, open, onToggle, onRemove }: { draft: ComposeDraft; o
         <button onClick={onToggle} className="min-w-0 flex-1 truncate text-left text-pane-muted hover:text-pane-fg">
           {forward ? "Forwarding" : "Quoting"} <span className="font-medium text-pane-fg">{quote.from.name || quote.from.email}</span> · {formatFullDate(quote.date)}
         </button>
-        {forward ? null : (
+        {forward ? (
+          <button
+            onClick={onRedact}
+            className={cn(
+              "flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[12px] hover:bg-pane-hover hover:text-pane-fg",
+              removed ? "font-medium text-accent" : "text-pane-muted",
+            )}
+          >
+            <Icon icon={EraserIcon} size={13} />
+            {removed ? `${plural(removed, "part")} removed` : "Remove parts…"}
+          </button>
+        ) : (
           <Tooltip label="Don't include the quoted message">
             <button aria-label="Remove quoted message" onClick={onRemove} className="grid size-6 place-items-center rounded-full text-pane-muted hover:bg-pane-hover hover:text-pane-fg">
               <Icon icon={Cancel01Icon} size={12} />
@@ -863,7 +900,7 @@ function QuoteCard({ draft, open, onToggle, onRemove }: { draft: ComposeDraft; o
           {forward ? (
             <span className="mb-1 block font-medium text-pane-fg">{quote.subject}</span>
           ) : null}
-          {quote.snippet || "The original message is added when you send."}
+          {redactText(quote.snippet, quote.redact) || "The original message is added when you send."}
         </p>
       ) : null}
     </div>

@@ -3,6 +3,7 @@ import { REMOTE_ID } from "./threads";
 import { Design } from "../design/spec";
 import type { Attachment, Contact, Message } from "./types";
 import { formatBytes } from "@/lib/format";
+import { Redactions } from "./redact";
 
 // What the compose window edits. The same record is saved as a Gmail draft, sent, or
 // queued for later, so it's plain validated data. The body is markup (see body.ts), or a
@@ -40,6 +41,8 @@ export const Quote = z.object({
   subject: z.string().max(1000).default(""),
   to: z.array(z.object({ name: z.string(), email: z.string() })).max(100).default([]),
   snippet: z.string().max(400).default(""),
+  /** Parts taken out of the forwarded message before it goes (lib/mail/redact.ts). */
+  redact: Redactions.optional(),
 });
 export type Quote = z.infer<typeof Quote>;
 

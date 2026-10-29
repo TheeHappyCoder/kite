@@ -5,6 +5,7 @@ import { compileHtml, compileText, escapeHtml, FONT_STACKS } from "@/lib/design/
 import { assetId, designAssets, type Design, type LeafBlock } from "@/lib/design/spec";
 import { bodyImageIds, bodyToHtml, bodyToText, hasMarkup } from "@/lib/mail/body";
 import { MESSAGE_LIMIT_BYTES, type Quote } from "@/lib/mail/compose";
+import { hasRedactions, redactHtml, redactText, REMOVED_NOTE } from "@/lib/mail/redact";
 import type { Contact, Message } from "@/lib/mail/types";
 import { getAsset } from "./assets";
 import { getAttachment } from "./attachments";
@@ -89,7 +90,7 @@ function bodyInner(html: string) {
 }
 
 /** The quoted message from the local copy, or from the provider when it isn't stored in full. */
-async function quotedMessage(account: AccountRow, quote: Quote, threadId?: string): Promise<Message | null> {
+export async function quotedMessage(account: AccountRow, quote: Quote, threadId?: string): Promise<Message | null> {
   // Found wherever a split or merge placed it.
   const stored = threadId ? remoteMessages(account.id, threadId).find((m) => m.id === quote.messageId) : undefined;
   if (stored && (stored.html || stored.body.length)) return stored;
@@ -109,11 +110,16 @@ async function renderQuote(account: AccountRow, quote: Quote, threadId?: string)
   const message = await quotedMessage(account, quote, threadId);
   const from = message?.from ?? quote.from;
   const to = message?.to ?? quote.to;
-  const text = message ? (message.body.length ? message.body.join("\n\n") : message.html ? htmlToText(message.html) : message.snippet ?? "") : quote.snippet;
+  // Parts the user took out go before anything else reads the message (the images carried below too).
+  const redact = hasRedactions(quote.redact) ? quote.redact : undefined;
+  const html = message?.html ? redactHtml(message.html, redact) : null;
+  const original = message ? (message.body.length ? message.body.join("\n\n") : message.html ? htmlToText(message.html) : message.snippet ?? "") : quote.snippet;
+  // With parts removed, the text version comes from the cleaned HTML, so the two can't differ.
+  const text = redact ? (html ? htmlToText(bodyInner(html)) : redactText(original, redact)) : original;
 
   const inline: InlineImage[] = [];
-  let inner = message?.html ? bodyInner(message.html) : `<div>${escapeHtml(text).replace(/\r?\n/g, "<br>")}</div>`;
-  if (message?.html) {
+  let inner = html ? bodyInner(html) : `<div>${escapeHtml(text).replace(/\r?\n/g, "<br>")}</div>`;
+  if (html && message) {
     // Images the original showed by Content-ID travel with the quote, up to a size budget.
     let budget = MAX_QUOTED_IMAGE_BYTES;
     for (const a of message.attachments ?? []) {
@@ -129,19 +135,24 @@ async function renderQuote(account: AccountRow, quote: Quote, threadId?: string)
   }
 
   if (quote.mode === "forward") {
+    // The header lines lose the removed phrases too (a name, an address, an account number in the subject).
+    const clean = (s: string) => redactText(s, redact);
+    const showTo = to.length > 0 && !redact?.hideTo;
     const header = [
       "---------- Forwarded message ---------",
-      `From: ${who(from)}`,
+      `From: ${clean(who(from))}`,
       `Date: ${when(message?.date ?? quote.date)}`,
-      `Subject: ${quote.subject}`,
-      to.length ? `To: ${to.map(who).join(", ")}` : null,
+      `Subject: ${clean(quote.subject)}`,
+      showTo ? `To: ${clean(to.map(who).join(", "))}` : null,
+      redact ? REMOVED_NOTE : null,
     ].filter(Boolean);
     const headerHtml = [
       "---------- Forwarded message ---------",
-      `From: ${whoHtml(from)}`,
+      `From: ${redact ? escapeHtml(clean(who(from))) : whoHtml(from)}`,
       `Date: ${escapeHtml(when(message?.date ?? quote.date))}`,
-      `Subject: ${escapeHtml(quote.subject)}`,
-      to.length ? `To: ${to.map(whoHtml).join(", ")}` : null,
+      `Subject: ${escapeHtml(clean(quote.subject))}`,
+      showTo ? `To: ${redact ? escapeHtml(clean(to.map(who).join(", "))) : to.map(whoHtml).join(", ")}` : null,
+      redact ? `<em>${escapeHtml(REMOVED_NOTE)}</em>` : null,
     ].filter(Boolean);
     return {
       html: `<div class="gmail_quote"><div class="gmail_attr">${headerHtml.join("<br>")}<br></div><br>${inner}</div>`,
