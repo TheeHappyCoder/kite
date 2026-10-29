@@ -31,6 +31,8 @@ export function EmailFrame({ html, loadRemote }: { html: string; loadRemote: boo
   ${font.faces}
   html,body{margin:0;padding:0;background:#fff;color:#1b1b1f;font:14px/1.55 ${font.family},-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-feature-settings:${font.features};overflow-wrap:anywhere}
   body{padding:2px}
+  /* Many newsletters pin html and body to 100% of the frame, which would keep the frame at its first height: these outrank them. */
+  html:root,html:root>body{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}
   img{max-width:100%;height:auto}
   table{max-width:100%}
   pre{white-space:pre-wrap}
@@ -100,8 +102,10 @@ function FrameSlot({
   const query = useSearchQuery();
   useEffect(() => { const body = ref.current?.contentDocument?.body; if (body) highlightSearch(body, query); }, [query]);
   const report = useRef(onHeight);
+  const latestQuery = useRef(query);
   useEffect(() => {
     report.current = onHeight;
+    latestQuery.current = query;
   });
 
   useEffect(() => {
@@ -109,16 +113,19 @@ function FrameSlot({
     if (!frame) return;
     let observer: ResizeObserver | null = null;
     // The root element's box, not scrollHeight: that never drops below the frame itself, so short bodies stayed tall.
+    // Content still spilling out of the frame (floats, positioned parts) is caught by scrollHeight.
     const measure = () => {
-      const doc = frame.contentDocument;
-      return doc?.documentElement ? Math.max(24, Math.ceil(doc.documentElement.getBoundingClientRect().height)) : null;
+      const root = frame.contentDocument?.documentElement;
+      if (!root) return null;
+      const box = Math.ceil(root.getBoundingClientRect().height);
+      return Math.max(24, root.scrollHeight > root.clientHeight ? Math.max(box, root.scrollHeight) : box);
     };
     const onLoad = () => {
       const h = measure();
       if (h !== null) report.current(h, true);
       const body = frame.contentDocument?.body;
       if (body) {
-        highlightSearch(body, query);
+        highlightSearch(body, latestQuery.current);
         observer = new ResizeObserver(() => {
           const next = measure();
           if (next !== null) report.current(next, false);
@@ -127,11 +134,14 @@ function FrameSlot({
       }
     };
     frame.addEventListener("load", onLoad);
+    // Already loaded before this ran: measure now, or the frame would keep its placeholder height.
+    const doc = frame.contentDocument;
+    if (doc?.URL === "about:srcdoc" && doc.readyState === "complete") onLoad();
     return () => {
       frame.removeEventListener("load", onLoad);
       observer?.disconnect();
     };
-  }, [srcDoc, query]);
+  }, [srcDoc]);
 
   return (
     <iframe

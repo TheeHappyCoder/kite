@@ -315,6 +315,37 @@
   }
 }
 
+/* A message header stuck to the top of the reader (`data-stuck`, set by the reader's scroll handler): square corners, so nothing peeks past them, and a soft edge over the email. */
+/* Stuck, it slims to one line (smaller face, no recipients); the see-through rest of its box lets clicks reach the email. */
+.stuck-header {
+  pointer-events: none;
+}
+.stuck-header > * {
+  pointer-events: auto;
+  transition: border-radius 150ms, box-shadow 150ms;
+}
+.stuck-header [data-stuck-row] {
+  transition: padding 150ms, background-color 150ms;
+}
+.stuck-header [data-stuck-avatar] {
+  transition: zoom 150ms;
+}
+.stuck-header[data-stuck] > * {
+  border-radius: 0;
+  box-shadow: 0 6px 12px -8px rgb(0 0 0 / 0.18);
+}
+.stuck-header[data-stuck] [data-stuck-row] {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  border-radius: 0;
+}
+.stuck-header[data-stuck] [data-stuck-avatar] {
+  zoom: 0.75;
+}
+.stuck-header[data-stuck] [data-stuck-hide] {
+  display: none;
+}
+
 /* A setting found from Settings search lights up once. Rows inside a card take the card's corners. */
 @keyframes setting-found {
   0%, 35% { background-color: var(--accent-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }

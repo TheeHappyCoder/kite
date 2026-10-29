@@ -157,6 +157,11 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
   const readerRef = useCallback((node: HTMLElement | null) => { highlightRef.current = node; sectionRef(node); }, [sectionRef]);
   useSearchHighlight(highlightRef, props.searchQuery ?? "", thread?.id ?? "");
   const narrow = width !== null && width < NARROW_READER;
+  // Once the subject scrolls out of view it shows in the toolbar instead (kept per conversation, so a new one starts at the top).
+  const [titleGone, setTitleGone] = useState<string | null>(null);
+  const subjectInBar = !!thread && titleGone === thread.id;
+  // With the subject up there the toolbar keeps only triage, Star and More (the rest moves into More), so the subject has room.
+  const compact = narrow || subjectInBar;
 
   if (!thread) {
     return (
@@ -198,14 +203,24 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
         <CircleButton icon={Archive02Icon} label={thread.mailbox === "trash" ? "Move to inbox" : "Archive"} shortcut="archive" onClick={props.onArchive} />
         {thread.mailbox !== "trash" ? <CircleButton icon={Clock01Icon} label="Snooze until tomorrow" shortcut="snooze" onClick={props.onSnooze} /> : null}
         <CircleButton icon={Delete02Icon} label={thread.mailbox === "trash" ? "Delete permanently…" : "Delete"} shortcut="delete" onClick={props.onDelete} />
-        {thread.scheduled || narrow ? null : (
-          <>
+        {thread.scheduled || compact ? null : (
+          <span className="blur-fade flex items-center gap-1.5">
             <span className="mx-1.5 h-5 w-px shrink-0 bg-pane-border" />
             <CircleButton icon={MailReplyAll01Icon} label="Reply all" shortcut="replyAll" onClick={() => props.onCompose("replyAll")} />
             <CircleButton icon={Forward01Icon} label="Forward" shortcut="forward" onClick={() => props.onCompose("forward")} />
-          </>
+          </span>
         )}
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="flex min-w-0 flex-1 items-center">
+          {subjectInBar ? (
+            <>
+              <span className="mx-1.5 h-5 w-px shrink-0 bg-pane-border" />
+              <p key={thread.id} data-sensitive title={thread.subject} className="blur-fade-up min-w-0 truncate px-1.5 text-[14px] font-semibold tracking-tight">
+                {thread.subject}
+              </p>
+            </>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-1.5">
           <CircleButton
             icon={StarIcon}
             label={thread.starred ? "Unstar" : "Star"}
@@ -213,8 +228,8 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
             onClick={props.onStar}
             iconClassName={cn(thread.starred && "fill-warning text-warning")}
           />
-          {narrow ? null : (
-            <>
+          {compact ? null : (
+            <span className="blur-fade flex items-center gap-1.5">
               <CircleButton
                 icon={BubbleChatIcon}
                 label={props.chat ? "Show as email" : "Show as chat"}
@@ -224,14 +239,30 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
               />
               <CircleButton icon={UserCircleIcon} label={props.people ? "Hide people" : "People in this conversation"} shortcut="people" onClick={props.onTogglePeople} active={!!props.people} />
               <CircleButton icon={Camera01Icon} label="Screenshot" shortcut="screenshot" onClick={() => props.onScreenshot()} />
-            </>
+            </span>
           )}
-          {thread.scheduled ? null : <ThreadMenu items={menuItems(props, narrow)} />}
+          {thread.scheduled ? null : <ThreadMenu items={menuItems(props, compact)} />}
         </div>
       </header>
 
       <div className="relative flex min-h-0 flex-1">
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <div
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto"
+          onScroll={(e) => {
+            const top = e.currentTarget.getBoundingClientRect().top;
+            const title = e.currentTarget.querySelector("[data-thread-title]");
+            const gone = !!title && title.getBoundingClientRect().bottom < top;
+            if (gone !== subjectInBar) setTitleGone(gone ? thread.id : null);
+            // A message header is stuck while its message has scrolled up under it (styled in globals.css).
+            // Stuck, it slims to one line; its box keeps the full height (the rest is see-through) so the message doesn't jump.
+            for (const header of e.currentTarget.querySelectorAll<HTMLElement>(".stuck-header")) {
+              const stuck = header.parentElement!.getBoundingClientRect().top < top - 0.5;
+              if (stuck === header.hasAttribute("data-stuck")) continue;
+              header.style.minHeight = stuck ? `${header.offsetHeight}px` : "";
+              header.toggleAttribute("data-stuck", stuck);
+            }
+          }}
+        >
           <Conversation key={thread.id} {...props} thread={thread} onPreview={setPreview} />
         </div>
         {props.people?.(setPreview)}
@@ -364,7 +395,7 @@ function Title({ thread, editing, onEdit, onDone, onRename }: { thread: Thread; 
           className="-mx-2 w-[calc(100%+16px)] rounded-xl border border-accent/50 bg-pane px-2 py-0.5 text-[22px] font-semibold leading-tight tracking-tight outline-none"
         />
       ) : (
-        <h2 data-sensitive className="group/title flex items-start gap-2 text-[22px] font-semibold leading-tight tracking-tight">
+        <h2 data-sensitive data-thread-title className="group/title flex items-start gap-2 text-[22px] font-semibold leading-tight tracking-tight">
           <span className="min-w-0 break-words">{thread.subject}</span>
           <Tooltip label="Rename (only in Kite)">
             <button
@@ -833,7 +864,12 @@ function MessageView({
       data-sensitive
       className={cn("scroll-mt-4 rounded-xl border border-pane-border transition-shadow duration-500", highlighted && "ring-2 ring-accent/50")}
     >
-      {/* The header folds the message back to one line (its own buttons excepted); the newest message stays open. */}
+      {/*
+        The header folds the message back to one line (its own buttons excepted); the newest message stays open.
+        It sticks to the top while the message scrolls past, so who sent it (and from which address) stays in view.
+      */}
+      <div className="stuck-header sticky top-0 z-10">
+      <div className="rounded-t-xl border-b border-pane-border bg-pane">
       <div
         onClick={(e) => {
           if (onClose && !(e.target as HTMLElement).closest("button, a, [role=menu]")) onClose();
@@ -842,23 +878,32 @@ function MessageView({
           "flex min-w-0 items-center gap-3 rounded-t-xl px-4 py-3",
           onClose && "cursor-pointer transition-colors duration-150 hover:bg-pane-hover/60 hover:transition-none",
         )}
+        data-stuck-row
       >
-        <Avatar name={message.from.name} email={message.from.email} className="size-8 shrink-0 text-[11px]" />
+        <span data-stuck-avatar className="shrink-0">
+          <Avatar name={message.from.name} email={message.from.email} className="size-8 shrink-0 text-[11px]" />
+        </span>
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-baseline gap-2">
             {onPerson ? (
-              <button onClick={() => onPerson(message.from.email)} title={message.from.email} className="min-w-0 truncate text-[14px] font-semibold hover:underline">
+              <button onClick={() => onPerson(message.from.email)} className="min-w-0 max-w-[60%] shrink-0 truncate text-[14px] font-semibold hover:underline">
                 {message.from.name}
               </button>
             ) : (
-              <span title={message.from.email} className="min-w-0 truncate text-[14px] font-semibold">
+              <span className="min-w-0 max-w-[60%] shrink-0 truncate text-[14px] font-semibold">
                 {mine ? "You" : message.from.name}
+              </span>
+            )}
+            {/* The real address, always: a display name alone is how lookalike senders get through. */}
+            {mine || !message.from.email ? null : (
+              <span title={message.from.email} className="min-w-0 truncate text-[12.5px] text-pane-muted">
+                {message.from.email}
               </span>
             )}
             {message.draft ? <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11.5px] font-medium text-accent">Draft</span> : null}
           </div>
           {to ? (
-            <span title={to.title} className="min-w-0 truncate text-[12px] text-pane-muted">
+            <span data-stuck-hide title={to.title} className="min-w-0 truncate text-[12px] text-pane-muted">
               {to.text}
             </span>
           ) : null}
@@ -907,8 +952,10 @@ function MessageView({
           ) : null}
         </div>
       </div>
+      </div>
+      </div>
 
-      <div className="border-t border-pane-border px-4 pb-4 pt-1">
+      <div className="px-4 pb-4 pt-1">
       {fork ? (
         <button
           onClick={() => onJump(fork.id)}
