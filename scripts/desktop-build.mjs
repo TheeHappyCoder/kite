@@ -156,8 +156,25 @@ if (existsSync(path.join(root, ".env.local"))) {
 cpSync(process.execPath, path.join(out, win ? "node.exe" : "node"));
 console.log(`[kite] ${files} package files bundled`);
 
+// The installer's first page (tauri.bundle.conf.json `licenseFile`): the licence in a line, then the whole
+// privacy policy, as plain text (Markdown tables become one line per row).
+const privacy = readFileSync(path.join(root, "PRIVACY.md"), "utf8")
+  .split(/\r?\n/)
+  .flatMap((line) => {
+    if (!line.startsWith("|")) return [line.replace(/\*\*(.+?)\*\*/g, "$1").replace(/\[([^\]]+)\]\(#[^)]*\)/g, "$1").replace(/^#+ /, "")];
+    const cells = line.split("|").slice(1, -1).map((c) => c.trim());
+    if (cells.every((c) => /^-+$/.test(c)) || cells[0] === "What") return [];
+    return [`- ${cells[0]}: sent to ${cells[1]}. ${cells[2]}. To avoid it: ${cells[3]}.`];
+  })
+  .join("\r\n");
+writeFileSync(
+  path.join(root, "src-tauri", "target", "installer-notice.txt"),
+  `Kite is free software under the GNU Affero General Public License v3.0: https://github.com/TheeHappyCoder/kite/blob/main/LICENSE\r\n\r\n${privacy}\r\n`,
+);
+
+// `--no-bundle` (the release workflow): kite.exe only, so it can be signed before the installer is made around it.
 console.log("[kite] tauri build");
-run("pnpm", ["exec", "tauri", "build", "--config", "src-tauri/tauri.bundle.conf.json"]);
+run("pnpm", ["exec", "tauri", "build", "--config", "src-tauri/tauri.bundle.conf.json", ...(process.argv.includes("--no-bundle") ? ["--no-bundle"] : [])]);
 
 if (process.argv.includes("--to-desktop")) {
   const nsis = path.join(root, "src-tauri", "target", "release", "bundle", "nsis");

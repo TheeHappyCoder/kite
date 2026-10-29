@@ -155,6 +155,8 @@ const SEARCH: { section: SettingsSection | "shortcuts"; label: string; words?: s
   { section: "privacy", label: "Remote images", words: "tracking pixels load" },
   { section: "privacy", label: "Clean tracking from links", words: "utm redirect" },
   { section: "privacy", label: "Company logos from the web", words: "gravatar bimi pictures duckduckgo" },
+  { section: "privacy", label: "Cloudflare DNS when this computer's fails", words: "dns doh lookup domain fallback" },
+  { section: "privacy", label: "Check for updates", words: "updates github version automatic" },
   { section: "privacy", label: "Lock with a PIN", words: "password lock security" },
   { section: "privacy", label: "What left this computer", words: "log third party" },
   { section: "shortcuts", label: "Shortcuts", words: "keys keyboard bindings" },
@@ -605,6 +607,24 @@ export function SettingsView(props: Props) {
                 }
                 value={preferences.privacy.webPictures}
                 onChange={(webPictures) => void props.onPreferences({ privacy: { webPictures } })}
+              />
+            </Group>
+            <Group title="Connections">
+              <ToggleRow
+                label="Cloudflare DNS when this computer's fails"
+                detail="Finds mail servers and company logos when Windows can't look a domain up. Only the domain name is sent."
+                value={preferences.privacy.dnsFallback}
+                onChange={(dnsFallback) => void props.onPreferences({ privacy: { dnsFallback } })}
+              />
+              <ToggleRow
+                label="Check for updates"
+                detail={
+                  preferences.privacy.updateChecks
+                    ? "The desktop app asks GitHub for a newer version now and again. Nothing installs until you click Update."
+                    : "No automatic checks. Settings → About still checks when you ask."
+                }
+                value={preferences.privacy.updateChecks}
+                onChange={(updateChecks) => void props.onPreferences({ privacy: { updateChecks } })}
               />
             </Group>
             <Group title="App lock">

@@ -121,6 +121,10 @@ const PrivacyPrefs = z.object({
   cleanLinks: z.boolean().default(true),
   /** Company logos from the web (BIMI, Gravatar, DuckDuckGo icons), for company senders only. */
   webPictures: z.boolean().default(true),
+  /** When this computer's own DNS fails, ask Cloudflare's DNS-over-HTTPS instead (server/dns.ts): domain names only. */
+  dnsFallback: z.boolean().default(true),
+  /** The desktop app looks for a new version on GitHub now and again (src-tauri/src/updater.rs); Check for updates still works when off. */
+  updateChecks: z.boolean().default(true),
   /** With a PIN set (server/lock.ts): lock after this many idle minutes, or when Kite comes back after that long. */
   lockAfter: z.union(LOCK_CHOICES.map((n) => z.literal(n))).default(15),
 });

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SignPath artifact configuration "kite-exe" (paste into the SignPath project): the GitHub artifact is a zip
+     holding kite.exe, signed with Authenticode. Its product name must be Kite. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="kite.exe" product-name="Kite">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

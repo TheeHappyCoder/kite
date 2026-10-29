@@ -2,11 +2,14 @@ import "server-only";
 
 import { resolveMx, resolveSrv, resolveTxt } from "node:dns/promises";
 import { countSent } from "./privacy-log";
+import { getPreferences } from "./settings";
 
 // Node's resolver can fail on some Windows setups (ECONNREFUSED), so fall back to
-// DNS-over-HTTPS. Only the queried domain name leaves the machine.
+// DNS-over-HTTPS. Only the queried domain name leaves the machine, and only while
+// `privacy.dnsFallback` is on (off: the lookup simply finds nothing).
 
 async function doh(name: string, type: "MX" | "TXT" | "SRV") {
+  if (!getPreferences().privacy.dnsFallback) return [];
   countSent("dns", "Cloudflare DNS");
   const res = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=${type}`, {
     headers: { accept: "application/dns-json" },

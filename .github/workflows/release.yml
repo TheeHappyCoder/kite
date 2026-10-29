@@ -1,0 +1,176 @@
+# The Windows release: built here from the tagged source, so every release is traceable to this repository.
+# Push a tag `v<version>` (the version in package.json, src-tauri/Cargo.toml and src-tauri/tauri.conf.json),
+# or run it by hand with that tag. It ends with a draft GitHub release; publishing it (marked Latest) is what
+# installed copies update from. docs/updates.md has the whole process.
+#
+# Code signing (SignPath Foundation, CODE_SIGNING.md) runs when the repository variable SIGNPATH_ORGANIZATION_ID
+# is set: kite.exe is signed first, then the installer made around it is signed, each after a maintainer
+# approves it in SignPath. The updater signature (Tauri's own key) is made last, over the signed installer,
+# because Authenticode signing changes the file's bytes.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, e.g. v0.2.1 (must match the version in the code)"
+        required: true
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+  SIGN: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Check the tag matches the version
+        shell: bash
+        run: |
+          version="${TAG#v}"
+          node -e '
+            const fs = require("fs");
+            const v = process.argv[1];
+            const found = {
+              "package.json": JSON.parse(fs.readFileSync("package.json", "utf8")).version,
+              "src-tauri/tauri.conf.json": JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8")).version,
+              "src-tauri/Cargo.toml": fs.readFileSync("src-tauri/Cargo.toml", "utf8").match(/^version = "([^"]+)"/m)[1],
+            };
+            const wrong = Object.entries(found).filter(([, x]) => x !== v);
+            if (wrong.length) { console.error(`Tag v${v} but ` + wrong.map(([f, x]) => `${f} says ${x}`).join(", ")); process.exit(1); }
+          ' "$version"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - run: pnpm install --frozen-lockfile
+
+      # The public build carries only the Microsoft client id (a public PKCE client), like `pnpm desktop:build`.
+      - name: Write the build's environment
+        shell: bash
+        env:
+          MICROSOFT_CLIENT_ID: ${{ secrets.MICROSOFT_CLIENT_ID }}
+        run: printf 'MICROSOFT_CLIENT_ID=%s\n' "$MICROSOFT_CLIENT_ID" > .env.local
+
+      - name: Build kite.exe
+        run: node scripts/desktop-build.mjs --no-bundle
+
+      - name: Upload kite.exe for signing
+        if: env.SIGN == 'true'
+        id: unsigned-exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: kite-exe-unsigned
+          path: src-tauri/target/release/kite.exe
+          if-no-files-found: error
+
+      - name: Sign kite.exe
+        if: env.SIGN == 'true'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          artifact-configuration-slug: kite-exe
+          github-artifact-id: ${{ steps.unsigned-exe.outputs.artifact-id }}
+          wait-for-completion-timeout-in-seconds: 7200
+          output-artifact-directory: signed/exe
+
+      - name: Put the signed kite.exe in place
+        if: env.SIGN == 'true'
+        shell: bash
+        run: cp signed/exe/kite.exe src-tauri/target/release/kite.exe
+
+      - name: Make the installer
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm exec tauri bundle --bundles nsis --config src-tauri/tauri.bundle.conf.json
+
+      - name: Upload the installer for signing
+        if: env.SIGN == 'true'
+        id: unsigned-installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: kite-installer-unsigned
+          path: src-tauri/target/release/bundle/nsis/Kite_${{ env.VERSION }}_x64-setup.exe
+          if-no-files-found: error
+
+      - name: Sign the installer
+        if: env.SIGN == 'true'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          artifact-configuration-slug: kite-installer
+          github-artifact-id: ${{ steps.unsigned-installer.outputs.artifact-id }}
+          wait-for-completion-timeout-in-seconds: 7200
+          output-artifact-directory: signed/installer
+
+      - name: Put the signed installer in place
+        if: env.SIGN == 'true'
+        shell: bash
+        run: cp "signed/installer/Kite_${VERSION}_x64-setup.exe" "src-tauri/target/release/bundle/nsis/Kite_${VERSION}_x64-setup.exe"
+
+      # Over the final file: the one installed copies download and check before installing.
+      - name: Updater signature and latest.json
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          installer="src-tauri/target/release/bundle/nsis/Kite_${VERSION}_x64-setup.exe"
+          rm -f "$installer.sig"
+          pnpm exec tauri signer sign "$installer"
+          # The tag's message is the release notes (git tag -a v0.2.1 -m "..."); a plain tag gets a one-liner.
+          notes="$(git tag -l --format='%(contents)' "$TAG")"
+          [ -n "$notes" ] || notes="Kite $VERSION"
+          printf '%s\n' "$notes" > release-notes.md
+          node scripts/update-manifest.mjs "$installer" release-notes.md "$TAG"
+          # The site's Download button points at releases/latest/download/Kite-Setup.exe.
+          cp "$installer" src-tauri/target/release/bundle/nsis/Kite-Setup.exe
+
+      - name: Draft the GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dir=src-tauri/target/release/bundle/nsis
+          files=("$dir/Kite_${VERSION}_x64-setup.exe" "$dir/Kite_${VERSION}_x64-setup.exe.sig" "$dir/latest.json" "$dir/Kite-Setup.exe")
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "${files[@]}" --clobber
+          else
+            gh release create "$TAG" "${files[@]}" --draft --verify-tag --title "Kite $VERSION" --notes-file release-notes.md
+          fi

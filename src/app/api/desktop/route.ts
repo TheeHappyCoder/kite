@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 export async function GET(request: Request) {
   const rejected = rejectForeignHost(request);
   if (rejected) return rejected;
-  const { notifications, desktop, compose, bar } = getPreferences();
+  const { notifications, desktop, compose, bar, privacy } = getPreferences();
   const state: DesktopState = {
     codes: freshCodes(),
     codeToast: notifications.desktop && desktop.codeToast,
@@ -20,6 +20,7 @@ export async function GET(request: Request) {
     barQuiet: bar.quiet,
     codeShortcut: desktop.codeShortcut,
     showContent: notifications.showContent,
+    updateChecks: privacy.updateChecks,
   };
   return NextResponse.json(state, { headers: { "cache-control": "no-store" } });
 }

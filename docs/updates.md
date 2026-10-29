@@ -4,19 +4,26 @@ Release builds check the public GitHub latest release after 20 seconds and every
 
 The installer removes the previous bundled `server` directory. User data in the app data directory is preserved. Schema changes should use database migrations, never erase accounts or drafts during an update.
 
+Settings → Privacy → Check for updates turns the timed checks off; Settings → About's Check for updates still works.
+
 ## Publishing a Windows x64 update
 
-1. Publish releases in the public `TheeHappyCoder/kite` repository. The updater deliberately ships no GitHub token.
-2. Increment the version in `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, and `package.json` together.
-3. Supply `TAURI_SIGNING_PRIVATE_KEY` and, if needed, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` in the build environment. Use the original key matching `plugins.updater.pubkey`; keep it backed up outside this repository. Never commit it. Replacing the public key breaks updates for already installed copies.
-4. Run `pnpm desktop:build`. Tauri writes the installer and its `.sig` in `src-tauri/target/release/bundle/nsis`.
-5. Put release notes in a text/Markdown file, then run:
+Releases are built by GitHub Actions (`.github/workflows/release.yml`), never on a personal computer, so each one traces back to this repository (SignPath Foundation's rule for free signing, CODE_SIGNING.md).
+
+1. Increment the version in `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, and `package.json` together, and commit.
+2. Tag it with the release notes as the tag message and push the tag:
 
    ```powershell
-   node scripts/update-manifest.mjs src-tauri/target/release/bundle/nsis/Kite_0.2.0_x64-setup.exe release-notes.md v0.2.0
+   git tag -a v0.2.1 -m "What changed, in a few lines"
+   git push origin v0.2.1
    ```
 
-6. Upload that installer, its `.sig`, and the generated `latest.json` to the same published GitHub release. Mark it as Latest; drafts and prereleases are not the stable update channel. The dialog uses the notes in `latest.json`.
-7. Test with an installed older build: check detection, notes, download, restart, new version, and retained accounts/settings. Also test offline downloads and retry. Development builds never install updates.
+3. The workflow checks the tag matches the version, builds `kite.exe`, has SignPath sign it, makes the installer around the signed exe, has SignPath sign the installer, signs it for the updater, writes `latest.json`, and drafts the GitHub release with the installer, its `.sig`, `latest.json` and `Kite-Setup.exe` (the site's Download button). Each SignPath step waits for you to approve it in SignPath (up to two hours).
+4. Look over the draft release and publish it as Latest. Installed copies update from the published Latest release only; drafts and prereleases are never offered.
+5. Test with an installed older build: check detection, notes, download, restart, new version, and retained accounts/settings. Also test offline downloads and retry. Development builds never install updates.
+
+The workflow reads these repository secrets: `MICROSOFT_CLIENT_ID`, `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (the original key matching `plugins.updater.pubkey`; keep it backed up outside this repository, never commit it: replacing the public key breaks updates for every installed copy), and `SIGNPATH_API_TOKEN`. Signing runs once the repository variables `SIGNPATH_ORGANIZATION_ID`, `SIGNPATH_PROJECT_SLUG` and `SIGNPATH_POLICY_SLUG` are set; until then the workflow builds an unsigned release the same way. The SignPath project needs two artifact configurations, `kite-exe` and `kite-installer`, copied from `.signpath/artifact-configurations/`.
+
+`pnpm desktop:build` still makes a local build for testing; don't publish one.
 
 An older build without the updater needs one manual installation of an updater-enabled version. Subsequent releases can update in-app.

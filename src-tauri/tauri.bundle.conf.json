@@ -5,6 +5,7 @@
       "resources/server/": "server/"
     },
     "createUpdaterArtifacts": true,
+    "licenseFile": "target/installer-notice.txt",
     "windows": {
       "nsis": {
         "installerHooks": "./installer-hooks.nsh"

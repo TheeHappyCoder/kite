@@ -62,10 +62,26 @@ pub fn start(app: &AppHandle) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_secs(20)).await;
         loop {
-            check(&handle, false).await;
+            match checks_allowed().await {
+                Some(true) => check(&handle, false).await,
+                Some(false) => {}
+                // The server isn't answering yet: ask again in a minute.
+                None => {
+                    tokio::time::sleep(Duration::from_secs(60)).await;
+                    continue;
+                }
+            }
             tokio::time::sleep(EVERY).await;
         }
     });
+}
+
+/// Settings → Privacy's "Check for updates" (`updateChecks` in GET /api/desktop); None while the server
+/// isn't answering. Settings → About's Check for updates runs regardless.
+async fn checks_allowed() -> Option<bool> {
+    let response = reqwest::get(format!("{}/api/desktop", crate::server::ORIGIN)).await.ok()?;
+    let state = response.json::<serde_json::Value>().await.ok()?;
+    Some(state.get("updateChecks").and_then(|v| v.as_bool()).unwrap_or(false))
 }
 
 /// `manual`: Settings → About asked, so a failure is reported; the timed checks stay quiet.

@@ -72,6 +72,8 @@ export type DesktopState = {
   codeShortcut: string;
   /** `notifications.showContent`: toasts may show the service and the code. Off: "Sign-in code ready". */
   showContent: boolean;
+  /** `privacy.updateChecks`: the timed checks for a new version on GitHub (a manual check always runs). */
+  updateChecks: boolean;
 };
 
 /** The shell's updater (src-tauri/src/updater.rs `UpdateState`), read with the `update` command. */
