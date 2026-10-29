@@ -16,11 +16,16 @@
   from { transform: rotate(-5deg) translateY(1px); }
   to { transform: rotate(4deg) translateY(-2px); }
 }
+/* The kite and its string easing to each new height while the download climbs. */
+.kite-glide {
+  transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1), d 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
 /* The download bar in the dialog. */
 .kite-update-bar {
   transition: width 300ms ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
   .kite-ping, .kite-sway { animation: none; }
+  .kite-glide { transition: none; }
   .kite-update-bar { transition: none; }
 }

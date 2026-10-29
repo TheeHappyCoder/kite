@@ -91,13 +91,24 @@ function UpdateDialog({ open, onClose, state, progress, onInstall }: { open: boo
             </motion.div>
           </AnimatePresence>
         </div>
-        {/* The horizon fills as the update arrives. */}
-        {busy ? (
-          <div role="progressbar" aria-label="Update" aria-valuemin={0} aria-valuemax={100} aria-valuenow={state.phase === "installing" ? 100 : (percent ?? undefined)} className="absolute inset-x-0 bottom-0 h-[3px] bg-white/15">
-            <div className="kite-update-bar h-full bg-white" style={{ width: `${state.phase === "installing" ? 100 : (percent ?? 0)}%` }} />
-          </div>
-        ) : null}
       </div>
+
+      {/* The progress on paper, not on the sky's edge: a white line there vanished against a light pane. */}
+      {busy ? (
+        <div className="mx-5 mt-4 flex items-center gap-3">
+          <div
+            role="progressbar"
+            aria-label="Update"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={state.phase === "installing" ? 100 : (percent ?? undefined)}
+            className="h-1.5 flex-1 overflow-hidden rounded-full bg-pane-hover"
+          >
+            <div className="kite-update-bar h-full rounded-full bg-accent" style={{ width: `${state.phase === "installing" ? 100 : (percent ?? 0)}%` }} />
+          </div>
+          <span className="w-10 text-right text-[12px] font-medium tabular-nums text-pane-muted">{state.phase === "installing" ? "100%" : percent === null ? "" : `${percent}%`}</span>
+        </div>
+      ) : null}
 
       <div className="scroll-fade min-h-0 flex-1 overflow-y-auto px-5 pb-2 pt-4">
         <AnimatePresence mode="wait" initial={false}>
@@ -151,8 +162,9 @@ function SkyKite({ height }: { height: number }) {
   const string = `M ${tail.x} ${tail.y} Q ${tail.x - 40} ${H - 10} ${tail.x - 120} ${H + 6}`;
   return (
     <svg aria-hidden viewBox={`0 0 ${W} ${H}`} className="pointer-events-none absolute inset-0 h-full w-full" preserveAspectRatio="xMidYMid slice">
-      <path d={string} stroke="white" strokeOpacity={0.55} strokeWidth={1} fill="none" />
-      <g style={{ transform: `translate(${x - 18}px, ${y - 22}px)` }}>
+      {/* Both glide to each new height (progress arrives in steps a few times a second): the string as a CSS `d`. */}
+      <path stroke="white" strokeOpacity={0.55} strokeWidth={1} fill="none" className="kite-glide" style={{ d: `path("${string}")` } as React.CSSProperties} />
+      <g className="kite-glide" style={{ transform: `translate(${x - 18}px, ${y - 22}px)` }}>
         <g className="kite-sway">
           <path d="M18 0 L34 18 L18 44 L2 18 Z" fill="white" fillOpacity={0.28} stroke="white" strokeWidth={1.75} strokeLinejoin="round" />
           <path d="M2 18 H34 M18 0 V44" stroke="white" strokeWidth={1.2} strokeOpacity={0.85} />
