@@ -7,7 +7,7 @@ import { lastMessageDate } from "@/lib/mail/store";
 import { formatListDate } from "@/lib/utils";
 import { Avatar } from "./avatar";
 
-import { FluidList } from "../ui/fluid-hover";
+import { FLUID_ITEM, FluidList } from "../ui/fluid-hover";
 /**
  * "Merge with…": pick another conversation from the same account to join into this one.
  * Lists what's loaded; in live mode, typing also searches the local copy of every mailbox.
@@ -84,6 +84,7 @@ export function MergePicker({
           const sender = t.messages.find((m) => m.from.name !== "You")?.from ?? last.from;
           return (
             <Command.Item
+              {...FLUID_ITEM}
               key={t.id}
               value={`${t.subject} ${sender.name} ${sender.email} ${t.id}`}
               onSelect={() => onMerge(t)}

@@ -41,7 +41,7 @@ import type { View } from "@/lib/mail/store";
 import { spaceLabel, spaceTree, type Space } from "@/lib/spaces";
 import { Icon, type IconData } from "../icon";
 import { useShortcuts, type ShortcutAction } from "@/lib/shortcuts";
-import { FluidList } from "../ui/fluid-hover";
+import { FLUID_ITEM, FluidList } from "../ui/fluid-hover";
 import { KeyCombo } from "../ui/kbd";
 
 type Props = {
@@ -242,6 +242,7 @@ function Item({
   const combo = shortcut ? primary(shortcut) : undefined;
   return (
     <Command.Item
+      {...FLUID_ITEM}
       value={label}
       onSelect={onSelect}
       className="relative flex h-9 cursor-default items-center gap-3 rounded-lg px-2.5 text-[13.5px]"

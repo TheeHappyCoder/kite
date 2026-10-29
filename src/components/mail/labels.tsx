@@ -9,7 +9,7 @@ import { Spinner } from "../ui/spinner";
 import { cn } from "@/lib/utils";
 import { Icon } from "../icon";
 
-import { FluidList } from "../ui/fluid-hover";
+import { FLUID_ITEM, FluidList } from "../ui/fluid-hover";
 import { capitalise } from "@/lib/format";
 /** Looks a label up by account and provider id. */
 export type LabelLookup = (accountId: string, id: string) => MailLabel | undefined;
@@ -136,6 +136,7 @@ export function LabelPicker({
       const folder = label.kind === "folder";
       return (
         <Command.Item
+          {...FLUID_ITEM}
           key={label.id}
           value={`${label.name} ${label.id}`}
           onSelect={() => {
@@ -220,6 +221,7 @@ export function LabelPicker({
               {group("tag")}
               {makeKinds.map((kind) => (
                 <Command.Item
+                  {...FLUID_ITEM}
                   key={`make-${kind}`}
                   forceMount
                   value={`make ${kind} ${typed}`}

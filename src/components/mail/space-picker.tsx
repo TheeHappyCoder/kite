@@ -8,7 +8,7 @@ import { spaceLabel, spaceLogoUrl, spaceTree, type Space } from "@/lib/spaces";
 import { cn } from "@/lib/utils";
 import { Icon } from "../icon";
 import { Spinner } from "../ui/spinner";
-import { FluidList } from "../ui/fluid-hover";
+import { FLUID_ITEM, FluidList } from "../ui/fluid-hover";
 
 /**
  * A space's mark: its colour as a dot (a pocket's a ring, so the two read apart). Where there's room
@@ -106,6 +106,7 @@ export function SpacePicker({
     const all = !!threads && n === threads.length;
     return (
       <Command.Item
+        {...FLUID_ITEM}
         key={key}
         value={`${key} ${spaceLabel(spaces, space.id)}`}
         onSelect={() => pick(space.id)}
@@ -158,6 +159,7 @@ export function SpacePicker({
           {canMake ? (
             <Command.Group forceMount>
               <Command.Item
+                {...FLUID_ITEM}
                 forceMount
                 value={`make ${typed}`}
                 disabled={making}
