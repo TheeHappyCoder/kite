@@ -256,7 +256,7 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
   const { accounts, onSelect } = props;
   const spaceFiles = useMemo(() => (spaceId ? threadFiles(threads) : []), [spaceId, threads]);
   const spaceFolks = useMemo(() => (spaceId ? spacePeople(threads, new Set(accounts.map((a) => a.email.toLowerCase()))) : []), [spaceId, threads, accounts]);
-  const spaceCounts = useMemo(() => ({ files: spaceFiles.length, people: spaceFolks.length }), [spaceFiles.length, spaceFolks.length]);
+  const spaceCounts = useMemo(() => ({ conversations: threads.length, files: spaceFiles.length, people: spaceFolks.length }), [threads.length, spaceFiles.length, spaceFolks.length]);
   const openFromTab = useCallback(
     (threadId: string) => {
       setSpaceTab("conversations");
@@ -521,14 +521,13 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
             ) : null}
           </div>
         ) : view.kind === "space" && !props.query ? (
-          <>
-            <SpaceHeader spaceId={view.spaceId} spaces={props.spaces} count={threads.length} actions={props.spaceActions} />
-            {tabbed ? (
-              <div className="pb-1">
-                <SpaceTabs value={spaceTab} counts={spaceCounts} onChange={setSpaceTab} />
-              </div>
-            ) : null}
-          </>
+          <SpaceHeader
+            spaceId={view.spaceId}
+            spaces={props.spaces}
+            count={threads.length}
+            tabs={tabbed ? <SpaceTabs value={spaceTab} counts={spaceCounts} onChange={setSpaceTab} /> : undefined}
+            actions={props.spaceActions}
+          />
         ) : (
           <p className="px-1 pb-1 text-[12px] text-pane-muted">
             {isScreener

@@ -25,7 +25,7 @@ export type SpaceHeaderActions = {
  * Over a space's conversations: where it sits (Acme › Website), its pockets as pills with a way to
  * make another, and its private note. Everything here lives only in Kite.
  */
-export function SpaceHeader({ spaceId, spaces, count, actions }: { spaceId: string; spaces: Space[]; count: number; actions: SpaceHeaderActions }) {
+export function SpaceHeader({ spaceId, spaces, count, tabs, actions }: { spaceId: string; spaces: Space[]; count: number; tabs?: React.ReactNode; actions: SpaceHeaderActions }) {
   const space = spaces.find((s) => s.id === spaceId);
   const [making, setMaking] = useState(false);
   const [name, setName] = useState("");
@@ -37,7 +37,11 @@ export function SpaceHeader({ spaceId, spaces, count, actions }: { spaceId: stri
     if (renaming?.trim() && renaming.trim() !== space.name) actions.update(space.id, { name: renaming.trim() });
     setRenaming(null);
   };
+  const path = spacePath(spaces, spaceId);
+  const deep = path.length >= SPACE_DEPTH;
   const items: MenuItem[] = [
+    ...(deep ? [] : [{ id: "pocket", label: "New pocket", icon: Add01Icon, onSelect: () => setMaking(true) }]),
+    ...(space.note ? [] : [{ id: "note", label: "Add a note", icon: Note01Icon, onSelect: () => setNoting(true) }]),
     { id: "rename", label: "Rename", icon: PencilEdit02Icon, onSelect: () => setRenaming(space.name) },
     {
       id: "colour",
@@ -54,16 +58,14 @@ export function SpaceHeader({ spaceId, spaces, count, actions }: { spaceId: stri
     ...(space.parentId ? [{ id: "lift", label: "Make it a space of its own", icon: ArrowRight01Icon, onSelect: () => actions.update(space.id, { parentId: null }) }] : []),
     { id: "delete", label: space.parentId ? "Delete this pocket" : "Delete this space", icon: Delete02Icon, danger: true, section: true, onSelect: () => actions.remove(space.id) },
   ];
-  const path = spacePath(spaces, spaceId);
   const pockets = spaces.filter((s) => s.parentId === spaceId).sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
-  const deep = path.length >= SPACE_DEPTH;
   const make = () => {
     if (name.trim()) actions.createPocket(spaceId, name.trim());
     setName("");
     setMaking(false);
   };
   return (
-    <div className="flex flex-col gap-2 pb-1.5">
+    <div className="flex flex-col gap-1.5 pb-1">
       <ContextMenu at={menu} items={items} label={space.name} onClose={() => setMenu(null)} />
       {renaming !== null ? (
         <input
@@ -82,7 +84,7 @@ export function SpaceHeader({ spaceId, spaces, count, actions }: { spaceId: stri
           className="h-9 rounded-full border border-accent/60 bg-transparent px-3.5 text-[14px] outline-none"
         />
       ) : null}
-      <div className="flex min-w-0 items-center gap-1 px-1 text-[12px] text-pane-muted">
+      <div className={cn("flex min-w-0 items-center gap-1 text-[12px] text-pane-muted", !tabs && "px-1")}>
         {path.slice(0, -1).map((p) => (
           <span key={p.id} className="flex min-w-0 items-center gap-1">
             <button onClick={() => actions.open(p.id)} className="truncate hover:text-pane-fg">
@@ -91,20 +93,26 @@ export function SpaceHeader({ spaceId, spaces, count, actions }: { spaceId: stri
             <Icon icon={ArrowRight01Icon} size={11} className="shrink-0" />
           </span>
         ))}
-        <span className="truncate">
-          {plural(count, "conversation")}
-          {pockets.length ? ", pockets included" : ""} · only in Kite
-        </span>
+        {tabs ? (
+          <div className="min-w-0 flex-1">{tabs}</div>
+        ) : (
+          <span className="truncate">
+            {plural(count, "conversation")}
+            {pockets.length ? ", pockets included" : ""} · only in Kite
+          </span>
+        )}
         <span className="ml-auto flex shrink-0 items-center gap-0.5">
-          <Tooltip label={space.note ? "Note" : "Add a note"}>
-            <button
-              aria-label={space.note ? "Note" : "Add a note"}
-              onClick={() => setNoting((v) => !v)}
-              className={cn("grid size-7 place-items-center rounded-full hover:bg-pane-hover hover:text-pane-fg", (noting || space.note) && "text-warning")}
-            >
-              <Icon icon={Note01Icon} size={14} />
-            </button>
-          </Tooltip>
+          {space.note ? (
+            <Tooltip label={noting ? "Hide note" : "Note"}>
+              <button
+                aria-label={noting ? "Hide note" : "Note"}
+                onClick={() => setNoting((v) => !v)}
+                className="grid size-7 place-items-center rounded-full text-warning hover:bg-pane-hover"
+              >
+                <Icon icon={Note01Icon} size={14} />
+              </button>
+            </Tooltip>
+          ) : null}
           <Tooltip label="Space options">
             <button
               aria-label="Space options"
@@ -121,7 +129,7 @@ export function SpaceHeader({ spaceId, spaces, count, actions }: { spaceId: stri
         </span>
       </div>
 
-      {pockets.length || !deep ? (
+      {pockets.length || making ? (
         <FluidList tone="pill" axis="x" className="scroll-fade flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none]">
           {pockets.map((pocket, i) => (
             <button
@@ -129,7 +137,7 @@ export function SpaceHeader({ spaceId, spaces, count, actions }: { spaceId: stri
               {...FLUID_ITEM}
               onClick={() => actions.open(pocket.id)}
               style={{ "--i": i } as React.CSSProperties}
-              className="blur-fade relative flex h-8 shrink-0 items-center gap-2 rounded-full border border-pane-border px-3 text-[12.5px] transition-[background-color] duration-150"
+              className="blur-fade relative flex h-7 shrink-0 items-center gap-2 rounded-full border border-pane-border px-2.5 text-[12.5px] transition-[background-color] duration-150"
             >
               <SpaceDot space={pocket} />
               <span className="max-w-[160px] truncate">{pocket.name}</span>
@@ -153,13 +161,13 @@ export function SpaceHeader({ spaceId, spaces, count, actions }: { spaceId: stri
               }}
               placeholder="Pocket name, like a job"
               aria-label="New pocket's name"
-              className="h-8 w-48 shrink-0 rounded-full border border-accent/60 bg-transparent px-3 text-[12.5px] outline-none placeholder:text-pane-muted"
+              className="h-7 w-48 shrink-0 rounded-full border border-accent/60 bg-transparent px-3 text-[12.5px] outline-none placeholder:text-pane-muted"
             />
           ) : (
             <button
               {...FLUID_ITEM}
               onClick={() => setMaking(true)}
-              className="relative flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12.5px] text-pane-muted transition-[background-color,color] duration-150 data-[lit]:text-pane-fg"
+              className="relative flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] text-pane-muted transition-[background-color,color] duration-150 data-[lit]:text-pane-fg"
             >
               <Icon icon={Add01Icon} size={13} />
               {pockets.length ? "Pocket" : "Add a pocket"}

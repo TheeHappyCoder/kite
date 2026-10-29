@@ -48,13 +48,14 @@ export function useSpaceTab(spaceId: string | null): [SpaceTab, (tab: SpaceTab) 
  */
 export const SpaceTabs = memo(function SpaceTabs({ value, counts, onChange }: { value: SpaceTab; counts: Partial<Record<SpaceTab, number>>; onChange: (tab: SpaceTab) => void }) {
   return (
+    <div className="@container min-w-0">
     <FluidList
       axis="x"
       tone="pill"
       glide
       role="tablist"
       aria-label="What this space shows"
-      className="flex w-full min-w-0 items-center gap-0.5 overflow-x-auto rounded-full bg-pane-2 p-[3px] shadow-[inset_0_0_0_1px_var(--pane-border)] [scrollbar-width:none]"
+      className="flex w-full min-w-0 items-center gap-0.5 rounded-full bg-pane-2 p-[3px] shadow-[inset_0_0_0_1px_var(--pane-border)]"
     >
       {SPACE_TABS.map((t) => {
         const active = t.id === value;
@@ -67,7 +68,7 @@ export const SpaceTabs = memo(function SpaceTabs({ value, counts, onChange }: { 
             aria-selected={active}
             onClick={() => onChange(t.id)}
             className={cn(
-              "relative flex h-8 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13px] outline-none transition-[color,font-weight] duration-150 focus-visible:ring-2 focus-visible:ring-accent/40 touch:h-10",
+              "relative flex h-7 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[12.5px] outline-none transition-[color,font-weight] duration-150 focus-visible:ring-2 focus-visible:ring-accent/40 touch:h-10",
               active ? "font-medium text-pane-fg" : "text-pane-muted data-[lit]:text-pane-fg",
             )}
           >
@@ -78,11 +79,12 @@ export const SpaceTabs = memo(function SpaceTabs({ value, counts, onChange }: { 
                 className="absolute inset-0 rounded-full bg-pane-raised shadow-[0_1px_2px_rgba(0,0,0,0.08),0_0_0_1px_var(--pane-border)]"
               />
             ) : null}
-            <span className="relative">{t.label}</span>
-            {count ? <span className="relative text-[11px] tabular-nums text-pane-muted">{count}</span> : null}
+            <span className="relative truncate">{t.label}</span>
+            {count ? <span className="relative text-[11px] tabular-nums text-pane-muted @max-[300px]:hidden">{count}</span> : null}
           </button>
         );
       })}
     </FluidList>
+    </div>
   );
 });
