@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Figtree, Geist, Inter, Instrument_Sans, Instrument_Serif } from "next/font/google";
-import localFont from "next/font/local";
 import { fontScript } from "@/lib/fonts";
 import { skyScript } from "@/lib/sky";
 import "./globals.css";
@@ -14,36 +13,12 @@ const instrumentSerif = Instrument_Serif({ variable: "--font-instrument-serif", 
 
 // The fonts in Settings → Appearance (lib/fonts.ts). Only the defaults (Geist for the interface, Inter for
 // reading) are preloaded: a browser downloads any other font once something uses it.
-// Satoshi, Switzer and General Sans are from Fontshare (ITF Free Font License).
+// Every bundled font is open source (SIL OFL): signed releases may only carry open-source parts.
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], style: ["normal", "italic"] });
 const instrument = Instrument_Sans({ variable: "--font-instrument", subsets: ["latin"], style: ["normal", "italic"], preload: false });
 const figtree = Figtree({ variable: "--font-figtree", subsets: ["latin"], style: ["normal", "italic"], preload: false });
-const satoshi = localFont({
-  variable: "--font-satoshi",
-  preload: false,
-  src: [
-    { path: "./fonts/Satoshi-Variable.woff2", weight: "300 900", style: "normal" },
-    { path: "./fonts/Satoshi-VariableItalic.woff2", weight: "300 900", style: "italic" },
-  ],
-});
-const switzer = localFont({
-  variable: "--font-switzer",
-  preload: false,
-  src: [
-    { path: "./fonts/Switzer-Variable.woff2", weight: "100 900", style: "normal" },
-    { path: "./fonts/Switzer-VariableItalic.woff2", weight: "100 900", style: "italic" },
-  ],
-});
-const general = localFont({
-  variable: "--font-general",
-  preload: false,
-  src: [
-    { path: "./fonts/GeneralSans-Variable.woff2", weight: "200 700", style: "normal" },
-    { path: "./fonts/GeneralSans-VariableItalic.woff2", weight: "200 700", style: "italic" },
-  ],
-});
 
-const fontVariables = [geistSans, instrumentSerif, inter, instrument, figtree, satoshi, switzer, general].map((f) => f.variable).join(" ");
+const fontVariables = [geistSans, instrumentSerif, inter, instrument, figtree].map((f) => f.variable).join(" ");
 
 export const metadata: Metadata = {
   title: "Kite",

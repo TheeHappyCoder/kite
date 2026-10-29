@@ -2,6 +2,7 @@
   "name": "kite",
   "version": "0.2.0",
   "private": true,
+  "license": "AGPL-3.0-only",
   "scripts": {
     "dev": "next dev --port 3100 --hostname 127.0.0.1",
     "dev:scratch": "node scripts/dev-scratch.mjs",

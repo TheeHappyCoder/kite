@@ -6,10 +6,7 @@
 export const FONTS = [
   { id: "geist", name: "Geist", blurb: "Neutral and technical", cssVar: "--font-geist-sans", features: '"cv11", "ss01"' },
   { id: "inter", name: "Inter", blurb: "The classic interface face, crisp when small", cssVar: "--font-inter", features: '"cv11", "ss01"' },
-  { id: "satoshi", name: "Satoshi", blurb: "Modern and geometric, with character", cssVar: "--font-satoshi", features: "normal" },
   { id: "instrument", name: "Instrument Sans", blurb: "Warm and a little narrow: more per line", cssVar: "--font-instrument", features: "normal" },
-  { id: "switzer", name: "Switzer", blurb: "Swiss and calm", cssVar: "--font-switzer", features: "normal" },
-  { id: "general", name: "General Sans", blurb: "Swiss, softer and rounder", cssVar: "--font-general", features: "normal" },
   { id: "figtree", name: "Figtree", blurb: "Friendly and round", cssVar: "--font-figtree", features: "normal" },
 ] as const;
 

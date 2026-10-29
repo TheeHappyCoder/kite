@@ -110,6 +110,8 @@ pnpm dev                     # http://localhost:3100, demo data until you connec
 pnpm desktop                 # the Windows app (Tauri, needs Rust)
 ```
 
+Kite is open source under the [AGPL-3.0](LICENSE). [Privacy policy](PRIVACY.md) · [Code signing policy](CODE_SIGNING.md).
+
 Screenshots come from the demo data (`kite-demo` server, then `node scripts/readme-shots.mjs`). The website is static in [docs/](docs/). How the code fits together: [CLAUDE.md](CLAUDE.md). What's next: [ROADMAP.md](ROADMAP.md).
 
 <br>
