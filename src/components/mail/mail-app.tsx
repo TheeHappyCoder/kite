@@ -586,7 +586,7 @@ export function MailApp() {
     bulk,
     labels: openLabels,
     pickSpace: (list, move) => setSpacePick({ threads: list, move }),
-    put: (list, id, how) => void spaces.put(list, id, how),
+    put: (list, id, move) => void spaces.put(list, id, { move }),
     takeOut: (list, id, deep) => void spaces.takeOut(list, id, deep),
   });
   const { create: createSpace, update: updateSpace, remove: removeSpace } = spaces;
@@ -892,8 +892,7 @@ export function MailApp() {
     onNestSpace: (id: string, parentId: string) => void spaces.nest(id, parentId),
     onPlaceSpace: (id: string, targetId: string, before: boolean) => void spaces.placeNear(id, targetId, before),
     onDropOnSpace: (id: string, ids: string[], move: boolean) => {
-      const from = state.view.kind === "space" && state.view.spaceId !== id ? [state.view.spaceId] : [];
-      void spaces.put(shownThreads(ids), id, { move, from: move ? from : [] });
+      void spaces.put(shownThreads(ids), id, { move });
     },
   };
 

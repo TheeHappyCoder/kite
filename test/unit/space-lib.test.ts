@@ -96,3 +96,11 @@ describe("dragging spaces in the sidebar", () => {
     expect(placeBeside(spaces, "house", "web", false)).toEqual({ parentId: "acme", order: ["web", "house"] });
   });
 });
+
+describe("the toast after conversations go into a space", () => {
+  it("names the full path, and says Moved when they left somewhere", async () => {
+    const { putMessage } = await import("@/components/mail/app/use-spaces");
+    expect(putMessage(1, false, "Acme / Website")).toBe("Added to Acme / Website");
+    expect(putMessage(3, true, "Acme / Website")).toBe("Moved 3 conversations to Acme / Website");
+  });
+});

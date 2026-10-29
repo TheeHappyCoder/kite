@@ -176,23 +176,26 @@ export function useSpaces({
   );
 
   /**
-   * Puts conversations in a space. `move` also archives the ones in the Inbox; `from` takes them out
-   * of other spaces at the same time (moving between pockets). One Undo puts everything back.
+   * Puts conversations in a space. `move` also takes them out of the space in view (and its pockets,
+   * so moving between pockets leaves the old one) and out of the Inbox. One Undo puts everything back.
+   * Every way in (sidebar drop, picker, actions menu) comes through here, so the toast reads the same.
    */
   const put = useCallback(
-    async (threads: Thread[], spaceId: string, { move = false, from = [] as string[] } = {}) => {
+    async (threads: Thread[], spaceId: string, { move = false } = {}) => {
       const list = threads.filter((t) => !t.scheduled);
       if (!list.length) return;
+      const view = viewRef.current;
+      const from = move && view.kind === "space" ? [...within(spacesRef.current, view.spaceId)].filter((s) => s !== spaceId) : [];
       const fresh = list.filter((t) => !t.spaces?.includes(spaceId)).map((t) => t.id);
-      const left = new Map(list.map((t) => [t.id, (t.spaces ?? []).filter((s) => from.includes(s) && s !== spaceId)]));
+      const left = new Map(list.map((t) => [t.id, (t.spaces ?? []).filter((s) => from.includes(s))]));
       remember(spaceId);
       const res = await write(list.map((t) => t.id), spaceId, from);
       if (!res) return;
       const unarchive = move ? list.filter((t) => t.mailbox === "inbox").flatMap((t) => archiveQuietly(t.id) ?? []) : [];
-      const what = list.length === 1 ? "" : ` ${list.length} conversations`;
+      const moved = unarchive.length > 0 || [...left.values()].some((spaces) => spaces.length > 0);
       const suggest = res.suggest;
       setToast({
-        message: `${move && unarchive.length ? "Moved" : "Added"}${what} to ${nameOf(spaceId)}`,
+        message: putMessage(list.length, moved, nameOf(spaceId)),
         onUndo: () => {
           unarchive.forEach((back) => back());
           if (fresh.length) void write(fresh, null, [spaceId]);
@@ -301,3 +304,8 @@ export function useSpaces({
 }
 
 export type SpacesApi = ReturnType<typeof useSpaces>;
+
+/** The toast after conversations go into a space, named by its full path: "Moved 3 conversations to Acme / Website". */
+export function putMessage(count: number, moved: boolean, path: string) {
+  return `${moved ? "Moved" : "Added"}${count === 1 ? "" : ` ${count} conversations`} to ${path}`;
+}

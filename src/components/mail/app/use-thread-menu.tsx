@@ -51,7 +51,8 @@ type Deps = {
   labels: (threads: Thread[]) => void;
   /** Opens the space picker for these (to move when `move`). */
   pickSpace: (threads: Thread[], move: boolean) => void;
-  put: (threads: Thread[], spaceId: string, how: { move?: boolean; from?: string[] }) => void;
+  /** `move`: out of the space in view and the Inbox too (use-spaces.ts `put`). */
+  put: (threads: Thread[], spaceId: string, move: boolean) => void;
   takeOut: (threads: Thread[], spaceId: string, deep?: boolean) => void;
 };
 
@@ -97,8 +98,7 @@ function build(targets: Thread[], d: Deps): MenuItem[] {
           leading: <SpaceDot space={space} />,
           checked: all,
           disabled: all && !move,
-          // From the space in view to one of its pockets (or another space): a move between them.
-          onSelect: () => d.put(targets, space.id, { move, from: here && here !== space.id ? [here] : [] }),
+          onSelect: () => d.put(targets, space.id, move),
         };
       }),
       { id: "new", label: tree.length ? "New space…" : "Make a space…", icon: Add01Icon, section: tree.length > 0, onSelect: () => d.pickSpace(targets, move) },
