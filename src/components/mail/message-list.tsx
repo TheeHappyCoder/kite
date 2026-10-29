@@ -498,7 +498,8 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
 
         {props.view.kind === "mailbox" && props.view.mailbox === "trash" && !props.checked.size ? (
           <div className="flex items-center gap-3 pb-2 text-xs text-pane-muted">
-            <p className="flex-1">Your mail service controls how long deleted mail stays here.</p>
+            {/* One line, never wrapped: short enough for a narrow list, and cut with the full sentence on hover. */}
+            <p className="min-w-0 flex-1 truncate" title="Your mail service decides how long deleted mail stays here.">Your mail service decides when it’s emptied.</p>
             <button onClick={props.onEmptyTrash} className="shrink-0 rounded-full border border-pane-border px-3 py-1.5 text-pane-fg">Empty Trash…</button>
           </div>
         ) : null}
