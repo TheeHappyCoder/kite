@@ -2,7 +2,7 @@
 // every change (fix, test, fix). Not a replacement for `pnpm perf`: no budgets, no baseline.
 //
 // Flags: --build (next build first)   --data=real|demo (default real: a read-only copy of data/,
-// reused between runs; --fresh-copy makes a new one)   --scenario=jk,search,open,load,press,anims (default jk,search)
+// reused between runs; --fresh-copy makes a new one)   --scenario=jk,search,open,load,press,anims,paneresize,winresize,views (default jk,search)
 // --runs=<n> (default 3)   --profile (CPU profile of each scenario, mapped to source lines; --spike: only
 // the longest busy stretch)   --trace (style/layout/paint totals and what forced layout)   --api (route
 // times and sizes)   --sync (leave sync on)   --serve (just run the server on port 3196 to look at by hand)
@@ -276,7 +276,14 @@ async function stopTrace(cdp) {
     }
   }
   const counts = (n) => main.filter((e) => e.tid === thread && e.name === n).length;
+  // Off the main thread: rasterising and the GPU (filters, blurs and shadows land here).
+  const off = new Map();
+  for (const e of main) {
+    if (e.tid === thread || !/^(RasterTask|GPUTask|ImageDecodeTask|DrawFrame|Graphics\.Pipeline|ProxyMain::BeginMainFrame|LayerTreeHostImpl::PrepareToDraw|Display::DrawAndSwap|SkiaOutputSurfaceImplOnGpu::SwapBuffers)/.test(e.name)) continue;
+    off.set(e.name, (off.get(e.name) ?? 0) + e.dur / 1000);
+  }
   return {
+    offMain: [...off].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([n, ms]) => ({ name: n, ms: round(ms) })),
     byName: [...totals].filter(([n]) => !/^(ThreadControllerImpl|RunTask|SequenceManager|TaskQueue|ThreadPool|MessageLoop|Scheduler)/.test(n)).sort((a, b) => b[1] - a[1]).slice(0, 25).map(([n, ms]) => ({ name: n, ms: round(ms), count: counts(n) })),
     biggest: big.sort((a, b) => b.ms - a.ms).slice(0, 12),
     forced: [...forcedBy].sort((a, b) => b[1].ms - a[1].ms).slice(0, 15).map(([where, v]) => ({ ms: round(v.ms), count: v.count, where })),
@@ -305,7 +312,184 @@ function taskTimeline(events) {
   });
 }
 
+// ---- Continuous interactions (dragging, resizing): frame times and work per step ------------
+
+/** Starts recording frame times in the page (rAF timestamps). */
+const startFrames = (page) =>
+  page.evaluate(() => {
+    const w = window;
+    w.__frames = [];
+    w.__framesOn = true;
+    const tick = (t) => {
+      w.__frames.push(t);
+      if (w.__framesOn) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+
+/** Frame intervals since startFrames: how smooth it looked. */
+const stopFrames = (page) =>
+  page.evaluate(() => {
+    const w = window;
+    w.__framesOn = false;
+    const t = w.__frames;
+    const gaps = t.slice(1).map((v, i) => v - t[i]).sort((a, b) => a - b);
+    const at = (p) => (gaps.length ? gaps[Math.min(gaps.length - 1, Math.floor((p / 100) * gaps.length))] : 0);
+    return { frames: t.length, frameP50Ms: Math.round(at(50) * 10) / 10, frameP90Ms: Math.round(at(90) * 10) / 10, frameMaxMs: Math.round(gaps.at(-1) ?? 0), slowFrames: gaps.filter((g) => g > 25).length };
+  });
+
+const nextFrame = (page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => r())));
+
+const counters = async (cdp) => Object.fromEntries((await cdp.send("Performance.getMetrics")).metrics.map((m) => [m.name, m.value]));
+
+/** Main-thread work per step from the browser's counters (ms): steadier than latency on a busy machine. */
+function perStep(before, after, steps) {
+  const per = (name) => round(((after[name] - before[name]) * 1000) / steps, 2);
+  return { taskMsPerStep: per("TaskDuration"), scriptMsPerStep: per("ScriptDuration"), styleMsPerStep: per("RecalcStyleDuration"), layoutMsPerStep: per("LayoutDuration"), layoutsPerStep: round((after.LayoutCount - before.LayoutCount) / steps, 2), stylesPerStep: round((after.RecalcStyleCount - before.RecalcStyleCount) / steps, 2) };
+}
+
+/** Waits until the page stops changing the DOM for `quiet` ms (cap `max`): when a switch has landed. Returns ms since `since`. */
+const settled = (page, since, quiet = 150, max = 4000) =>
+  page.evaluate(
+    ({ since, quiet, max }) =>
+      new Promise((resolve) => {
+        let last = performance.now();
+        // Motion writes style attributes on every frame of an entrance animation: those aren't the screen changing.
+        const observer = new MutationObserver((records) => {
+          if (records.some((r) => r.type !== "attributes" || r.attributeName !== "style")) last = performance.now();
+        });
+        observer.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+        const check = () => {
+          const now = performance.now();
+          if (now - last >= quiet || now - since > max) {
+            observer.disconnect();
+            resolve(Math.round(last - since));
+          } else setTimeout(check, 25);
+        };
+        setTimeout(check, quiet);
+      }),
+    { since, quiet, max },
+  );
+
+const VIEW_KEYS = [
+  ["home", "Shift+H"],
+  ["calendar", "w"],
+  ["contacts", "Shift+O"],
+  ["automations", "Shift+U"],
+  ["settings", "Control+Comma"],
+  ["notes", "Shift+N"],
+  ["files", "Shift+F"],
+];
+
+/** Back to the inbox: the rail's Mail button. */
+async function toInbox(page) {
+  await page.locator('button[aria-label="Mail"]').first().click();
+}
+
 const SCENARIOS = {
+  /** Five seconds of nothing (a conversation open, no input): what the page costs just sitting there. */
+  async idle(page, cdp) {
+    await page.locator("[data-thread]").first().click();
+    await page.waitForSelector("[data-message-id]", { timeout: 15_000 }).catch(() => {});
+    await sleep(2000);
+    const before = await counters(cdp);
+    await sleep(5000);
+    const after = await counters(cdp);
+    const per = (name) => round(((after[name] - before[name]) * 1000) / 5, 1);
+    return { taskMsPerSec: per("TaskDuration"), scriptMsPerSec: per("ScriptDuration"), stylesPerSec: round((after.RecalcStyleCount - before.RecalcStyleCount) / 5, 1), layoutsPerSec: round((after.LayoutCount - before.LayoutCount) / 5, 1) };
+  },
+  /** Drag the handle between the list and the reader 300 px left and back, one frame per step. */
+  async paneresize(page, cdp) {
+    await page.locator("[data-thread]").first().click();
+    await page.waitForSelector("[data-message-id]", { timeout: 15_000 }).catch(() => {});
+    await sleep(800);
+    const handle = page.locator("[data-panel-resize-handle-id]").first();
+    const box = await handle.boundingBox();
+    if (!box) throw new Error("no pane handle (one pane at a time?)");
+    const x0 = box.x + box.width / 2, y = box.y + box.height / 2;
+    await page.mouse.move(x0, y);
+    await page.mouse.down();
+    const before = await counters(cdp);
+    await startFrames(page);
+    const path = [...Array(60)].map((_, i) => x0 - (i + 1) * 5).concat([...Array(60)].map((_, i) => x0 - 300 + (i + 1) * 5));
+    for (const x of path) {
+      await page.mouse.move(x, y);
+      await nextFrame(page);
+    }
+    const frames = await stopFrames(page);
+    const after = await counters(cdp);
+    await page.mouse.up();
+    await sleep(300);
+    return { steps: path.length, ...frames, ...perStep(before, after, path.length) };
+  },
+  /** The window narrowing from 1440 to 760 px and back, 20 px a frame: crosses the sidebar's full -> rail and two panes -> one. */
+  async winresize(page, cdp) {
+    await page.locator("[data-thread]").first().click();
+    await page.waitForSelector("[data-message-id]", { timeout: 15_000 }).catch(() => {});
+    await sleep(800);
+    const widths = [];
+    for (let w = 1420; w >= 760; w -= 20) widths.push(w);
+    for (let w = 780; w <= 1440; w += 20) widths.push(w);
+    const before = await counters(cdp);
+    await startFrames(page);
+    for (const width of widths) {
+      await cdp.send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: false });
+      await nextFrame(page);
+    }
+    const frames = await stopFrames(page);
+    const after = await counters(cdp);
+    await cdp.send("Emulation.clearDeviceMetricsOverride");
+    await sleep(500);
+    return { steps: widths.length, ...frames, ...perStep(before, after, widths.length) };
+  },
+  /** Inbox -> Settings (or --view=<name> from VIEW_KEYS) -> Inbox ten times: just the round trip, for profiling. */
+  async inboxtrip(page, cdp) {
+    await page.locator("[data-thread]").first().click();
+    await page.waitForSelector("[data-message-id]", { timeout: 15_000 }).catch(() => {});
+    await sleep(800);
+    const out = { to: [], back: [], toWork: [], backWork: [] };
+    for (let i = 0; i < 10; i++) {
+      for (const [list, work, go] of [[out.to, out.toWork, () => page.keyboard.press(Object.fromEntries(VIEW_KEYS)[args.view ?? "settings"])], [out.back, out.backWork, () => toInbox(page)]]) {
+        const before = await counters(cdp);
+        const since = await page.evaluate(() => performance.now());
+        await go();
+        list.push(await settled(page, since));
+        const after = await counters(cdp);
+        work.push(round((after.TaskDuration - before.TaskDuration) * 1000));
+        await sleep(300);
+      }
+    }
+    return { settingsReadyMs: median(out.to), settingsWorkMs: median(out.toWork), inboxReadyMs: median(out.back), inboxWorkMs: median(out.backWork) };
+  },
+  /** Inbox -> each view -> Inbox, twice (the first visit loads the view's code): until the screen stops changing, and the work it took. */
+  async views(page, cdp) {
+    await page.locator("[data-thread]").first().click();
+    await page.waitForSelector("[data-message-id]", { timeout: 15_000 }).catch(() => {});
+    await sleep(800);
+    const out = {};
+    const inbox = [];
+    for (const pass of ["cold", "warm"]) {
+      for (const [name, key] of VIEW_KEYS) {
+        await page.evaluate(() => (window.__perf.events = []));
+        let before = await counters(cdp);
+        let since = await page.evaluate(() => performance.now());
+        await page.keyboard.press(key);
+        const ms = await settled(page, since);
+        let after = await counters(cdp);
+        const keyMs = Math.max(0, ...(await keyEvents(page)).filter((e) => e.name === "keydown").map((e) => e.ms));
+        out[`${name}_${pass}`] = `${ms} ms ready, key ${keyMs} ms, ${round((after.TaskDuration - before.TaskDuration) * 1000)} ms work`;
+        await sleep(400);
+        before = await counters(cdp);
+        since = await page.evaluate(() => performance.now());
+        await toInbox(page);
+        const back = await settled(page, since);
+        after = await counters(cdp);
+        inbox.push({ back, work: round((after.TaskDuration - before.TaskDuration) * 1000) });
+        await sleep(400);
+      }
+    }
+    return { ...out, toInboxMedianMs: median(inbox.map((x) => x.back)), toInboxWorkMedianMs: median(inbox.map((x) => x.work)) };
+  },
   async load() {
     return {};
   },
@@ -454,6 +638,18 @@ const SCENARIOS = {
   },
 };
 
+const NOFX = {
+  backdrop: "*, *::before, *::after { backdrop-filter: none !important; }",
+  sky: ".sky-layer { display: none !important; }",
+  drift: ".sky-layer::before { animation: none !important; }",
+  grain: ".sky-layer::after { display: none !important; }",
+  grainbg: `.sky-layer::after { display: none !important; } .bg-sky { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"), var(--sky-image) !important; background-size: 160px 160px, cover !important; }`,
+  grainflat: ".sky-layer::after { mix-blend-mode: normal !important; opacity: 0.06 !important; }",
+  shadow: "* { box-shadow: none !important; }",
+  mask: "* { mask-image: none !important; animation-timeline: auto !important; }",
+  blurfade: "* { filter: none !important; }",
+};
+
 // ---- Run ------------------------------------------------------------------------------------
 
 // No sync by default (--sync turns it on): reloads landing mid-measurement made runs noisy.
@@ -523,6 +719,8 @@ try {
   await sleep(Number(args.settle ?? (args.sync ? 3000 : 500)));
   for (let run = 0; run < runs; run++) {
     const { context, page, cdp, result, jsUrls } = await coldLoad(browser, server.base);
+    // --nofx=backdrop,sky,shadow,mask,blurfade,motion: switch visual effects off to see what each costs (A/B, never shipped).
+    if (args.nofx) await page.addStyleTag({ content: String(args.nofx).split(",").map((fx) => NOFX[fx] ?? "").join(" ") });
     // --bundle: which packages the cold load downloaded (all JS, including chunks that load after the list).
     if (args.bundle && run === 0) console.table(attributeFiles(jsUrls.map((u) => chunkPath(u))).slice(0, 20));
     loads.push({ listVisibleMs: result.listVisibleMs, totalBlockingMs: result.totalBlockingMs, longestTaskMs: result.longestTaskMs, jsGzipKB: result.jsGzipKB, jsFiles: result.jsFiles, domNodes: result.domNodes });
@@ -592,6 +790,8 @@ if (args.trace) {
     if (!t) continue;
     console.log(`\n== ${name}: rendering work`);
     console.table(t.byName);
+    console.log("-- off the main thread");
+    console.table(t.offMain);
     console.table(t.biggest);
     console.log("-- forced by");
     console.table(t.forced);

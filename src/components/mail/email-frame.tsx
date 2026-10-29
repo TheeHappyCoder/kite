@@ -64,7 +64,10 @@ export function EmailFrame({ html, loadRemote }: { html: string; loadRemote: boo
               active={slot === active}
               height={frames.heights[slot]}
               onHeight={(height, loaded) =>
-                setFrames((current) => withSlot(current, slot, { height, ready: loaded || current.ready[slot] }))
+                // A pane resize reports on every frame, mostly the same height: keep the state then, so nothing re-renders.
+                setFrames((current) =>
+                  current.heights[slot] === height && (current.ready[slot] || !loaded) ? current : withSlot(current, slot, { height, ready: loaded || current.ready[slot] }),
+                )
               }
             />
           ),

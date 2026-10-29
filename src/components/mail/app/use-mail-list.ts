@@ -42,7 +42,7 @@ export function useMailList({
   const remoteFound = useRef<{ query: string; threads: Thread[] }>({ query: "", threads: [] });
 
   /** What the list loads: a mailbox, or one account's label/folder. */
-  const listSource =
+  const viewSource =
     state.view.kind === "mailbox"
       ? `mailbox=${state.view.mailbox}&account=${state.accountId}`
       : // Home sorts the inbox: its conversations open in place.
@@ -53,6 +53,11 @@ export function useMailList({
       : state.view.kind === "space"
         ? `mailbox=space&space=${encodeURIComponent(state.view.spaceId)}&account=${state.accountId}`
         : null;
+  // On a screen of its own (Settings, Calendar…) the list keeps what it had: it stays mounted behind,
+  // so coming back shows it at once instead of loading it again.
+  const [lastSource, setLastSource] = useState(viewSource);
+  if (viewSource && viewSource !== lastSource) setLastSource(viewSource);
+  const listSource = viewSource ?? lastSource;
   const viewKey = `${listSource}:${state.accountId}:${query}`;
   const requestKey = `${viewKey}:${reloadKey}`;
   const trash = state.view.kind === "mailbox" && state.view.mailbox === "trash";

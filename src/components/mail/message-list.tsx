@@ -378,7 +378,11 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
     };
   }, [props.listKey, listRef]);
 
+  // Only when the selection moves: not again when the list is shown after another screen.
+  const scrolledTo = useRef<string | null>(null);
   useEffect(() => {
+    if (selectedId === scrolledTo.current) return;
+    scrolledTo.current = selectedId;
     if (!selectedId || inView.current.has(selectedId)) return;
     listRef.current?.querySelector(`[data-thread="${selectedId}"]`)?.scrollIntoView({ block: "nearest" });
   }, [selectedId, listRef]);

@@ -25,10 +25,13 @@ export const TranslateContext = createContext<TranslateSettings>({ to: "", offer
 /** The language messages go into: the preference, else the user's own. */
 export const targetOf = (to: string) => to || ownLanguage();
 
+/** How long a message stays open before its language is worked out. */
+const DETECT_AFTER_MS = 400;
+
 /** The language of a message's text, worked out by Kite's own server (the statistics stay out of the window). */
 const detected = new Map<string, Promise<string | null>>();
 function detect(text: string) {
-  const sample = text.replace(/s+/g, " ").trim().slice(0, 1500);
+  const sample = text.replace(/\s+/g, " ").trim().slice(0, 1500);
   // Too short to tell (the server would say so too): no request.
   if (sample.length < 40) return Promise.resolve(null);
   let found = detected.get(sample);
@@ -87,13 +90,17 @@ export function useMessageTranslation(message: Message, split: ReturnType<typeof
   const [asked, setAsked] = useState(false);
   const source = split.html ? split.html.fresh : split.text.fresh;
 
+  // Once the message has stayed open a moment: moving through the list with j / k reads nothing for the ones passed by.
   useEffect(() => {
     let live = true;
-    void detect(split.html ? htmlToText(split.html.fresh) : split.text.fresh).then((found) => {
-      if (live) setLanguage(found);
-    });
+    const timer = setTimeout(() => {
+      void detect(split.html ? htmlToText(split.html.fresh) : split.text.fresh).then((found) => {
+        if (live) setLanguage(found);
+      });
+    }, DETECT_AFTER_MS);
     return () => {
       live = false;
+      clearTimeout(timer);
     };
   }, [split]);
 

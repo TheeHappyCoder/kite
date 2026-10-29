@@ -44,7 +44,19 @@ export type MailState = {
   overrides: Record<string, ThreadOverride>;
   /** Kite's spaces and pockets (lib/spaces.ts). */
   spaces: Space[];
+  /**
+   * The list the threads were loaded for: the last mailbox, label or space shown (Home shows the
+   * inbox). A screen of its own keeps it, so coming back to the same list reuses what's loaded.
+   * Unset: the list of `view`.
+   */
+  listView?: View;
 };
+
+/** The list a view shows: itself for a mailbox, label or space, the inbox for Home, else none. */
+function listOf(view: View): View | null {
+  if (view.kind === "mailbox" || view.kind === "label" || view.kind === "space") return view;
+  return view.kind === "home" ? { kind: "mailbox", mailbox: "inbox" } : null;
+}
 
 export type MailAction =
   | { type: "replace"; threads: Thread[]; listQuery?: string }
@@ -187,11 +199,10 @@ export function mailReducer(state: MailState, action: MailAction): MailState {
     // Live lists are loaded per view: the old list is dropped first, so nothing from it is
     // auto-opened (and marked read) while the new one loads.
     case "view": {
-      const loads =
-        state.remote &&
-        (action.view.kind === "mailbox" || action.view.kind === "label" || action.view.kind === "space") &&
-        JSON.stringify(action.view) !== JSON.stringify(state.view);
-      return { ...state, view: action.view, selectedId: null, threads: loads ? [] : state.threads };
+      const next = listOf(action.view);
+      const loaded = state.listView ?? listOf(state.view);
+      const loads = state.remote && next !== null && JSON.stringify(next) !== JSON.stringify(loaded);
+      return { ...state, view: action.view, listView: next ?? loaded ?? undefined, selectedId: null, threads: loads ? [] : state.threads };
     }
     case "account":
       return {

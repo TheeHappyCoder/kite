@@ -89,3 +89,20 @@ export function useWidth<T extends HTMLElement>() {
   }, [el]);
   return [setEl, width] as const;
 }
+
+/**
+ * Whether an element is narrower than `px` (null until it's on screen). Re-renders only when the
+ * answer flips, not on every pixel of a resize: use it instead of `useWidth` when a threshold is
+ * all the component needs.
+ */
+export function useNarrowerThan<T extends HTMLElement>(px: number) {
+  const [el, setEl] = useState<T | null>(null);
+  const [narrow, setNarrow] = useState<boolean | null>(null);
+  useLayoutEffect(() => {
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => setNarrow(entry.contentRect.width < px));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [el, px]);
+  return [setEl, narrow] as const;
+}

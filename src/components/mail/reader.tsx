@@ -48,7 +48,7 @@ import { Avatar } from "./avatar";
 import { Tooltip } from "../ui/tooltip";
 import { CircleButton } from "./circle-button";
 import { usePaneBack } from "./mail-panes";
-import { useWidth } from "@/lib/layout";
+import { useNarrowerThan } from "@/lib/layout";
 import { SearchQuery, useSearchHighlight } from "./search-highlight";
 import { EmailFrame } from "./email-frame";
 import { PrivacyChip, useCleanHtml, useMessagePrivacy } from "./privacy-chip";
@@ -152,11 +152,11 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
   // One pane at a time: Back returns to the list. A narrow reader moves reply all, forward, chat
   // view and People into More.
   const back = usePaneBack();
-  const [sectionRef, width] = useWidth<HTMLElement>();
+  const [sectionRef, narrowReader] = useNarrowerThan<HTMLElement>(NARROW_READER);
   const highlightRef = useRef<HTMLElement | null>(null);
   const readerRef = useCallback((node: HTMLElement | null) => { highlightRef.current = node; sectionRef(node); }, [sectionRef]);
   useSearchHighlight(highlightRef, props.searchQuery ?? "", thread?.id ?? "");
-  const narrow = width !== null && width < NARROW_READER;
+  const narrow = narrowReader === true;
   // Once the subject scrolls out of view it shows in the toolbar instead (kept per conversation, so a new one starts at the top).
   const [titleGone, setTitleGone] = useState<string | null>(null);
   const subjectInBar = !!thread && titleGone === thread.id;
@@ -255,10 +255,13 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
             if (gone !== subjectInBar) setTitleGone(gone ? thread.id : null);
             // A message header is stuck while its message has scrolled up under it (styled in globals.css).
             // Stuck, it slims to one line; its box keeps the full height (the rest is see-through) so the message doesn't jump.
-            for (const header of e.currentTarget.querySelectorAll<HTMLElement>(".stuck-header")) {
+            // Every read first, then the writes: a write between reads would force a layout per header.
+            const changes = [...e.currentTarget.querySelectorAll<HTMLElement>(".stuck-header")].flatMap((header) => {
               const stuck = header.parentElement!.getBoundingClientRect().top < top - 0.5;
-              if (stuck === header.hasAttribute("data-stuck")) continue;
-              header.style.minHeight = stuck ? `${header.offsetHeight}px` : "";
+              return stuck === header.hasAttribute("data-stuck") ? [] : [{ header, stuck, height: stuck ? header.offsetHeight : 0 }];
+            });
+            for (const { header, stuck, height } of changes) {
+              header.style.minHeight = stuck ? `${height}px` : "";
               header.toggleAttribute("data-stuck", stuck);
             }
           }}

@@ -42,7 +42,6 @@ export const ContactsView = forwardRef<
     refreshKey: string;
     people: Record<string, PersonPrefs>;
     single: boolean;
-    width: number | null;
     onUpdate: (patch: PersonPatch) => void;
     onWrite: (contact: { name: string; email: string }) => void;
     onSearch: (email: string) => void;
@@ -50,7 +49,7 @@ export const ContactsView = forwardRef<
     /** Opens on this person (a space's People tab). */
     initial?: string;
   }
->(function ContactsView({ live, accounts, demoThreads, refreshKey, people, single, width, onUpdate, onWrite, onSearch, onOpenConversation, initial }, searchRef) {
+>(function ContactsView({ live, accounts, demoThreads, refreshKey, people, single, onUpdate, onWrite, onSearch, onOpenConversation, initial }, searchRef) {
   const [fetched, setFetched] = useState<ContactEntry[] | null>(null);
   useEffect(() => {
     if (!live) return;
@@ -200,7 +199,6 @@ export const ContactsView = forwardRef<
   return (
     <MailPanes
       single={single}
-      width={width}
       showDetail={!!selected}
       onBack={() => setPicked(null)}
       list={listPane}

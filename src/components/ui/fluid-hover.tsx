@@ -58,6 +58,8 @@ export function FluidList({
 } & Omit<React.HTMLAttributes<HTMLDivElement>, "children" | "className">) {
   const root = useRef<HTMLDivElement>(null);
   const boxes = useRef<Box[]>([]);
+  /** The rows moved since `boxes` was measured. */
+  const stale = useRef(true);
   const lit = useRef<HTMLElement | null>(null);
   const reduced = useReducedMotion();
   const x = useMotionValue(0);
@@ -97,6 +99,7 @@ export function FluidList({
         return { el, top: r.top - origin.top, left: r.left - origin.left, width: r.width, height: r.height };
       })
       .filter((b) => b.height > 0);
+    stale.current = false;
   };
 
   const light = (el: HTMLElement | null, by: "pointer" | "follow") => {
@@ -142,9 +145,10 @@ export function FluidList({
     const container = root.current;
     if (!container) return;
     if (!follow) {
-      // Sections folding, rows arriving and resizes all move rows: measure again.
+      // Sections folding, rows arriving and resizes all move rows: measure again, but only when the
+      // pointer next needs the boxes (a window or pane resize would otherwise read every row each frame).
       const resize = new ResizeObserver(() => {
-        measure();
+        stale.current = true;
         if (glide && lit.current) place(lit.current, false);
       });
       resize.observe(container);
@@ -167,8 +171,10 @@ export function FluidList({
           measure();
           light(nearest(e.clientX, e.clientY), "pointer");
         },
-        onMouseMove: (e: React.MouseEvent) =>
-          light((e.target as HTMLElement).closest("[data-fluid-ignore]") ? null : nearest(e.clientX, e.clientY), "pointer"),
+        onMouseMove: (e: React.MouseEvent) => {
+          if (stale.current) measure();
+          light((e.target as HTMLElement).closest("[data-fluid-ignore]") ? null : nearest(e.clientX, e.clientY), "pointer");
+        },
         onMouseLeave: () => light(null, "pointer"),
         onClick: (e: React.MouseEvent) => {
           // A click in a gap between rows goes to the lit row.

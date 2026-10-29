@@ -54,7 +54,6 @@ export const AutomationsView = forwardRef<
     /** Demo mode: the sample threads the guided builder reads. */
     demoThreads: Thread[];
     single: boolean;
-    width: number | null;
     refreshKey: string;
     onToast: (message: string) => void;
     /** The Screener and notification rules may have changed. */
@@ -64,7 +63,7 @@ export const AutomationsView = forwardRef<
     /** Opens a ready email in compose (a collection's month for your accountant). */
     onCompose: (draft: ComposeDraft) => void;
   }
->(function AutomationsView({ live, accounts, demoThreads, single, width, refreshKey, onToast, onChanged, onOpenConversation, onOpenUsage, onCompose }, ref) {
+>(function AutomationsView({ live, accounts, demoThreads, single, refreshKey, onToast, onChanged, onOpenConversation, onOpenUsage, onCompose }, ref) {
   const [rules, setRules] = useState<RuleView[] | null>(null);
   const [collections, setCollections] = useState<CollectionSummary[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
@@ -345,7 +344,7 @@ export const AutomationsView = forwardRef<
 
   return (
     <div ref={ref} className="h-full min-w-0">
-      <MailPanes single={single} width={width} showDetail={shown} onBack={() => setShown(false)} list={list} detail={detail} />
+      <MailPanes single={single} showDetail={shown} onBack={() => setShown(false)} list={list} detail={detail} />
     </div>
   );
 });

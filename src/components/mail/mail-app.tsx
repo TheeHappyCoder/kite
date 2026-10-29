@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import { Activity, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { inScope, pruneScope, scopeIds, type AccountScope } from "@/lib/mail/scope";
 import { inboxTabs, type InboxSide } from "@/lib/mail/sides";
 import { ACCOUNTS, createDemoThreads } from "@/lib/mail/demo-data";
@@ -33,7 +33,7 @@ import { MergePicker } from "./merge-picker";
 import { PeoplePanel } from "./people-panel";
 import { Sidebar, SidebarDrawer, SidebarTopBar } from "./sidebar";
 import { MailPanes, WithPaneBack } from "./mail-panes";
-import { TWO_PANES_MIN, useColumnCollapsed, useSidebarMode, useWidth, type SidebarMode } from "@/lib/layout";
+import { TWO_PANES_MIN, useColumnCollapsed, useNarrowerThan, useSidebarMode, type SidebarMode } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import { useSkyPhase } from "@/lib/use-sky";
 import type { CalendarEvent } from "@/lib/calendar/event";
@@ -91,6 +91,9 @@ const NO_EVENTS: CalendarEvent[] = [];
 
 // The app shell: state, live mode, keyboard and the panes. The work lives in ./app (one hook per
 // concern); this file wires them together and lays out the screen.
+
+/** Views with a screen of their own; every other view is the mail panes. */
+const OWN_SCREENS = new Set(["settings", "home", "calendar", "automations", "contacts", "notes", "files"]);
 export function MailApp() {
   const [state, dispatch] = useReducer(mailReducer, undefined, (): MailState => ({
     threads: createDemoThreads(),
@@ -189,8 +192,9 @@ export function MailApp() {
   const drawerOpen = drawerFor === sidebarMode && sidebarMode !== "full";
   const openDrawer = useCallback(() => setDrawerFor(sidebarMode), [sidebarMode]);
   const closeDrawer = useCallback(() => setDrawerFor(null), []);
-  const [mainRef, mainWidth] = useWidth<HTMLElement>();
-  const onePane = mainWidth !== null && mainWidth < TWO_PANES_MIN;
+  // Only the answer re-renders the app, never each pixel of a resize (MailPanes measures its own width).
+  const [mainRef, narrowMain] = useNarrowerThan<HTMLElement>(TWO_PANES_MIN);
+  const onePane = narrowMain === true;
   const [paneDetail, setPaneDetail] = useState(false);
 
   const list = useMailList({ live, state, dispatch, reloadKey, reload, setToast });
@@ -1080,7 +1084,6 @@ export function MailApp() {
               accounts={accounts}
               demoThreads={live ? NO_THREADS : state.threads}
               single={onePane}
-              width={mainWidth}
               refreshKey={`${reloadKey}`}
               onToast={(message) => setToast({ message })}
               onChanged={reload}
@@ -1099,7 +1102,6 @@ export function MailApp() {
               refreshKey={`${reloadKey}`}
               people={people}
               single={onePane}
-              width={mainWidth}
               onUpdate={(patch) => void updatePerson(patch)}
               onWrite={(contact) => openCompose({ to: [contact.name ? { name: contact.name, email: contact.email } : { email: contact.email }] })}
               onSearch={runSearch}
@@ -1141,10 +1143,12 @@ export function MailApp() {
                 if (file.threadId) dispatch({ type: "select", id: file.threadId });
               }}
             />
-          ) : (
+          ) : null}
+          {/* The mail panes stay mounted behind the other screens (hidden, state and scroll kept), so coming
+              back to mail is a re-show, not a fresh list and reader (perf: ~900 ms of work per return). */}
+          <Activity mode={OWN_SCREENS.has(state.view.kind) ? "hidden" : "visible"}>
           <MailPanes
             single={onePane}
-            width={mainWidth}
             // While conversations are ticked, the list (with its bulk bar) keeps the screen.
             showDetail={paneDetail && (cleanup || !selecting)}
             onBack={() => setPaneDetail(false)}
@@ -1226,13 +1230,14 @@ export function MailApp() {
                 </WithPaneBack>
               ) : selecting ? (
                 <BulkPanel threads={checkedThreads} accounts={accounts} onAction={bulk} onClear={clearSelection} />
-              ) : (
+              ) : home && selected ? null : (
+                // Home shows the open conversation in its own sheet: one reader at a time.
                 reader
               )}
               </>
             }
           />
-          )}
+          </Activity>
         </main>
         </div>
 
