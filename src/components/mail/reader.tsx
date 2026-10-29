@@ -247,7 +247,8 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
 
       <div className="relative flex min-h-0 flex-1">
         <div
-          className="min-h-0 min-w-0 flex-1 overflow-y-auto"
+          // No elastic bounce past any edge: it stretched the whole conversation and slid the stuck header under the toolbar.
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-none"
           onScroll={(e) => {
             const top = e.currentTarget.getBoundingClientRect().top;
             const title = e.currentTarget.querySelector("[data-thread-title]");

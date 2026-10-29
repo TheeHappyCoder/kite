@@ -572,7 +572,7 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
       <div
         ref={listRef}
         key={props.listKey}
-        className="scroll-fade min-h-0 flex-1 touch-pan-y overflow-y-auto overflow-x-hidden overscroll-y-contain px-2 pb-2 pt-1"
+        className="scroll-fade min-h-0 flex-1 touch-pan-y overflow-y-auto overflow-x-hidden overscroll-none px-2 pb-2 pt-1"
       >
         {shownTab === "files" ? (
           <SpaceFiles files={spaceFiles} onOpenConversation={openFromTab} />
