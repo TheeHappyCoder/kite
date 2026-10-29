@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { inScope, singleAccount, type AccountScope } from "@/lib/mail/scope";
-import { Folder02Icon, Search01Icon } from "@hugeicons/core-free-icons";
+import { FolderCloudIcon, Folder02Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import type { Account, Attachment, FileItem, Thread } from "@/lib/mail/types";
 import { threadFiles } from "@/lib/mail/attachments";
 import { cn, formatListDate } from "@/lib/utils";
@@ -47,8 +47,10 @@ export const FilesView = forwardRef<
     demoThreads: Thread[];
     refreshKey: number;
     onOpenEmail: (file: FileRef) => void;
+    /** The desktop app's one-time offer of the Kite drive (Settings → Files): turn it on, or never ask again. */
+    offerDrive?: (on: boolean) => void;
   }
->(function FilesView({ live, accounts, accountId, demoThreads, refreshKey, onOpenEmail }, searchRef) {
+>(function FilesView({ live, accounts, accountId, demoThreads, refreshKey, onOpenEmail, offerDrive }, searchRef) {
   const firstSync = useFirstSync();
   const [indexing, setIndexing] = useState(false);
   const [indexNote, setIndexNote] = useState("");
@@ -117,6 +119,21 @@ export const FilesView = forwardRef<
             </div>
           </header>
           {firstSync ? <SyncStrip progress={firstSync} className="mx-0 mb-5" /> : null}
+          {offerDrive ? (
+            <div className="blur-fade-down mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-pane-border px-4 py-3">
+              <Icon icon={FolderCloudIcon} size={18} className="shrink-0 text-accent" />
+              <p className="min-w-0 flex-1 basis-60 text-[13px]">
+                See these files in Explorer and every app&apos;s Open window.
+                <span className="text-pane-muted"> They download only when you open one.</span>
+              </p>
+              <button onClick={() => offerDrive(false)} className="h-8 shrink-0 rounded-full px-3 text-[12.5px] text-pane-muted hover:bg-pane-hover hover:text-pane-fg touch:h-11">
+                No thanks
+              </button>
+              <button onClick={() => offerDrive(true)} className="h-8 shrink-0 rounded-full bg-pane-fg px-3.5 text-[12.5px] font-medium text-pane touch:h-11">
+                Turn on
+              </button>
+            </div>
+          ) : null}
 
           <div className="mb-5 flex flex-wrap items-center gap-3">
             <label className="flex h-10 min-w-[240px] flex-1 items-center gap-2 rounded-full border border-pane-border bg-pane px-3.5 text-[13.5px] transition-colors focus-within:border-accent/60">

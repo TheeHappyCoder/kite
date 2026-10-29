@@ -1,4 +1,8 @@
 mod codes;
+mod downloads;
+#[cfg(windows)]
+mod drive;
+mod origin;
 mod bar;
 mod server;
 mod tray;
@@ -10,7 +14,12 @@ use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, Wind
 
 pub fn run() {
     // Single instance must come first: a second launch focuses the running Kite instead.
-    let builder = tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show(app)));
+    let builder = tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+        // Explorer's "Show the email" launches Kite with a file: look it up instead of just showing Kite.
+        if !origin::handle(app, &args) {
+            show(app);
+        }
+    }));
     // Windows toasts use WinRT directly (buttons); elsewhere the notification plugin.
     #[cfg(not(windows))]
     let builder = builder.plugin(tauri_plugin_notification::init());
@@ -38,6 +47,7 @@ pub fn run() {
         .manage(codes::Codes::default())
         .manage(bar::Bar::default())
         .manage(updater::Updates::default())
+        .manage(origin::Pending::default())
         .invoke_handler(tauri::generate_handler![bar::bar, updater::update])
         .setup(|app| {
             // Debug: the dev server is already up (`tauri dev` waits for it). Release: a splash until Node is ready.
@@ -56,6 +66,8 @@ pub fn run() {
                 // The page's own drags (conversations onto spaces, spaces in the sidebar, files from
                 // Explorer into compose) are HTML drag and drop: Tauri's handler would swallow them on Windows.
                 .disable_drag_drop_handler()
+                // Downloads go to the Downloads folder and the page says so (downloads.rs).
+                .on_download(downloads::handle)
                 .initialization_script("window.__KITE_DESKTOP__ = true;")
                 .on_new_window(move |url, _features| {
                     if matches!(url.scheme(), "http" | "https" | "mailto") {
@@ -67,6 +79,14 @@ pub fn run() {
             tray::create(app.handle())?;
             codes::start(app.handle());
             updater::start(app.handle());
+            #[cfg(windows)]
+            {
+                app.manage(drive::Drive::default());
+                let _ = drive::APP.set(app.handle().clone());
+                drive::start(app.handle());
+            }
+            // Started from Explorer's "Show the email" while Kite wasn't running.
+            origin::handle(app.handle(), &std::env::args().collect::<Vec<_>>());
             if cfg!(debug_assertions) {
                 bar::create(app.handle());
             } else {
@@ -86,6 +106,8 @@ pub fn run() {
         .expect("error while building Kite")
         .run(|app, event| {
             if let RunEvent::Exit = event {
+                #[cfg(windows)]
+                drive::stop(app);
                 server::stop(app);
             }
         });

@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { DrivePrefs } from "./drive";
 import { AI_TASKS, AiModelChoices, type AiTask } from "./ai-tasks";
 import { Design } from "./design/spec";
 import { SwipePrefs } from "./swipe";
@@ -187,6 +188,8 @@ export const Preferences = z.object({
   aiLimits: AiLimits.default(AiLimits.parse({})),
   /** Which connected model runs each AI task (lib/ai-tasks.ts); a task not here uses the default model. */
   aiModels: AiModelChoices.default({}),
+  /** The Kite drive in Explorer (lib/drive.ts; desktop app only). */
+  drive: DrivePrefs.default(DrivePrefs.parse({})),
 });
 
 export type Preferences = z.infer<typeof Preferences>;
@@ -218,6 +221,7 @@ export const PreferencesPatch = z.object({
   aiLimits: patchOf(AiLimits).optional(),
   /** Merges per task; null puts a task back on the default model. */
   aiModels: z.partialRecord(z.enum(AI_TASKS), z.string().max(120).nullable()).optional(),
+  drive: patchOf(DrivePrefs).optional(),
 });
 
 export type PreferencesPatch = z.infer<typeof PreferencesPatch>;
@@ -266,5 +270,6 @@ export function applyPatch(current: Preferences, patch: PreferencesPatch): Prefe
     aiDrafts: { ...current.aiDrafts, ...patch.aiDrafts },
     aiLimits: { ...current.aiLimits, ...patch.aiLimits },
     aiModels,
+    drive: { ...current.drive, ...patch.drive },
   };
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { onDownloadClick } from "@/lib/mail/download";
 import { useEffect, useState } from "react";
 import {
   Attachment01Icon,
@@ -139,6 +140,7 @@ function PreviewActions({ file, onOpenEmail, openLabel = "Show email", onClose }
         <a
           href={download}
           download={file.attachment.name}
+          onClick={onDownloadClick(download, file.attachment.name)}
           className={cn(
             "flex h-8 items-center gap-1.5 rounded-full bg-pane-fg px-4 text-[12.5px] font-medium text-pane hover:opacity-90",
             !(open && canPreview(file.attachment)) && !(fillSign && file.attachment.kind === "pdf") && "ml-auto",

@@ -24,6 +24,14 @@ Everything Kite sends anywhere other than your mail provider is listed in **Sett
 | Translation | Mozilla (Firefox's translation models) | Nothing but the download request. The text you translate never leaves your computer | Each language downloads only after you say yes |
 | Update checks (desktop app) | GitHub | A request for the latest version file | Settings → Privacy → Check for updates |
 
+## Kite in Explorer (desktop app)
+
+Off unless you switch it on (Settings → Files). Nothing leaves your computer for it, but it puts your mail's files where other programs on this computer can see them: the files' names are listed in Explorer and Windows Search, and files you open are kept in the Kite folder in your user profile. Switching it off, or Erase everything, removes that folder and everything in it.
+
+Files there carry Windows' "came from the internet" note, the same one your browser adds to every download, so Windows warns before running anything and Office opens documents in Protected View. That note holds Kite's link to the attachment (account, message and part ids, never a name or any mail text). Programs, scripts, installers and shortcuts are never put in the folder.
+
+Files you save from Kite get the same note from Windows. Copies of files outside the Kite folder keep it, and Disconnect and Erase everything can't reach them.
+
 ## Updates
 
 The desktop app checks GitHub for a newer version shortly after it starts and every hour, unless Settings → Privacy → Check for updates is off. It installs one only when you click Update. Updates are verified against Kite's signing key before they install.

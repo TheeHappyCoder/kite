@@ -99,7 +99,7 @@ type Props = {
   /** Quick reply: markup body. */
   onSend: (text: string, options: SendOptions, signature: boolean) => void;
   /** Opens the full compose window to reply, reply to all or forward (with any quick-reply text). */
-  onCompose: (mode: "reply" | "replyAll" | "forward", body?: string) => void;
+  onCompose: (mode: "reply" | "replyAll" | "forward", body?: string, files?: File[]) => void;
   onScheduled: (action: "send-now" | "edit") => void;
   onDraft: (action: "edit" | "discard") => void;
   snippets: Snippet[];
@@ -284,7 +284,7 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
         recipient={thread.messages.findLast((m) => !m.draft && !isSelf(m.from, props.account))?.from}
         signature={props.signature}
         onSend={props.onSend}
-        onExpand={(body) => props.onCompose("reply", body)}
+        onExpand={(body, files) => props.onCompose("reply", body, files)}
         alwaysShowExpand={props.chat}
         snippets={props.snippets}
         onManageSnippets={props.onManageSnippets}
@@ -1111,7 +1111,8 @@ const QuickReply = forwardRef<
     recipient?: Recipient;
     signature?: Design;
     onSend: (text: string, options: SendOptions, signature: boolean) => void;
-    onExpand: (body: string) => void;
+    /** Opens the full reply; `files` were dropped on the box (they attach there). */
+    onExpand: (body: string, files?: File[]) => void;
     /** Chat view keeps "Open in full compose" visible before typing. */
     alwaysShowExpand?: boolean;
     snippets: Snippet[];
@@ -1177,6 +1178,16 @@ const QuickReply = forwardRef<
   return (
     <div className="px-4 pb-4 pt-2">
       <div
+        onDragOver={(e) => {
+          if (!e.dataTransfer.types.includes("Files")) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={(e) => {
+          if (!e.dataTransfer.files.length) return;
+          e.preventDefault();
+          onExpand(text, [...e.dataTransfer.files]);
+        }}
         className={cn(
           // A real radius (not rounded-full's 9999px) so the pill eases into the card instead of snapping.
           "flex items-end gap-2 border border-pane-border bg-pane px-4 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[border-radius,border-color] duration-200 ease-out focus-within:border-accent/50",

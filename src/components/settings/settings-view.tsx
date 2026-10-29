@@ -10,6 +10,7 @@ import {
   DatabaseIcon,
   InformationCircleIcon,
   FilePenIcon,
+  FolderCloudIcon,
   KeyboardIcon,
   LayoutTemplateIcon,
   MailEdit02Icon,
@@ -48,6 +49,7 @@ import { BatchTimes, VipList } from "./notification-rules";
 import { LabelsSection } from "./labels-section";
 import { AiSection } from "./ai-section";
 import { BarSection } from "./bar-section";
+import { DriveSection } from "./drive-section";
 import type { AiUsageSummary } from "@/lib/ai-pricing";
 import { signInCompany } from "@/lib/mail/connect";
 import { accountSpec, permissionHref, serviceName } from "@/lib/mail/providers";
@@ -72,7 +74,7 @@ function shortcutLabel(accelerator: string) {
   return accelerator.replace("CommandOrControl", /Mac/.test(navigator.userAgent) ? "Cmd" : "Ctrl");
 }
 
-export type SettingsSection = "accounts" | "labels" | "compose" | "signatures" | "templates" | "fillSign" | "notifications" | "bar" | "ai" | "privacy" | "appearance" | "data" | "about";
+export type SettingsSection = "accounts" | "labels" | "compose" | "signatures" | "templates" | "fillSign" | "notifications" | "bar" | "files" | "ai" | "privacy" | "appearance" | "data" | "about";
 
 type NavItem = { id: SettingsSection; label: string; icon: IconData } | { id: "shortcuts"; label: string; icon: IconData; opens: true };
 
@@ -87,6 +89,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
       { id: "signatures", label: "Signatures", icon: SignatureIcon },
       { id: "templates", label: "Templates", icon: LayoutTemplateIcon },
       { id: "fillSign", label: "Fill & sign", icon: FilePenIcon },
+      { id: "files", label: "Files", icon: FolderCloudIcon },
     ],
   },
   {
@@ -140,6 +143,8 @@ const SEARCH: { section: SettingsSection | "shortcuts"; label: string; words?: s
   { section: "bar", label: "Meetings starting soon", words: "calendar join reminder event" },
   { section: "bar", label: "Quiet", words: "do not disturb pill calm bar" },
   { section: "bar", label: "Other apps and scripts", words: "integrations api token webhook plugin developer ai claude bar" },
+  { section: "files", label: "Show your files in Explorer", words: "drive explorer onedrive folder windows open dialog attachments upload" },
+  { section: "files", label: "Folders", words: "drive explorer people spaces month labels saved searches order layout" },
   { section: "ai", label: "Usage", words: "ai cost spend tokens dollars requests" },
   { section: "ai", label: "Limits", words: "ai limit daily monthly budget cap cost tokens dollars" },
   { section: "ai", label: "Setup", words: "ai anthropic claude openai ollama model key price" },
@@ -528,6 +533,8 @@ export function SettingsView(props: Props) {
         );
       case "bar":
         return <BarSection preferences={preferences} onPreferences={props.onPreferences} desktop={desktop} />;
+      case "files":
+        return <DriveSection preferences={preferences} onPreferences={props.onPreferences} desktop={desktop} accounts={props.accounts.length} />;
       case "ai":
         return (
           <Page icon={SparklesIcon} title="AI" description="What your AI used, the limits Kite holds it to, and which AI it is.">

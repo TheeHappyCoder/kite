@@ -1,5 +1,6 @@
 "use client";
 
+import { onDownloadClick } from "@/lib/mail/download";
 import { useState } from "react";
 import { ArrowDown01Icon, Download04Icon, Target02Icon } from "@hugeicons/core-free-icons";
 import { AnimatePresence, motion } from "motion/react";
@@ -185,6 +186,7 @@ function DownloadLink({ file }: { file: FileRef }) {
       <a
         href={download}
         download={file.attachment.name}
+        onClick={onDownloadClick(download, file.attachment.name)}
         aria-label={`Download ${file.attachment.name}`}
         className="mr-1.5 grid size-7 shrink-0 place-items-center rounded-full text-pane-muted opacity-0 transition-opacity hover:bg-pane-2 hover:text-pane-fg focus-visible:opacity-100 group-hover:opacity-100"
       >

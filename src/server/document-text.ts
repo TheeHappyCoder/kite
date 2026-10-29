@@ -1,6 +1,7 @@
 import "server-only";
 import { inflateRawSync } from "node:zlib";
 import { getDb } from "./db";
+import { partStored } from "./file-origin";
 
 const MAX_TEXT = 500_000;
 export function searchableDocument(name: string) { return /\.(pdf|docx|txt|csv|md)$/i.test(name); }
@@ -54,10 +55,6 @@ export async function indexDocument(accountId: string, messageId: string, partId
   if (getDb().prepare("SELECT 1 FROM document_text WHERE account_id = ? AND message_id = ? AND part_id = ?").get(accountId, messageId, partId)) return;
   const text = await extractDocumentText(file.name, file.data);
   // A download can finish after disconnect or Reset local copy. Never restore erased data.
-  const present = getDb().prepare(`SELECT 1 FROM accounts a JOIN threads t ON t.account_id = a.id,
-    json_each(t.list_data, '$.messages') m, json_each(m.value, '$.attachments') p
-    WHERE a.id = ? AND json_extract(m.value, '$.id') = ?
-      AND json_extract(p.value, '$.partId') = ? LIMIT 1`).get(accountId, messageId, partId);
-  if (!present) return;
+  if (!partStored(accountId, messageId, partId)) return;
   getDb().prepare("INSERT OR REPLACE INTO document_text VALUES (?, ?, ?, ?)").run(accountId, messageId, partId, text.toLowerCase());
 }

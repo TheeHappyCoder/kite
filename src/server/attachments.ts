@@ -7,6 +7,7 @@ import path from "node:path";
 import { attachmentUrl, isInlineIn } from "@/lib/mail/attachments";
 import type { Attachment, Message } from "@/lib/mail/types";
 import { indexDocument } from "./document-text";
+import { rememberPrint } from "./file-origin";
 import { resolveKiteImages } from "./assets";
 import { PART_ID, REMOTE_ID } from "@/lib/mail/threads";
 import type { AccountRow } from "./db";
@@ -46,6 +47,7 @@ export async function getAttachment(account: AccountRow, messageId: string, part
       await utimes(file, now, now).catch(() => {});
       await utimes(`${file}.json`, now, now).catch(() => {});
       await indexDocument(account.id, messageId, partId, { ...meta, data }).catch(() => {});
+      rememberPrint(account.id, messageId, partId, data);
       return { ...meta, data };
     }
   }
@@ -59,6 +61,7 @@ export async function getAttachment(account: AccountRow, messageId: string, part
     await writeFile(`${file}.json`, JSON.stringify({ name: result.name, mimeType: result.mimeType }));
   }
   await indexDocument(account.id, messageId, partId, result).catch(() => {});
+  rememberPrint(account.id, messageId, partId, data);
   return result;
 }
 

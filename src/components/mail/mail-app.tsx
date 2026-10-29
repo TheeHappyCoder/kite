@@ -24,6 +24,8 @@ import { TranslateContext } from "./translate";
 import { PrivacyContext, type PrivacyPolicy } from "./privacy-chip";
 import type { FileRef } from "../files/file-preview";
 import { FillSignContext } from "../files/fill-sign";
+import { useFileOrigin, type FileLookup } from "../files/file-origin";
+import { uploadFile } from "@/lib/mail/upload";
 import type { RichEditorHandle } from "./rich-editor";
 import { MessageList } from "./message-list";
 import { FirstSyncContext } from "./first-sync";
@@ -450,12 +452,38 @@ export function MailApp() {
   });
   useEffect(() => {
     if (!inDesktopApp()) return;
-    const shell = window as { __kiteOpenMail?: (target: { threadId: string; accountId: string; subject: string; reply: boolean }) => void };
+    const shell = window as {
+      __kiteOpenMail?: (target: { threadId: string; accountId: string; subject: string; reply: boolean }) => void;
+      __kiteDownloaded?: (name: string, ok: boolean) => void;
+    };
     shell.__kiteOpenMail = (target) => fromBar.current?.(target);
+    // The shell saves downloads itself (src-tauri/src/downloads.rs) and says how it went.
+    shell.__kiteDownloaded = (name, ok) => setToast({ message: ok ? `Saved ${name || "the file"} to Downloads` : `${name || "The file"} didn't download. Try again.` });
     return () => {
       delete shell.__kiteOpenMail;
+      delete shell.__kiteDownloaded;
     };
   }, []);
+
+  // Messages from code with no toast of its own (lib/mail/download.ts: why a file didn't download).
+  useEffect(() => {
+    const show = (event: Event) => setToast({ message: String((event as CustomEvent<string>).detail) });
+    window.addEventListener("kite:toast", show);
+    return () => window.removeEventListener("kite:toast", show);
+  }, []);
+
+  // "Where did this file come from?": files dropped outside a composer, or right-clicked in Explorer
+  // (the shell hashes them and calls `__kiteFindFiles`, src-tauri/src/origin.rs).
+  const origin = useFileOrigin({ enabled: live, onOpen: (target) => list.openFromToday(target) });
+  const findFiles = origin.find;
+  useEffect(() => {
+    if (!inDesktopApp() || !live) return;
+    const shell = window as { __kiteFindFiles?: (files: FileLookup[]) => void };
+    shell.__kiteFindFiles = (files) => void findFiles(files);
+    return () => {
+      delete shell.__kiteFindFiles;
+    };
+  }, [live, findFiles]);
 
   // AI status (live accounts only).
   useEffect(() => {
@@ -928,9 +956,13 @@ export function MailApp() {
       onToggleRead={() => actions.toggleRead()}
       onSnooze={() => actions.snooze()}
       onSend={sending.sendReply}
-      onCompose={(mode, body) => {
+      onCompose={(mode, body, files) => {
         if (mode === "reply" && body?.trim() && selected) dropPrepared(selected);
-        void startCompose(mode, body);
+        if (!files?.length || !selected) return void startCompose(mode, body);
+        const threadId = selected.id;
+        Promise.all(files.map(uploadFile))
+          .then((attachments) => startCompose(mode, body, { threadId, attachments }))
+          .catch((error: Error) => setToast({ message: error.message }));
       }}
       prepared={selected ? (prepared[selected.id] ?? null) : null}
       summary={selected ? summaries[selected.id] : undefined}
@@ -1139,6 +1171,11 @@ export function MailApp() {
               accountId={state.accountId}
               demoThreads={live ? [] : state.threads}
               refreshKey={reloadKey}
+              offerDrive={
+                live && inDesktopApp() && !preferences.drive.on && !preferences.drive.offered
+                  ? (on) => void updatePreferences({ drive: { on, offered: true } }).catch(() => {})
+                  : undefined
+              }
               onOpenEmail={(file) => {
                 dispatch({ type: "view", view: { kind: "mailbox", mailbox: "inbox" } });
                 dispatch({ type: "query", query: file.subject ?? "" });
@@ -1451,6 +1488,7 @@ export function MailApp() {
         </FillSignContext>
 
         <AppToast toast={toast} onUndo={undo} setToast={setToast} />
+        {origin.ui}
         <ScreenPrivacyBadge on={screenPrivate} onOff={() => setScreenPrivate(false)} />
       </div>
       <AnimatePresence>{lock.locked ? <LockScreen key="lock" onUnlock={lock.unlock} /> : null}</AnimatePresence>

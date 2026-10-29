@@ -258,11 +258,12 @@ export function placeRemote(account: AccountRow, remoteId: string, record: Threa
   for (const old of before) {
     const current = messages.find((m) => m.id === old.id);
     if (!current) {
-      getDb().prepare("DELETE FROM document_text WHERE account_id = ? AND message_id = ?").run(account.id, old.id);
+      for (const table of ["document_text", "file_prints"]) getDb().prepare(`DELETE FROM ${table} WHERE account_id = ? AND message_id = ?`).run(account.id, old.id);
     } else {
       const parts = new Set(current.attachments?.map((a) => a.partId));
       for (const attachment of old.attachments ?? []) {
-        if (attachment.partId && !parts.has(attachment.partId)) getDb().prepare("DELETE FROM document_text WHERE account_id = ? AND message_id = ? AND part_id = ?").run(account.id, old.id, attachment.partId);
+        if (!attachment.partId || parts.has(attachment.partId)) continue;
+        for (const table of ["document_text", "file_prints"]) getDb().prepare(`DELETE FROM ${table} WHERE account_id = ? AND message_id = ? AND part_id = ?`).run(account.id, old.id, attachment.partId);
       }
     }
   }
@@ -891,6 +892,8 @@ export function listFiles({
   kind,
   threadIds,
   people,
+  parts,
+  name,
   limit = 400,
   offset = 0,
 }: {
@@ -901,6 +904,10 @@ export function listFiles({
   threadIds?: string[];
   /** Only messages from, to or copied to one of these (lowercased) addresses. */
   people?: string[];
+  /** Only these attachments. */
+  parts?: { accountId: string; messageId: string; partId: string }[];
+  /** Only files with exactly this name (any case). */
+  name?: string;
   limit?: number;
   offset?: number;
 }): FileItem[] {
@@ -924,6 +931,15 @@ export function listFiles({
     const among = (field: string) => `EXISTS (SELECT 1 FROM json_each(m.value, '$.${field}') r WHERE lower(json_extract(r.value, '$.email')) IN (${list}))`;
     where.push(`(lower(json_extract(m.value, '$.from.email')) IN (${list}) OR ${among("to")} OR ${among("cc")})`);
     args.push(...people, ...people, ...people);
+  }
+  if (parts) {
+    if (!parts.length) return [];
+    where.push(`(${parts.map(() => "(t.account_id = ? AND json_extract(m.value, '$.id') = ? AND json_extract(a.value, '$.partId') = ?)").join(" OR ")})`);
+    for (const p of parts) args.push(p.accountId, p.messageId, p.partId);
+  }
+  if (name) {
+    where.push("lower(json_extract(a.value, '$.name')) = ?");
+    args.push(name.toLowerCase());
   }
   for (const term of query.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6)) {
     where.push(

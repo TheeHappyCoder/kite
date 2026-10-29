@@ -38,6 +38,12 @@ export function getDb() {
       account_id TEXT NOT NULL, message_id TEXT NOT NULL, part_id TEXT NOT NULL,
       text TEXT NOT NULL, PRIMARY KEY(account_id, message_id, part_id)
     );
+    -- SHA-256 of a file's bytes, kept whenever Kite has them (server/file-origin.ts): finds the email a file on disk came from.
+    CREATE TABLE IF NOT EXISTS file_prints (
+      account_id TEXT NOT NULL, message_id TEXT NOT NULL, part_id TEXT NOT NULL,
+      sha TEXT NOT NULL, PRIMARY KEY(account_id, message_id, part_id)
+    );
+    CREATE INDEX IF NOT EXISTS file_prints_sha ON file_prints(sha);
     CREATE TABLE IF NOT EXISTS tokens (
       account_id TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
       access_token TEXT NOT NULL,
@@ -632,6 +638,7 @@ export function deleteAccount(id: string) {
   d.prepare("DELETE FROM scheduled WHERE account_id = ?").run(id);
   d.prepare("DELETE FROM followups WHERE account_id = ?").run(id);
   d.prepare("DELETE FROM document_text WHERE account_id = ?").run(id);
+  d.prepare("DELETE FROM file_prints WHERE account_id = ?").run(id);
   d.prepare("DELETE FROM drafts WHERE account_id = ?").run(id);
   d.prepare("DELETE FROM regroups WHERE account_id = ?").run(id);
   d.prepare("DELETE FROM message_moves WHERE account_id = ?").run(id);

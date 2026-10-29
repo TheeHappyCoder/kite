@@ -4,3 +4,15 @@
 !macro NSIS_HOOK_PREINSTALL
   RMDir /r "$INSTDIR\server"
 !macroend
+
+; Explorer's right-click "Show the email in Kite" (src-tauri/src/origin.rs) for every file, this user only.
+; On Windows 11 it sits under "Show more options" (the new menu needs a packaged app).
+!macro NSIS_HOOK_POSTINSTALL
+  WriteRegStr HKCU "Software\Classes\*\shell\Kite.ShowEmail" "" "Show the email in Kite"
+  WriteRegStr HKCU "Software\Classes\*\shell\Kite.ShowEmail" "Icon" "$INSTDIR\${MAINBINARYNAME}.exe"
+  WriteRegStr HKCU "Software\Classes\*\shell\Kite.ShowEmail\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" --show-email "%1"'
+!macroend
+
+!macro NSIS_HOOK_POSTUNINSTALL
+  DeleteRegKey HKCU "Software\Classes\*\shell\Kite.ShowEmail"
+!macroend

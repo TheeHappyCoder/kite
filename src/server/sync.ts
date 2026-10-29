@@ -804,7 +804,7 @@ export async function syncIdle(accountId: string) {
 export async function resetMailCache() {
   await Promise.all([...engine.running.values(), ...[...(engine.checking?.values() ?? [])].map((p) => p.run.catch(() => {}))]);
   const db = getDb();
-  db.exec("DELETE FROM document_text; DELETE FROM threads_fts; DELETE FROM threads; DELETE FROM sync_state; DELETE FROM codes;");
+  db.exec("DELETE FROM document_text; DELETE FROM file_prints; DELETE FROM threads_fts; DELETE FROM threads; DELETE FROM sync_state; DELETE FROM codes;");
   for (const account of mailAccounts()) mailOf(account).resetLocal?.(account.id);
   resetMailCalendar();
   compactSearchIndex();

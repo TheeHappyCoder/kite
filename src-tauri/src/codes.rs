@@ -144,7 +144,13 @@ async fn handle(app: &AppHandle, data: &str) {
             ("remove", _, Some(id)) => crate::bar::remove(app, &id),
             _ => {}
         },
-        Ok(Event::Settings | Event::Trackers) => refresh(app).await,
+        Ok(Event::Settings) => {
+            refresh(app).await;
+            // The drive may have been switched on or off, or its layout changed.
+            #[cfg(windows)]
+            crate::drive::poke(app);
+        }
+        Ok(Event::Trackers) => refresh(app).await,
         _ => {}
     }
 }
