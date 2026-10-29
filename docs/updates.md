@@ -1,6 +1,6 @@
 # Desktop updates
 
-Release builds check the public GitHub latest release after 20 seconds and every six hours. When a newer signed version exists, the bottom of the outer sidebar shows a download icon. The dialog displays release notes, downloads with byte progress, verifies the signature, and launches the Windows installer, which restarts Kite. Closing the dialog does not cancel an update.
+Release builds check the public GitHub latest release after 20 seconds and every hour (one ~1 KB `latest.json`). When a newer signed version exists, the foot of the rail shows an update icon with a lime dot that pings every few seconds. The dialog (a strip of the sky with Kite on its string) shows the release notes (`- ` lines as a list), then the download, the signature check, the install and the restart as steps with byte progress; verifies the signature, and launches the Windows installer, which restarts Kite. Closing the dialog does not cancel an update.
 
 The installer removes the previous bundled `server` directory. User data in the app data directory is preserved. Schema changes should use database migrations, never erase accounts or drafts during an update.
 

@@ -53,6 +53,9 @@ pub fn run() {
                 .title("Kite")
                 .inner_size(1280.0, 820.0)
                 .min_inner_size(720.0, 480.0)
+                // The page's own drags (conversations onto spaces, spaces in the sidebar, files from
+                // Explorer into compose) are HTML drag and drop: Tauri's handler would swallow them on Windows.
+                .disable_drag_drop_handler()
                 .initialization_script("window.__KITE_DESKTOP__ = true;")
                 .on_new_window(move |url, _features| {
                     if matches!(url.scheme(), "http" | "https" | "mailto") {

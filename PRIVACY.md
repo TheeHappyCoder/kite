@@ -26,7 +26,7 @@ Everything Kite sends anywhere other than your mail provider is listed in **Sett
 
 ## Updates
 
-The desktop app checks GitHub for a newer version shortly after it starts and every six hours, unless Settings → Privacy → Check for updates is off. It installs one only when you click Update. Updates are verified against Kite's signing key before they install.
+The desktop app checks GitHub for a newer version shortly after it starts and every hour, unless Settings → Privacy → Check for updates is off. It installs one only when you click Update. Updates are verified against Kite's signing key before they install.
 
 ## Third-party privacy policies
 

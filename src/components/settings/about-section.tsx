@@ -67,7 +67,7 @@ export function AboutSection({ desktop }: { desktop: boolean }) {
                 ? `Kite ${state.version} is ready to install. Your mail and settings stay as they are.`
                 : checked
                   ? "You're up to date."
-                  : "Kite looks for a new version when it starts and every six hours.";
+                  : "Kite looks for a new version when it starts and every hour.";
 
   return (
     <>

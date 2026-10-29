@@ -32,7 +32,7 @@ import {
   ContactBookIcon,
   ArrowDown01Icon,
   Add01Icon,
-  CloudDownloadIcon,
+  CircleFadingArrowUpIcon,
   SidebarLeftIcon,
 } from "@hugeicons/core-free-icons";
 import { accountName, type Account, type Mailbox } from "@/lib/mail/types";
@@ -492,7 +492,7 @@ function SectionRail(props: Props & { mail: boolean; column: boolean; peek?: Ret
         </div>
 
         <FluidList className="mt-2 flex flex-col gap-1 border-t border-white/[0.08] px-2 pt-2 short:gap-0.5">
-          <DesktopUpdate trigger={(open, label) => <NavItem icon={CloudDownloadIcon} label={label} onClick={open} trailing={<span className="block size-1.5 rounded-full bg-lime" />} />} />
+          <DesktopUpdate trigger={(open, label, dot) => <NavItem icon={CircleFadingArrowUpIcon} label={label} onClick={open} trailing={dot} />} />
           <NavItem icon={Search01Icon} label="Search or jump to" onClick={props.onOpenPalette} />
           <NavItem
             icon={AiMagicIcon}

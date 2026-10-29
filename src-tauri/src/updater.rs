@@ -1,6 +1,6 @@
 //! Updates from GitHub: the latest release's `latest.json` (tauri.conf.json `plugins.updater`), signed
 //! with Kite's update key, so only a build Kite made installs. Checked shortly after start and every
-//! six hours (and from Settings → About on request); the main window reads the state through the `update` command and shows the rail's
+//! hour (one small file, about 1 KB) (and from Settings → About on request); the main window reads the state through the `update` command and shows the rail's
 //! update button when there's one. Installing: download (with progress), stop the bundled server so no
 //! file is in use, then the installer runs (passive), clears the old version's files
 //! (installer-hooks.nsh) and opens Kite again. The user's data is never touched.
@@ -13,7 +13,7 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_updater::UpdaterExt;
 
 /// How often Kite looks for a new version while it runs.
-const EVERY: Duration = Duration::from_secs(6 * 60 * 60);
+const EVERY: Duration = Duration::from_secs(60 * 60);
 
 #[derive(Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]

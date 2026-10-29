@@ -13,6 +13,7 @@ export function Dialog({
   onClose,
   title,
   description,
+  bare = false,
   children,
   footer,
   className,
@@ -21,6 +22,8 @@ export function Dialog({
   onClose: () => void;
   title: string;
   description?: string;
+  /** The children are the whole card: no header, close button or footer of the dialog's own. */
+  bare?: boolean;
   children: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
@@ -57,6 +60,7 @@ export function Dialog({
               className,
             )}
           >
+            {bare ? children : <>
             <header className="flex items-start gap-3 px-5 pb-3 pt-4">
               <div className="flex-1">
                 <h2 className="text-[15px] font-semibold tracking-tight">{title}</h2>
@@ -72,6 +76,7 @@ export function Dialog({
             </header>
             <div className="scroll-fade min-h-0 flex-1 overflow-y-auto">{children}</div>
             {footer ? <footer className="flex items-center gap-2 border-t border-pane-border px-5 py-3">{footer}</footer> : null}
+            </>}
           </motion.div>
         </div>
       ) : null}
