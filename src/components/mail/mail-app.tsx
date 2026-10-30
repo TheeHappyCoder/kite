@@ -17,7 +17,6 @@ import { useTheme } from "@/lib/theme";
 import type { OnboardingStart } from "../onboarding";
 import { ShortcutsDialog } from "../shortcuts-dialog";
 import { LockScreen } from "../lock-screen";
-import { AnimatePresence } from "motion/react";
 import { CleanupList, CleanupPane, useCleanup } from "./cleanup-view";
 import { CommandPalette } from "./command-palette";
 import { TranslateContext } from "./translate";
@@ -1525,7 +1524,7 @@ export function MailApp() {
         {origin.ui}
         <ScreenPrivacyBadge on={screenPrivate} onOff={() => setScreenPrivate(false)} />
       </div>
-      <AnimatePresence>{lock.locked ? <LockScreen key="lock" onUnlock={lock.unlock} /> : null}</AnimatePresence>
+      <LockScreen open={lock.locked} onUnlock={lock.unlock} />
       {!lock.locked && !lock.lockChecked ? <div aria-hidden className="bg-sky fixed inset-0 z-[200]" /> : null}
       </FirstSyncContext>
       </AiUsageContext>

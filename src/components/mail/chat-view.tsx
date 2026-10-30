@@ -209,6 +209,8 @@ function FullMessage({ message, onClose }: { message: Message | null; onClose: (
       onClose={onClose}
       title={current ? `${current.from.name} <${current.from.email}>` : ""}
       description={current ? `${formatFullDate(current.date)} · To: ${current.to.map((c) => c.email).join(", ")}` : undefined}
+      stage
+      sensitive
       className="w-[min(820px,calc(100vw-32px))]"
     >
       {current ? <FullMessageBody key={current.id} message={current} /> : null}
@@ -220,7 +222,7 @@ function FullMessageBody({ message }: { message: Message }) {
   const privacy = useMessagePrivacy(message);
   const html = useCleanHtml(message.html ?? "");
   return (
-    <div className="max-h-[70vh] overflow-y-auto border-t border-pane-border p-4">
+    <div className="min-h-0 flex-1 overflow-y-auto p-4">
       <div className="mb-2 flex justify-end">
         <PrivacyChip message={message} state={privacy} />
       </div>

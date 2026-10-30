@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { motion } from "motion/react";
 import {
   Alert02Icon,
   BookmarkAdd01Icon,
@@ -10,6 +8,7 @@ import {
   Cancel01Icon,
   Download04Icon,
   Drag04Icon,
+  InformationCircleIcon,
   MailReply01Icon,
   PencilEdit02Icon,
   RepeatIcon,
@@ -22,7 +21,6 @@ import {
 import type { PDFDocumentProxy, PDFPageProxy, PageViewport } from "pdfjs-dist";
 import type { AttachmentRef } from "@/lib/mail/compose";
 import { uploadFile } from "@/lib/mail/upload";
-import { blurFade } from "@/lib/motion";
 import {
   applyFill,
   formatAcrobatDate,
@@ -47,6 +45,7 @@ import { isEmptyProfile, type Profile } from "@/lib/pdf/profile";
 import { cn } from "@/lib/utils";
 import { Icon, type IconData } from "../icon";
 import { DateTimePicker } from "../ui/date-time-picker";
+import { Dialog } from "../ui/dialog";
 import { Select } from "../ui/select";
 import { Tooltip } from "../ui/tooltip";
 import { fileUrl, type FileRef } from "./file-preview";
@@ -575,113 +574,117 @@ export default function PdfEditor({
     Object.entries(values).every(([name, v]) => profileFill?.values[name] !== undefined && profileFill.values[name] === v) &&
     items.every((i) => profileFill?.itemIds.includes(i.id));
 
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-40 p-3">
-      <motion.div className="absolute inset-0 bg-black/45 backdrop-blur-[3px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
-      <motion.div
-        role="dialog"
-        aria-modal
-        aria-label={`Fill & sign ${file.attachment.name}`}
-        {...blurFade({ y: 8, blur: 8 })}
-        className="relative flex size-full flex-col overflow-hidden rounded-2xl border border-pane-border bg-pane text-pane-fg shadow-2xl"
-      >
-        <header className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-2 pt-3">
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[15px] font-semibold tracking-tight">{file.attachment.name}</h2>
-            <p className="truncate text-[12px] text-pane-muted">
-              {activeTool
-                ? `${activeTool.hint}. Esc cancels.`
-                : hasFields
-                  ? "Fill the highlighted fields (Tab moves to the next), or place text, a tick, a date or your signature."
-                  : "Place text, a tick, a date or your signature anywhere on the page."}
-            </p>
-          </div>
-          {loaded && !loaded.lock && loaded.info?.fields.length ? (
-            <Tooltip label="Flattened fields become part of the page, so they can't be changed after you send it">
-              <button
-                role="switch"
-                aria-checked={flatten}
-                onClick={() => setFlatten((f) => !f)}
-                className="flex h-8 items-center gap-2 rounded-full px-3 text-[12.5px] text-pane-muted hover:bg-pane-hover hover:text-pane-fg"
-              >
-                <SwitchTrack on={flatten} size="sm" />
-                Flatten
-              </button>
-            </Tooltip>
-          ) : null}
-          <button
-            onClick={() => void save()}
-            disabled={!loaded || blocked || saving || (!dirty && !!saved)}
-            className="flex h-8 items-center gap-1.5 rounded-full bg-pane-fg px-4 text-[12.5px] font-medium text-pane hover:opacity-90 disabled:opacity-40"
-          >
-            {saving ? <Spinner /> : null}
-            {saving ? "Saving…" : saved && !dirty ? "Saved" : "Save copy"}
-          </button>
-          <Tooltip label="Close">
-            <button
-              onClick={requestClose}
-              aria-label="Close"
-              className="grid size-8 place-items-center rounded-full text-pane-muted hover:bg-pane-hover hover:text-pane-fg"
-            >
-              <Icon icon={Cancel01Icon} size={16} />
-            </button>
-          </Tooltip>
-        </header>
-
-        {loaded ? (
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-pane-border px-4 pb-2.5">
-            {TOOLS.map((t) => (
-              <button
-                key={t.kind}
-                disabled={blocked}
-                aria-pressed={tool === t.kind}
-                onClick={() => setTool((current) => (current === t.kind ? null : t.kind))}
-                className={cn(
-                  "flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12.5px] transition-colors disabled:opacity-40",
-                  tool === t.kind ? "border-accent bg-accent-soft text-pane-fg" : "border-pane-border text-pane-muted hover:bg-pane-hover hover:text-pane-fg",
-                )}
-              >
-                <Icon icon={t.icon} size={14} /> {t.label}
-              </button>
-            ))}
-            {signatureId ? (
-              <Tooltip label="Change your saved signature">
+  return (
+    <>
+      {/* Escape steps back through the editor (above), and a stray click outside mustn't close it. */}
+      <Dialog
+        open
+        onClose={requestClose}
+        dismiss={false}
+        sensitive
+        title={file.attachment.name}
+        description={
+          activeTool
+            ? `${activeTool.hint}. Esc cancels.`
+            : hasFields
+              ? "Fill the highlighted fields (Tab moves to the next), or place text, a tick, a date or your signature."
+              : "Place text, a tick, a date or your signature anywhere on the page."
+        }
+        actions={
+          <>
+            {loaded && !loaded.lock && loaded.info?.fields.length ? (
+              <Tooltip label="Flattened fields become part of the page, so they can't be changed after you send it">
                 <button
-                  onClick={() => setPadOpen(true)}
-                  aria-label="Change your saved signature"
-                  className="grid size-8 place-items-center rounded-full text-pane-muted hover:bg-pane-hover hover:text-pane-fg"
+                  role="switch"
+                  aria-checked={flatten}
+                  onClick={() => setFlatten((f) => !f)}
+                  className="flex h-8 items-center gap-2 rounded-full px-3 text-[12.5px] text-pane-muted hover:bg-pane-hover hover:text-pane-fg"
                 >
-                  <Icon icon={PencilEdit02Icon} size={15} />
+                  <SwitchTrack on={flatten} size="sm" />
+                  Flatten
                 </button>
               </Tooltip>
             ) : null}
+            <button
+              onClick={() => void save()}
+              disabled={!loaded || blocked || saving || (!dirty && !!saved)}
+              className="mx-1.5 flex h-8 items-center gap-1.5 rounded-full bg-pane-fg px-4 text-[12.5px] font-medium text-pane hover:opacity-90 disabled:opacity-40"
+            >
+              {saving ? <Spinner /> : null}
+              {saving ? "Saving…" : saved && !dirty ? "Saved" : "Save copy"}
+            </button>
+          </>
+        }
+        stage
+        className="h-[calc(100dvh-32px)] max-h-none w-full max-sm:h-[calc(100dvh-16px)] max-sm:max-h-none"
+      >
+        {/* PDFs leave room at their sides: the controls are a rail beside the page, a bar above it on a phone. */}
+        <div className="flex min-h-0 flex-1 max-sm:flex-col">
+        {loaded ? (
+          <div className="ink-chrome m-2 flex shrink-0 flex-wrap items-center gap-1 rounded-[22px] bg-frame p-1 text-frame-fg shadow-lg max-sm:mb-0 sm:mr-0 sm:w-[72px] sm:flex-col sm:flex-nowrap sm:overflow-y-auto">
+            {TOOLS.map((t) => {
+              const on = tool === t.kind;
+              return (
+                <div key={t.kind} className="group/tool relative">
+                  <button
+                    disabled={blocked}
+                    aria-pressed={on}
+                    onClick={() => setTool((current) => (current === t.kind ? null : t.kind))}
+                    className={cn(CONTROL, "transition-colors duration-150 disabled:opacity-40", on ? "bg-lime font-medium text-lime-fg" : "text-frame-fg hover:bg-frame-hover")}
+                  >
+                    <Icon icon={t.icon} size={18} /> {t.label}
+                  </button>
+                  {/* Changing the saved signature belongs to Signature: a small badge on its corner, there when you're on it. */}
+                  {t.kind === "signature" && signatureId ? (
+                    <Tooltip label="Change your saved signature" className="absolute -right-0.5 -top-0.5 inline-flex opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover/tool:opacity-100 max-sm:opacity-100 touch:opacity-100">
+                      <button
+                        onClick={() => setPadOpen(true)}
+                        aria-label="Change your saved signature"
+                        className="grid size-5 place-items-center rounded-full bg-frame-active text-frame-fg shadow-sm hover:bg-frame-border"
+                      >
+                        <Icon icon={PencilEdit02Icon} size={11} />
+                      </button>
+                    </Tooltip>
+                  ) : null}
+                </div>
+              );
+            })}
+            <span aria-hidden className="mx-1 h-5 w-px bg-frame-border sm:mx-0 sm:my-0.5 sm:h-px sm:w-8" />
             {match && !placedNote && !blocked && onlyProfile ? (
               <Tooltip label={`Place things where you did on your last ${match.name} from ${senderLabel(file) || match.sender}, for you to check`}>
                 <button
                   onClick={() => void placeLayout(match, loaded)}
-                  className="blur-fade flex h-8 items-center gap-1.5 rounded-full border border-accent/50 px-3 text-[12.5px] text-pane-fg hover:bg-accent-soft"
+                  aria-label="Sign like last time"
+                  className={cn(CONTROL, "blur-fade text-frame-fg hover:bg-frame-hover")}
                 >
-                  <Icon icon={RepeatIcon} size={14} /> Sign like last time
+                  <Icon icon={RepeatIcon} size={18} /> <span className="sm:hidden">Sign like last time</span><span className="max-sm:hidden">Last time</span>
                 </button>
               </Tooltip>
             ) : null}
-            <button
-              onClick={() => void fillFromProfile()}
-              disabled={blocked || filling}
-              className="flex h-8 items-center gap-1.5 rounded-full border border-pane-border px-3 text-[12.5px] text-pane-muted transition-colors hover:bg-pane-hover hover:text-pane-fg disabled:opacity-40"
-            >
-              <Icon icon={UserIcon} size={14} /> {filling ? "Filling…" : "Fill from my profile"}
-            </button>
-            <span className="ml-auto text-[12px] text-pane-muted">
+            <Tooltip label="Fill from my profile">
+              <button
+                onClick={() => void fillFromProfile()}
+                disabled={blocked || filling}
+                aria-label="Fill from my profile"
+                className={cn(CONTROL, "text-frame-fg transition-colors duration-150 hover:bg-frame-hover disabled:opacity-40")}
+              >
+                <Icon icon={UserIcon} size={18} /> {filling ? "Filling…" : <><span className="sm:hidden">Fill from my profile</span><span className="max-sm:hidden">Profile</span></>}
+              </button>
+            </Tooltip>
+            <span className="ml-auto sm:ml-0 sm:mt-auto" />
+            <Caveat loaded={loaded} />
+            <span className="px-3 text-[12px] tabular-nums text-frame-muted sm:px-0 sm:pb-2 sm:pt-1 sm:text-center sm:text-[11px]">
               {loaded.pages.length} {loaded.pages.length === 1 ? "page" : "pages"}
             </span>
           </div>
         ) : null}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
 
-        {loaded ? <Notices loaded={loaded} /> : null}
-        {error ? <Notice icon={Alert02Icon}>{error}</Notice> : null}
+        {error ? (
+          <p role="alert" className="blur-fade flex items-start justify-center gap-1.5 px-4 pt-2 text-[12.5px] text-danger">
+            <Icon icon={Alert02Icon} size={15} className="mt-px shrink-0" /> {error}
+          </p>
+        ) : null}
         {placedNote && !(saved && !dirty) ? (
           <div className="blur-fade flex items-start gap-2 border-b border-pane-border bg-accent-soft px-4 py-2 text-[12.5px]">
             <Icon icon={RepeatIcon} size={15} className="mt-px shrink-0 text-accent" />
@@ -884,7 +887,9 @@ export default function PdfEditor({
             </div>
           ) : null}
         </div>
-      </motion.div>
+        </div>
+        </div>
+      </Dialog>
 
       <SignaturePad
         open={padOpen}
@@ -932,45 +937,30 @@ export default function PdfEditor({
           }
         }}
       />
-    </div>,
-    document.body,
+    </>
   );
 }
 
-function Notices({ loaded }: { loaded: Loaded }) {
-  if (loaded.lock === "encrypted") {
-    return (
-      <Notice icon={SquareLock02Icon}>
-        This PDF is locked by its sender, so Kite can&apos;t fill its fields or change the file. You can still place text, ticks, dates and your signature: the
-        copy is saved as images of the pages (text in it won&apos;t be selectable). For a normal copy, ask the sender for an unlocked PDF.
-      </Notice>
-    );
-  }
-  if (loaded.lock === "unreadable") {
-    return (
-      <Notice icon={Alert02Icon}>
-        Kite can show this PDF but can&apos;t edit its structure, so the copy is saved as images of the pages. Placing text, ticks, dates and your signature
-        still works.
-      </Notice>
-    );
-  }
-  if (loaded.info?.xfa) {
-    return (
-      <Notice icon={Alert02Icon}>
-        This form uses XFA, which Kite can&apos;t fill field by field. Click to place text on the page instead. Your copy drops the XFA part, so every PDF
-        viewer shows the same thing.
-      </Notice>
-    );
-  }
-  return null;
-}
+const CONTROL = "flex h-8 items-center gap-1.5 rounded-full px-3 text-[12.5px] sm:h-14 sm:w-16 sm:flex-col sm:justify-center sm:gap-1 sm:rounded-[18px] sm:px-0 sm:text-[11px]";
 
-function Notice({ icon, children }: { icon: IconData; children: React.ReactNode }) {
+/** What's unusual about this PDF: an icon in the controls, the whole story in its tooltip. */
+function Caveat({ loaded }: { loaded: Loaded }) {
+  const caveat: { icon: IconData; detail: string } | null =
+    loaded.lock === "encrypted"
+      ? {
+          icon: SquareLock02Icon,
+          detail: "This PDF is locked by its sender, so Kite can't fill its fields or change the file. You can still place text, ticks, dates and your signature: the copy is saved as images of the pages (text in it won't be selectable). For a normal copy, ask the sender for an unlocked PDF.",
+        }
+      : loaded.lock === "unreadable"
+        ? { icon: InformationCircleIcon, detail: "Kite can show this PDF but can't edit its structure, so the copy is saved as images of the pages. Placing text, ticks, dates and your signature still works." }
+        : loaded.info?.xfa
+          ? { icon: InformationCircleIcon, detail: "This form uses XFA, which Kite can't fill field by field. Click to place text on the page instead. Your copy drops the XFA part, so every PDF viewer shows the same thing." }
+          : null;
+  if (!caveat) return null;
   return (
-    <div className="blur-fade flex items-start gap-2 border-b border-pane-border bg-pane-2 px-4 py-2 text-[12.5px] text-pane-muted">
-      <Icon icon={icon} size={15} className="mt-px shrink-0 text-warning" />
-      <p className="min-w-0">{children}</p>
-    </div>
+    <Tooltip label={caveat.detail} className="inline-flex shrink-0 pl-2 text-frame-muted sm:pl-0">
+      <Icon icon={caveat.icon} size={15} />
+    </Tooltip>
   );
 }
 

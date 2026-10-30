@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "motion/react";
 import { SquareLock02Icon } from "@hugeicons/core-free-icons";
 import { PIN_LENGTH } from "@/lib/lock";
-import { blurFade, exitFor } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { Icon } from "./icon";
+import { Dialog } from "./ui/dialog";
 import { CodeInput } from "./ui/code-input";
 import { AccentTitle } from "./ui/accent-title";
 
@@ -14,7 +13,7 @@ import { AccentTitle } from "./ui/accent-title";
  * Kite's lock: an opaque cover over the whole app until the PIN is entered. The server checks the
  * PIN (and slows down guessing). Mail stays in place underneath, so unlocking is instant.
  */
-export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
+export function LockScreen({ open, onUnlock }: { open: boolean; onUnlock: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const verify = async (pin: string) => {
     try {
@@ -33,17 +32,16 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   };
 
   return (
-    <motion.div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Kite is locked"
-      // Covers everything (mail, compose windows, toasts) and keeps keys from reaching the app.
-      onKeyDown={(e) => e.stopPropagation()}
-      // Unlocked, the cover lifts away: the app shows through as it fades and blurs out.
-      exit={{ opacity: 0, filter: "blur(12px)", scale: 1.03, transition: exitFor.slow }}
-      className="on-sky bg-sky fixed inset-0 z-[200] grid place-items-center text-frame-fg"
+    <Dialog
+      open={open}
+      onClose={onUnlock}
+      title="Kite is locked"
+      cover
+      bare
+      className="on-sky max-h-none w-full max-w-80 justify-self-center overflow-visible rounded-none border-0 bg-transparent text-frame-fg shadow-none"
     >
-      <motion.div {...blurFade({ y: 8, blur: 8 })} className="flex w-full max-w-80 flex-col items-center gap-4 px-4 text-center">
+      {/* Covers everything (mail, compose windows, toasts) and keeps keys from reaching the app. */}
+      <div onKeyDown={(e) => e.stopPropagation()} className="flex flex-col items-center gap-4 px-4 text-center">
         <span className="grid size-12 place-items-center rounded-2xl bg-frame-hover text-frame-fg backdrop-blur-md">
           <Icon icon={SquareLock02Icon} size={22} />
         </span>
@@ -66,7 +64,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
         <p role="status" className={cn("min-h-4 text-[12px]", error ? "text-warning" : "text-frame-muted")}>
           {error ?? ""}
         </p>
-      </motion.div>
-    </motion.div>
+      </div>
+    </Dialog>
   );
 }

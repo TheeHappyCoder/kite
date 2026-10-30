@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Alert02Icon, Archive02Icon, Delete02Icon, LinkSquare02Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import type { MailBatchJob, MailBatchPreview, MailBatchRequest, MailBatchResult } from "@/lib/mail/batch";
 import { accountName, type Account } from "@/lib/mail/types";
-import { blurFade, exitFor, spring } from "@/lib/motion";
+import { blurFade, spring } from "@/lib/motion";
 import { plural } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Icon } from "../icon";
 import { Segmented } from "../settings/settings-ui";
+import { Dialog } from "../ui/dialog";
 import { Spinner } from "../ui/spinner";
 import { Switch } from "../ui/switch";
 import { AccountFace } from "./account-face";
@@ -171,24 +171,6 @@ export function useMailBatch({ accounts, onToast, onChanged }: { accounts: Accou
   return { open, sheet, pill, working };
 }
 
-function useEscape(on: boolean, handler: () => void) {
-  const latest = useRef(handler);
-  useEffect(() => {
-    latest.current = handler;
-  });
-  useEffect(() => {
-    if (!on) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented) {
-        e.preventDefault();
-        latest.current();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [on]);
-}
-
 const BUTTON = "flex h-10 min-w-0 items-center justify-center gap-2 rounded-full px-5 text-[13px] font-medium transition-[opacity,transform,background-color] duration-150 active:scale-[0.97] disabled:pointer-events-none";
 const PLAIN = cn(BUTTON, "text-pane-muted hover:bg-pane-hover hover:text-pane-fg");
 const OUTLINED = cn(BUTTON, "border border-pane-border hover:bg-pane-hover");
@@ -235,46 +217,29 @@ function BatchSheet({
   onHide: () => void;
   onStop: () => void;
 }) {
-  useEscape(!!flow, onDismiss);
-  if (typeof document === "undefined") return null;
-  return createPortal(
-    <AnimatePresence>
-      {flow ? (
-        <div key="batch" className="fixed inset-0 z-50 grid grid-cols-[minmax(0,1fr)] place-items-center p-4 max-sm:p-2">
-          <motion.div
-            className="absolute inset-0 bg-black/35 backdrop-blur-[3px]"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: { duration: 0.24 } }}
-            exit={{ opacity: 0, transition: exitFor.slow }}
-            onClick={onDismiss}
-          />
-          <motion.div
-            role="dialog"
-            aria-modal
-            aria-label={titleOf(flow)}
-            {...blurFade({ y: 10, blur: 8, speed: "slow" })}
-            className="relative flex max-h-[85vh] w-[420px] max-w-full flex-col overflow-hidden rounded-[28px] border border-pane-border bg-pane text-pane-fg shadow-2xl"
-          >
-            <SheetBody flow={flow} accounts={accounts} onCancel={onCancel} onConfirm={onConfirm} onChange={onChange} onHide={onHide} onStop={onStop} />
-          </motion.div>
-        </div>
-      ) : null}
-    </AnimatePresence>,
-    document.body,
-  );
+  // Keep the last flow while the dialog animates out.
+  const [shown, setShown] = useState(flow);
+  if (flow && flow !== shown) setShown(flow);
+  const current = flow ?? shown;
+  if (!current) return null;
+  return <SheetBody open={!!flow} flow={current} accounts={accounts} onDismiss={onDismiss} onCancel={onCancel} onConfirm={onConfirm} onChange={onChange} onHide={onHide} onStop={onStop} />;
 }
 
 function SheetBody({
+  open,
   flow,
   accounts,
+  onDismiss,
   onCancel,
   onConfirm,
   onChange,
   onHide,
   onStop,
 }: {
+  open: boolean;
   flow: Flow;
   accounts: Account[];
+  onDismiss: () => void;
   onCancel: () => void;
   onConfirm: () => void;
   onChange: (change: Partial<MailBatchRequest>) => void;
@@ -289,20 +254,51 @@ function SheetBody({
   const empty = stage === "confirm" && preview?.count === 0;
   const progress = job && job.total ? job.done / job.total : 0;
   const rows = preview?.accounts.map((a) => ({ ...a, account: accounts.find((x) => x.id === a.id) })) ?? [];
+  const footer =
+    stage === "run" ? (
+      <>
+        <button onClick={onStop} className={cn(PLAIN, "mr-auto")}>
+          Stop
+        </button>
+        <button onClick={onHide} className={cn(BUTTON, "bg-pane-fg text-pane hover:opacity-90")}>
+          Hide
+        </button>
+      </>
+    ) : stage === "done" ? (
+      <button onClick={onCancel} className={cn(BUTTON, "ml-auto bg-pane-fg text-pane hover:opacity-90")}>
+        Done
+      </button>
+    ) : (
+      <>
+        <button onClick={onCancel} className={cn(PLAIN, "ml-auto")}>
+          Cancel
+        </button>
+        <button
+          disabled={counting || empty || !!error}
+          onClick={onConfirm}
+          className={cn(BUTTON, "disabled:opacity-50", permanent ? "bg-danger text-white hover:opacity-90" : "bg-pane-fg text-pane hover:opacity-90")}
+        >
+          {counting ? <Spinner size={14} /> : <Icon icon={verb.icon} size={15} />}
+          {request.unsubscribe && !counting ? `Unsubscribe and ${verb.title.toLowerCase()}` : verb.title}
+        </button>
+      </>
+    );
 
   return (
-    <>
-      <div className="scroll-fade min-h-0 flex-1 overflow-y-auto px-6 pb-2 pt-6">
-        <div className={cn("grid size-12 place-items-center rounded-full", stage === "done" ? "bg-warning/10 text-warning" : permanent ? "bg-danger/10 text-danger" : "bg-pane-2 text-pane-fg")}>
-          <Icon icon={stage === "done" ? Alert02Icon : verb.icon} size={22} />
-        </div>
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.h2 key={titleOf(flow)} {...blurFade({ y: 4, blur: 4 })} className="mt-4 text-[19px] font-semibold leading-tight tracking-tight">
-            {titleOf(flow)}
-          </motion.h2>
-        </AnimatePresence>
-        {lineOf(flow, senders) ? <p className="mt-1.5 text-[13px] leading-relaxed text-pane-muted">{lineOf(flow, senders)}</p> : null}
-
+    <Dialog
+      open={open}
+      onClose={onDismiss}
+      title={titleOf(flow)}
+      description={lineOf(flow, senders) || undefined}
+      icon={
+        <span className={cn("grid size-9 shrink-0 place-items-center rounded-full", stage === "done" ? "bg-warning/10 text-warning" : permanent ? "bg-danger/10 text-danger" : "bg-pane-2 text-pane-fg")}>
+          <Icon icon={stage === "done" ? Alert02Icon : verb.icon} size={18} />
+        </span>
+      }
+      className="w-[440px]"
+      footer={footer}
+    >
+      <div className="px-5 pb-2">
         {request.senders && (stage === "review" || stage === "confirm") && request.action !== "archive" ? (
           <div className="mt-5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <span className="text-[13px] font-medium">Which mail</span>
@@ -330,7 +326,7 @@ function SheetBody({
           </div>
         ) : null}
 
-        <div className="mt-5">
+        <div className="mt-3">
           {counting ? (
             <p className="flex items-center gap-2.5 text-[13px] text-pane-muted">
               <Spinner size={14} />
@@ -368,38 +364,7 @@ function SheetBody({
           ) : null}
         </div>
       </div>
-
-      <footer className="flex items-center justify-end gap-2 px-6 pb-6 pt-4">
-        {stage === "run" ? (
-          <>
-            <button onClick={onStop} className={cn(PLAIN, "mr-auto")}>
-              Stop
-            </button>
-            <button onClick={onHide} className={cn(BUTTON, "bg-pane-fg text-pane hover:opacity-90")}>
-              Hide
-            </button>
-          </>
-        ) : stage === "done" ? (
-          <button onClick={onCancel} className={cn(BUTTON, "bg-pane-fg text-pane hover:opacity-90")}>
-            Done
-          </button>
-        ) : (
-          <>
-            <button onClick={onCancel} className={PLAIN}>
-              Cancel
-            </button>
-            <button
-              disabled={counting || empty || !!error}
-              onClick={onConfirm}
-              className={cn(BUTTON, "disabled:opacity-50", permanent ? "bg-danger text-white hover:opacity-90" : "bg-pane-fg text-pane hover:opacity-90")}
-            >
-              {counting ? <Spinner size={14} /> : <Icon icon={verb.icon} size={15} />}
-              {request.unsubscribe && !counting ? `Unsubscribe and ${verb.title.toLowerCase()}` : verb.title}
-            </button>
-          </>
-        )}
-      </footer>
-    </>
+    </Dialog>
   );
 }
 

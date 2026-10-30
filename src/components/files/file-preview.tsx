@@ -4,7 +4,6 @@ import { onDownloadClick } from "@/lib/mail/download";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import {
-  Cancel01Icon,
   Download04Icon,
   FilePenIcon,
   InformationCircleIcon,
@@ -83,17 +82,14 @@ export function FilePreview({ file, onClose, onOpenEmail, openLabel }: { file: F
       open={!!file}
       onClose={onClose}
       title={current?.attachment.name ?? ""}
-      bare
+      description={current ? [current.attachment.size, current.subject].filter(Boolean).join(" · ") : undefined}
+      icon={current ? <FileTypeIcon name={current.attachment.name} mimeType={current.attachment.mimeType} className="h-8 w-auto shrink-0" /> : null}
+      actions={current ? <PreviewActions file={current} onOpenEmail={onOpenEmail} openLabel={openLabel} onClose={onClose} /> : null}
+      stage
+      sensitive
       className={cn("w-[min(1120px,calc(100vw-32px))] max-sm:w-full", current && fillsCard(current) && "h-[90vh] max-h-[90vh] max-sm:h-[94vh]")}
     >
-      {current ? (
-        <>
-          <PreviewBar file={current} onOpenEmail={onOpenEmail} openLabel={openLabel} onClose={onClose} />
-          <div className="mx-2 mb-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-pane-2">
-            <PreviewBody file={current} />
-          </div>
-        </>
-      ) : null}
+      {current ? <PreviewBody file={current} /> : null}
     </Dialog>
   );
 }
@@ -108,8 +104,8 @@ const OFFICE_NOTES = {
   slides: "A preview: animations, videos and SmartArt only show in PowerPoint",
 };
 
-/** One row: what the file is on the left, everything you can do with it on the right. */
-function PreviewBar({ file, onOpenEmail, openLabel = "Show email", onClose }: { file: FileRef; onOpenEmail?: (file: FileRef) => void; openLabel?: string; onClose: () => void }) {
+/** Everything you can do with the file, in the dialog's top bar. */
+function PreviewActions({ file, onOpenEmail, openLabel = "Show email", onClose }: { file: FileRef; onOpenEmail?: (file: FileRef) => void; openLabel?: string; onClose: () => void }) {
   const open = fileUrl(file);
   const download = fileUrl(file, true);
   const fillSign = useFillSign();
@@ -117,22 +113,13 @@ function PreviewBar({ file, onOpenEmail, openLabel = "Show email", onClose }: { 
   const layout = useRememberedLayout(file, pdf);
   const office = officePreview(file.attachment);
   const note = office === "word" || office === "slides" ? OFFICE_NOTES[office] : null;
-  const meta = [file.attachment.size, file.subject].filter(Boolean).join(" · ");
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 pl-4 pr-2.5">
-      <FileTypeIcon name={file.attachment.name} mimeType={file.attachment.mimeType} className="h-8 w-auto shrink-0" />
-      <div data-sensitive className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <h2 className="truncate text-[13.5px] font-semibold tracking-tight">{file.attachment.name}</h2>
-          {note ? (
-            <Tooltip label={note} className="inline-flex shrink-0 text-pane-muted">
-              <Icon icon={InformationCircleIcon} size={14} />
-            </Tooltip>
-          ) : null}
-        </div>
-        {meta ? <p className="truncate text-[12px] text-pane-muted">{meta}</p> : null}
-      </div>
-      <div className="flex shrink-0 items-center gap-0.5">
+    <>
+        {note ? (
+          <Tooltip label={note} className="mr-1.5 inline-flex shrink-0 text-pane-muted">
+            <Icon icon={InformationCircleIcon} size={15} />
+          </Tooltip>
+        ) : null}
         {onOpenEmail && file.threadId ? (
           <CircleButton
             ghost
@@ -178,9 +165,7 @@ function PreviewBar({ file, onOpenEmail, openLabel = "Show email", onClose }: { 
             <Icon icon={Download04Icon} size={14} /> <span className="max-sm:hidden">Download</span>
           </a>
         ) : null}
-        <CircleButton ghost icon={Cancel01Icon} label="Close" onClick={onClose} />
-      </div>
-    </header>
+    </>
   );
 }
 

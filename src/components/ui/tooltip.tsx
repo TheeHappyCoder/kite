@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { directionalBlurFade, springSnappy } from "@/lib/motion";
@@ -17,6 +17,8 @@ const OPEN_DELAY = 320;
 const CLOSE_DELAY = 90;
 const WARM_WINDOW = 450;
 const GAP = 8;
+/** The closest a bubble comes to the window's edge. */
+const EDGE = 8;
 
 type Side = "top" | "bottom" | "left" | "right";
 
@@ -112,18 +114,49 @@ function position(tip: Tip) {
     case "top":
       return { left: cx, top: rect.top - GAP, translate: "-50% -100%" };
     case "bottom":
-      return { left: cx, top: rect.bottom + GAP, translate: "-50% 0" };
+      return { left: cx, top: rect.bottom + GAP, translate: "-50% 0px" };
     case "left":
       return { left: rect.left - GAP, top: cy, translate: "-100% -50%" };
     case "right":
-      return { left: rect.right + GAP, top: cy, translate: "0 -50%" };
+      return { left: rect.right + GAP, top: cy, translate: "0px -50%" };
   }
+}
+
+/**
+ * How far the bubble has to move to stay in the window: to the trigger's other side when that's what
+ * fits, then along the edge. Worked out from its real size, so a long label is as safe as a short one.
+ */
+function shiftIntoView({ rect, side }: Tip, width: number, height: number) {
+  const right = document.documentElement.clientWidth - EDGE;
+  const bottom = document.documentElement.clientHeight - EDGE;
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const across = { x: rect.width + width + GAP * 2, y: rect.height + height + GAP * 2 };
+  let left = side === "left" ? rect.left - GAP - width : side === "right" ? rect.right + GAP : cx - width / 2;
+  let top = side === "top" ? rect.top - GAP - height : side === "bottom" ? rect.bottom + GAP : cy - height / 2;
+  const [startX, startY] = [left, top];
+  if (side === "left" && left < EDGE && rect.right + GAP + width <= right) left += across.x;
+  if (side === "right" && left + width > right && rect.left - GAP - width >= EDGE) left -= across.x;
+  if (side === "top" && top < EDGE && rect.bottom + GAP + height <= bottom) top += across.y;
+  if (side === "bottom" && top + height > bottom && rect.top - GAP - height >= EDGE) top -= across.y;
+  left = Math.max(EDGE, Math.min(left, right - width));
+  top = Math.max(EDGE, Math.min(top, bottom - height));
+  return { x: left - startX, y: top - startY };
 }
 
 function TooltipLayer({ tip, session, direction }: { tip: Tip | null; session: number; direction: { x: number; y: number } }) {
   const { primary } = useShortcuts();
-  if (typeof document === "undefined") return null;
+  const bubble = useRef<HTMLDivElement>(null);
   const pos = tip ? position(tip) : null;
+  // Before paint, on every render: written straight to the element, so the first frame is already in the window.
+  useLayoutEffect(() => {
+    const el = bubble.current;
+    if (!tip || !pos || !el) return;
+    const shift = shiftIntoView(tip, el.offsetWidth, el.offsetHeight);
+    const [x, y] = pos.translate.split(" ");
+    el.style.translate = `calc(${x} + ${shift.x}px) calc(${y} + ${shift.y}px)`;
+  });
+  if (typeof document === "undefined") return null;
   const combo = tip?.shortcut ? primary(tip.shortcut) : undefined;
 
   return createPortal(
@@ -138,11 +171,11 @@ function TooltipLayer({ tip, session, direction }: { tip: Tip | null; session: n
           exit={{ opacity: 0, filter: "blur(4px)", scale: 0.96, transition: { duration: 0.14 } }}
           transition={{ left: springSnappy, top: springSnappy, default: { duration: 0.2 } }}
         >
-          <div style={{ translate: pos.translate }}>
+          <div ref={bubble} className="w-max max-w-[min(320px,calc(100vw-16px))]">
             <motion.div
               layout
               transition={springSnappy}
-              className="overflow-hidden whitespace-nowrap rounded-lg bg-tooltip px-2 py-1 text-[12px] font-medium text-tooltip-fg shadow-lg"
+              className="overflow-hidden rounded-lg bg-tooltip px-2 py-1 text-[12px] font-medium text-tooltip-fg shadow-lg"
               style={{ borderRadius: 8 }}
             >
               <AnimatePresence mode="popLayout" initial={false} custom={direction}>
