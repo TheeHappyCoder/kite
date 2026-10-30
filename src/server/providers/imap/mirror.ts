@@ -4,11 +4,12 @@ import { createHash } from "node:crypto";
 import type { FetchMessageObject, MessageAddressObject, MessageStructureObject } from "imapflow";
 import { isCalendarFile } from "@/lib/calendar/invite";
 import { attachmentKind, inferMimeType } from "@/lib/mail/attachments";
-import { categoryFrom, DRAFT, SENT, STARRED, UNREAD } from "@/lib/mail/mailboxes";
+import { DRAFT, SENT, STARRED, UNREAD } from "@/lib/mail/mailboxes";
 import { senderAuth } from "@/lib/mail/privacy";
 import type { Attachment, Contact, Message } from "@/lib/mail/types";
 import { getDb, type AccountRow } from "../../db";
 import { formatSize, parseUnsubscribe } from "../../mail/parse";
+import { threadRecord } from "../../mail/record";
 import type { ThreadRecord } from "../../mail/types";
 import { folderLabel, keywordId, type Folders } from "./folders";
 import { kiteLabels } from "./gmail";
@@ -458,32 +459,11 @@ function toAttachment(p: Part, html: string | null): Attachment {
 
 /** A thread in Kite's model (the record the store indexes), from stored rows and copies. */
 export function toRecord(account: AccountRow, threadId: string, messages: Message[], rows: Meta[], full: boolean): ThreadRecord {
-  const labels = [...new Set(messages.flatMap((m) => m.labels ?? []))];
-  const me = account.email.toLowerCase();
-  const externalIndex = messages.findLastIndex((m) => m.from.email.toLowerCase() !== me);
-  const recipients = messages
-    .filter((m) => m.from.email.toLowerCase() === me)
-    .flatMap((m) => [...m.to, ...(m.cc ?? [])])
-    .map((c) => c.email.toLowerCase());
-  const lastExternal = externalIndex >= 0 ? rows[externalIndex] : null;
-  return {
-    thread: {
-      id: `${account.id}:${threadId}`,
-      remoteId: threadId,
-      accountId: account.id,
-      subject: rows[0]?.subject || "(no subject)",
-      messages,
-      mailbox: "inbox",
-      category: categoryFrom(messages.at(-1)?.labels ?? []),
-      unread: labels.includes(UNREAD),
-      starred: labels.includes(STARRED),
-      loaded: full,
-    },
-    labels,
-    sender: externalIndex >= 0 ? messages[externalIndex].from : null,
-    unsubscribe: lastExternal ? parseUnsubscribe(lastExternal.unsubscribe ?? "", lastExternal.unsubscribePost ?? "") : null,
-    recipients: [...new Set(recipients)],
-  };
+  return threadRecord(account, threadId, messages, {
+    subject: rows[0]?.subject,
+    full,
+    unsubscribeOf: (i) => parseUnsubscribe(rows[i].unsubscribe ?? "", rows[i].unsubscribePost ?? ""),
+  });
 }
 
 /** Forgets everything stored for an account (Disconnect also deletes the rows with the account). */

@@ -1,11 +1,12 @@
 import "server-only";
 
 import { attachmentKind, inferMimeType, isInlineIn } from "@/lib/mail/attachments";
-import { CATEGORY_UPDATES, categoryFrom, DRAFT, STARRED, SYSTEM_LABELS, UNREAD } from "@/lib/mail/mailboxes";
+import { CATEGORY_UPDATES, DRAFT, STARRED, SYSTEM_LABELS, UNREAD } from "@/lib/mail/mailboxes";
 import { senderAuth } from "@/lib/mail/privacy";
 import type { Attachment, Contact, Message } from "@/lib/mail/types";
 import type { AccountRow } from "../../db";
 import { formatSize, parseUnsubscribe, stripTrackers, toParagraphs } from "../../mail/parse";
+import { threadRecord } from "../../mail/record";
 import type { ThreadRecord } from "../../mail/types";
 import { folderLabel, type Folders } from "./folders";
 
@@ -165,30 +166,9 @@ export function toMessage(message: GraphMessage, f: Folders, full: boolean): Mes
 export function toRecord(account: AccountRow, conversationId: string, raw: GraphMessage[], f: Folders, full: boolean): ThreadRecord {
   const ordered = [...raw].sort((a, b) => (a.receivedDateTime ?? "").localeCompare(b.receivedDateTime ?? ""));
   const messages = ordered.map((m) => toMessage(m, f, full));
-  const labels = [...new Set(messages.flatMap((m) => m.labels ?? []))];
-  const me = account.email.toLowerCase();
-  const externalIndex = messages.findLastIndex((m) => m.from.email.toLowerCase() !== me);
-  const recipients = messages
-    .filter((m) => m.from.email.toLowerCase() === me)
-    .flatMap((m) => [...m.to, ...(m.cc ?? [])])
-    .map((c) => c.email.toLowerCase());
-  const lastExternal = externalIndex >= 0 ? ordered[externalIndex] : null;
-  return {
-    thread: {
-      id: `${account.id}:${conversationId}`,
-      remoteId: conversationId,
-      accountId: account.id,
-      subject: ordered[0]?.subject || "(no subject)",
-      messages,
-      mailbox: "inbox",
-      category: categoryFrom(messages.at(-1)?.labels ?? []),
-      unread: labels.includes(UNREAD),
-      starred: labels.includes(STARRED),
-      loaded: full,
-    },
-    labels,
-    sender: externalIndex >= 0 ? messages[externalIndex].from : null,
-    unsubscribe: lastExternal ? parseUnsubscribe(header(lastExternal, "List-Unsubscribe"), header(lastExternal, "List-Unsubscribe-Post")) : null,
-    recipients: [...new Set(recipients)],
-  };
+  return threadRecord(account, conversationId, messages, {
+    subject: ordered[0]?.subject,
+    full,
+    unsubscribeOf: (i) => parseUnsubscribe(header(ordered[i], "List-Unsubscribe"), header(ordered[i], "List-Unsubscribe-Post")),
+  });
 }
