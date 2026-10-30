@@ -3,6 +3,7 @@
 // video, signed in to a Kite on its own empty data folder (launch config `kite-samples`).
 //   node scripts/whats-new/sample-mailbox.mjs [--url=http://localhost:3107]
 // Runs until it's stopped. Delete data-scratch-samples/ afterwards: its account points at this server.
+import { realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import nodemailer from "nodemailer";
@@ -13,7 +14,7 @@ import { startTestServer } from "../imap-test-server.mjs";
 
 const base = process.argv.find((a) => a.startsWith("--url="))?.slice(6) ?? "http://localhost:3107";
 // jszip comes with docx-preview (it isn't a dependency of Kite's own).
-const JSZip = createRequire(fileURLToPath(new URL("../../node_modules/docx-preview/package.json", import.meta.url)))("jszip");
+const JSZip = createRequire(realpathSync(fileURLToPath(new URL("../../node_modules/docx-preview/package.json", import.meta.url))))("jszip");
 
 function budget() {
   const book = utils.book_new();
@@ -146,7 +147,7 @@ async function walkthrough() {
 }
 
 const server = await startTestServer({ quiet: true });
-const mail = nodemailer.createTransport({ host: "127.0.0.1", port: server.smtpPort, secure: false, ignoreTLS: true, auth: { user: server.user, pass: server.password } });
+const mail = nodemailer.createTransport({ host: "127.0.0.1", port: server.smtpPort, secure: false, ignoreTLS: true });
 await mail.sendMail({
   from: "Lerato Mokoena <lerato@harbourbuild.example>",
   to: server.user,

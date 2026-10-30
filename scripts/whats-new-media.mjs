@@ -48,9 +48,16 @@ for (const [name, scene] of Object.entries(scenes)) {
   const page = await context.newPage();
   page.setDefaultTimeout(scene.timeout ?? 8000);
   console.log("  opening Kite…");
-  await page.goto(base, { waitUntil: "networkidle" });
+  // A dev server may still be compiling, and its live events mean the network is never idle.
+  await page.goto(base, { waitUntil: "load", timeout: 180_000 });
   console.log("  open");
-  await page.getByText(scene.ready).first().waitFor();
+  await page.getByText(scene.ready).first().waitFor({ timeout: 180_000 });
+  // Anything the scene loads for the first time, loaded before the recording starts.
+  if (scene.warm) {
+    await scene.warm(page);
+    await page.reload({ waitUntil: "load" });
+    await page.getByText(scene.ready).first().waitFor();
+  }
   // Rest the pointer over the reader, where it shows no tooltip.
   await page.mouse.move(980, 620);
   await page.waitForTimeout(800);
