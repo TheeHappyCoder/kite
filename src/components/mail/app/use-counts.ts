@@ -64,17 +64,6 @@ export function useCounts({ live, state, serverCounts, sync }: { live: boolean; 
   const sideCountsKey = JSON.stringify(sideCountsNow);
   const sideCounts = useMemo(() => JSON.parse(sideCountsKey) as Record<InboxSide, number>, [sideCountsKey]);
 
-  const syncLabel = useMemo(() => {
-    if (!live) return null;
-    const entries = Object.values(sync);
-    if (!entries.length) return null;
-    if (entries.some((e) => e.reconnect)) return "Reconnect needed";
-    const progress = entries.find((e) => e.progress)?.progress;
-    if (progress) return `Syncing ${progress.done} of ${progress.total}`;
-    if (entries.some((e) => !e.ready)) return "Syncing…";
-    return `Up to date · ${entries.reduce((n, e) => n + e.stored, 0)} offline`;
-  }, [live, sync]);
-
   // Accounts that need signing in again, joined so the memoised sidebar re-renders only when it changes.
   const reconnectKey = useMemo(
     () =>
@@ -112,5 +101,5 @@ export function useCounts({ live, state, serverCounts, sync }: { live: boolean; 
   const syncingIds = useMemo(() => Object.keys(JSON.parse(syncingKey)), [syncingKey]);
   const firstSyncs = useMemo<FirstSyncs>(() => ({ inView: firstSync, accounts: JSON.parse(syncingKey) }), [firstSync, syncingKey]);
 
-  return { counts, accountUnread, sideCounts, presentSides: presentNow, syncLabel, firstSync, syncingIds, firstSyncs, reconnecting };
+  return { counts, accountUnread, sideCounts, presentSides: presentNow, firstSync, syncingIds, firstSyncs, reconnecting };
 }

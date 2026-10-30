@@ -478,9 +478,6 @@ export async function runScheduleNowFor(rule: Rule) {
   return result;
 }
 
-/** A request or nudge the user sent from Waiting on (through the same send path as automations' own). */
-export const sendForAutomation = (account: AccountRow, draft: ComposeDraft) => automationHooks.send(account, draft);
-
 /** Automations' timed work: waits that are over, expectations' asks and nudges, and schedules that came round. */
 async function runAutomations() {
   const changed = new Set<string>();

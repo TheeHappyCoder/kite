@@ -110,7 +110,7 @@ export function MailApp() {
     overrides: {},
     spaces: [],
   }));
-  const { theme, pref: themePref, setPref: setThemePref, toggle: toggleTheme } = useTheme();
+  const { pref: themePref, setPref: setThemePref, toggle: toggleTheme } = useTheme();
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFERENCES);
   /** "Hold new senders" is on (the Screener mailbox also shows while anyone still waits in it). */
   const [screenerOn, setScreenerOn] = useState(false);
@@ -291,7 +291,7 @@ export function MailApp() {
   }, [selected, chatFor, preferences.chatView, setOverride]);
   const cleanup = state.view.kind === "cleanup";
 
-  const { counts, accountUnread, sideCounts, presentSides, syncLabel, firstSync, syncingIds, firstSyncs, reconnecting } = useCounts({ live, state, serverCounts: list.serverCounts, sync });
+  const { counts, accountUnread, sideCounts, presentSides, firstSync, syncingIds, firstSyncs, reconnecting } = useCounts({ live, state, serverCounts: list.serverCounts, sync });
   // The provider's inbox tabs in view; Outlook's words when every account in view is Outlook.
   const inView = accounts.filter((a) => inScope(state.accountId, a.id));
   const focusedInbox = inView.length > 0 && inView.every((a) => a.provider === "outlook");
@@ -932,16 +932,12 @@ export function MailApp() {
     // What needs you: replies you owe (not set aside) plus what's due today.
     homeCount: (todayData ? todayData.replies.toReply.filter((r) => !state.overrides[r.threadId]?.replyOff && state.overrides[r.threadId]?.replyDone !== r.messageId).length : 0) + todayCount,
     labels: sidebarLabels,
-    theme,
     onAccount: switchAccount,
     onView: setView,
     onCompose: () => openCompose(),
-    onToggleTheme: toggleTheme,
     onOpenPalette: () => setPaletteOpen(true),
-    onOpenShortcuts: () => setShortcutsOpen(true),
     onAddAccount: () => setOnboarding({ step: "welcome" }),
     demo: mode === "demo",
-    syncLabel,
     syncing: syncingIds,
     reconnecting,
     aiLabel,

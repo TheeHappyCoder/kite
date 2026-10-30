@@ -142,16 +142,6 @@ export function listExpectations(scope: AccountScope, doneDays = 14): Expectatio
   return rows.filter((r) => inScope(scope, r.account_id)).map(view);
 }
 
-/** How many have something to send now (the sidebar's count). */
-export function readyCount(scope: AccountScope) {
-  const at = Date.now();
-  return (getDb().prepare("SELECT * FROM expectations WHERE status = 'waiting'").all() as Row[]).filter((r) => {
-    if (!inScope(scope, r.account_id)) return false;
-    const step = stepOf(view(r), at);
-    return step.kind === "ask" || step.kind === "nudge";
-  }).length;
-}
-
 /** The user's "Received" / "Paid", or "Stop waiting". */
 export function closeExpectation(id: string, status: "met" | "stopped") {
   const row = getRow(id);

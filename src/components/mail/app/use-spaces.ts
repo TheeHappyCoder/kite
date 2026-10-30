@@ -303,8 +303,6 @@ export function useSpaces({
   return { recent, create, update, remove, put, takeOut, order, nest, placeNear };
 }
 
-export type SpacesApi = ReturnType<typeof useSpaces>;
-
 /** The toast after conversations go into a space, named by its full path: "Moved 3 conversations to Acme / Website". */
 export function putMessage(count: number, moved: boolean, path: string) {
   return `${moved ? "Moved" : "Added"}${count === 1 ? "" : ` ${count} conversations`} to ${path}`;

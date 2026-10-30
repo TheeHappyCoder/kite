@@ -99,17 +99,13 @@ type Props = {
   homeCount: number;
   /** The user's labels/folders for the accounts in view. */
   labels: MailLabel[];
-  theme: "light" | "dark";
   onAccount: (scope: AccountScope) => void;
   onView: (view: View) => void;
   onCompose: () => void;
-  onToggleTheme: () => void;
   onOpenPalette: () => void;
-  onOpenShortcuts: () => void;
   onAddAccount: () => void;
   demo: boolean;
   /** e.g. "Syncing 140 of 650" or "Up to date". */
-  syncLabel?: string | null;
   /** Accounts on their first sync: their faces' rings run as spinners. */
   syncing?: string[];
   /** Accounts that need signing in again. */
@@ -684,7 +680,7 @@ function MailColumn(props: Props) {
 }
 
 /** Navigation in the drawer: each of these closes it as well. */
-const CLOSES_DRAWER = ["onView", "onCompose", "onOpenPalette", "onOpenShortcuts", "onAddAccount", "onOpenAi", "onOpenAiUsage", "onSearch"] as const;
+const CLOSES_DRAWER = ["onView", "onCompose", "onOpenPalette", "onAddAccount", "onOpenAi", "onOpenAiUsage", "onSearch"] as const;
 
 /**
  * The full sidebar over the panes, from the left edge: narrow windows (behind the menu button) and

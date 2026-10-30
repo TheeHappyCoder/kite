@@ -79,12 +79,6 @@ export function placeholderImages(theme: DesignTheme, who: Who): Record<string, 
   return Object.fromEntries(KINDS.map(([kind, id]) => [id, draw(kind, theme, who).toDataURL("image/png")]));
 }
 
-/** Whether a design still holds a placeholder (so the editor can say "click to put yours here"). */
-export const isPlaceholder = (src: string) => {
-  const id = assetId(src);
-  return !!id && !!kindOf(id);
-};
-
 /**
  * Points the placeholder images Kite added for a template back at their placeholder ids, so
  * `withRealImages` draws them again (in a new palette). The user's own images aren't touched.
