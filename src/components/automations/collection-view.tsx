@@ -13,7 +13,7 @@ import { AccentTitle } from "../ui/accent-title";
 import { FLUID_IGNORE, FLUID_ITEM, FluidList } from "../ui/fluid-hover";
 import { Spinner } from "../ui/spinner";
 import { Tooltip } from "../ui/tooltip";
-import { buttonClass, request } from "./builder";
+import { buttonClass, request } from "./builder-ui";
 import { Select } from "../ui/select";
 import type { ComposeDraft } from "@/lib/mail/compose";
 

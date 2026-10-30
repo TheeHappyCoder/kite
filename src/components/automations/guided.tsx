@@ -18,7 +18,8 @@ import { FLUID_ITEM, FluidList } from "../ui/fluid-hover";
 import { Select } from "../ui/select";
 import { Spinner } from "../ui/spinner";
 import { Switch } from "../ui/switch";
-import { CollectionPick, ExpectEditor, ScheduleEditor, SpacePick, request, waitText } from "./builder";
+import { CollectionPick, ExpectEditor, ScheduleEditor, SpacePick, waitText } from "./builder-editors";
+import { request } from "./builder-ui";
 import { inputClass } from "./read-step";
 
 // The one way every automation is built (starters only fill it in): 1 pick whose emails (or, on a
