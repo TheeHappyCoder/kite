@@ -17,7 +17,6 @@ import {
   Settings02Icon,
   StarIcon,
   Tag01Icon,
-  Tick02Icon,
   TimeScheduleIcon,
   UserCheck01Icon,
 } from "@hugeicons/core-free-icons";
@@ -28,6 +27,7 @@ import { accountSpec, labelDepth, leafName, sortLabels, type MailLabel } from "@
 import type { SavedSearch } from "@/lib/settings";
 import { spaceTree, type Space } from "@/lib/spaces";
 import { SpaceDot } from "./space-picker";
+import { CountBadge } from "../ui/count-badge";
 import { cn } from "@/lib/utils";
 import { Icon, type IconData } from "../icon";
 import { AccentTitle } from "../ui/accent-title";
@@ -132,9 +132,10 @@ export function MailboxSwitcher({
           <motion.div
             role="menu"
             {...blurFade({ y: -6, blur: 6, speed: "moderate" })}
-            className="scroll-fade absolute left-0 top-10 z-30 max-h-[min(70vh,540px)] w-[272px] max-w-[calc(100vw-32px)] overflow-y-auto rounded-2xl border border-pane-border bg-pane p-1.5 text-pane-fg shadow-[0_24px_60px_-20px_rgb(10_30_60/0.45)]"
+            className="ink-chrome absolute left-0 top-11 z-30 w-[280px] max-w-[calc(100vw-32px)] overflow-hidden rounded-2xl border border-frame-border bg-frame text-frame-fg shadow-[0_24px_60px_-20px_rgb(10_20_40/0.6)]"
           >
-            <FluidList tone="pane" className="flex flex-col gap-px">
+            <div className="scroll-fade max-h-[min(70vh,540px)] overflow-y-auto p-2 [scrollbar-width:none]">
+            <FluidList className="flex flex-col gap-0.5">
               <Row icon={Home01Icon} label="Home" active={false} onClick={() => go({ kind: "home" })} />
               {MAILBOXES.filter((m) => m.id !== "screener" || screener).map((m) => (
                 <Row
@@ -151,7 +152,7 @@ export function MailboxSwitcher({
             {savedSearches.length ? (
               <>
                 <Heading>Saved searches</Heading>
-                <FluidList tone="pane" className="flex flex-col gap-px">
+                <FluidList className="flex flex-col gap-0.5">
                   {savedSearches.map((saved) => (
                     <div key={saved.id} className="group/saved relative">
                       <Row
@@ -167,7 +168,7 @@ export function MailboxSwitcher({
                         {...FLUID_IGNORE}
                         aria-label="Remove saved search"
                         onClick={() => onRemoveSearch(saved.id)}
-                        className="absolute right-1.5 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-md text-pane-muted opacity-0 hover:bg-pane-hover hover:text-pane-fg group-hover/saved:opacity-100 touch:opacity-100"
+                        className="absolute right-2 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-md text-frame-fg/50 opacity-0 hover:bg-frame-hover hover:text-frame-fg group-hover/saved:opacity-100 touch:opacity-100"
                       >
                         <Icon icon={Cancel01Icon} size={12} />
                       </button>
@@ -180,7 +181,7 @@ export function MailboxSwitcher({
             {spaces.length ? (
               <>
                 <Heading>Spaces</Heading>
-                <FluidList tone="pane" className="flex flex-col gap-px">
+                <FluidList className="flex flex-col gap-0.5">
                   {spaceTree(spaces).map(({ space, depth }) => (
                     <Row
                       key={space.id}
@@ -207,7 +208,7 @@ export function MailboxSwitcher({
                   action={
                     <button
                       onClick={() => go({ kind: "settings", section: "labels" })}
-                      className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11.5px] font-medium text-pane-muted hover:bg-pane-hover hover:text-pane-fg"
+                      className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium normal-case tracking-normal text-frame-fg/50 transition-colors hover:bg-frame-hover hover:text-frame-fg"
                     >
                       <Icon icon={Settings02Icon} size={12} />
                       Manage
@@ -219,12 +220,12 @@ export function MailboxSwitcher({
                 {groups.map(({ account, spec, labels: own }) => (
                   <div key={account.id}>
                     {groups.length > 1 ? (
-                      <div className="flex items-center gap-1.5 truncate px-2.5 pb-0.5 pt-1.5 text-[11px] text-pane-muted">
+                      <div className="flex items-center gap-1.5 truncate px-2.5 pb-1 pt-2 text-[11.5px] text-frame-fg/50">
                         <span className="size-1.5 shrink-0 rounded-full" style={{ background: account.color }} />
                         {accountName(account)}
                       </div>
                     ) : null}
-                    <FluidList tone="pane" className="flex flex-col gap-px">
+                    <FluidList className="flex flex-col gap-0.5">
                       {sortLabels(own, spec).map((label) => (
                         <Row
                           key={label.id}
@@ -242,6 +243,7 @@ export function MailboxSwitcher({
                 ))}
               </>
             ) : null}
+            </div>
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -251,7 +253,7 @@ export function MailboxSwitcher({
 
 function Heading({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="mt-2 flex items-center justify-between border-t border-pane-border px-2.5 pb-1 pt-2.5 text-[11.5px] font-medium text-pane-muted">
+    <div className="mt-3 flex items-center justify-between px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-[0.09em] text-frame-fg/40">
       {children}
       {action}
     </div>
@@ -284,7 +286,10 @@ function Row({
       role="menuitem"
       onClick={onClick}
       style={{ paddingLeft: 10 + indent * 14 }}
-      className="flex h-8 w-full items-center gap-2.5 rounded-lg pr-2.5 text-left text-[13px] transition-[background-color] duration-150 touch:h-11"
+      className={cn(
+        "flex h-9 w-full items-center gap-2.5 rounded-[10px] pr-2 text-left text-[13.5px] transition-[background-color,color] duration-150 touch:h-11",
+        active ? "bg-frame-active font-medium text-frame-fg" : "text-frame-fg/80 data-[lit]:text-frame-fg",
+      )}
     >
       {leading ? (
         leading
@@ -293,11 +298,10 @@ function Row({
           <span className="size-2.5 rounded-full" style={{ background: dot }} />
         </span>
       ) : (
-        <Icon icon={icon} size={16} className={cn("shrink-0", active ? "text-accent" : "text-pane-muted")} />
+        <Icon icon={icon} size={18} className={cn("shrink-0", active ? "text-frame-fg" : "text-frame-fg/55")} />
       )}
-      <span className={cn("min-w-0 flex-1 truncate", active && "font-medium")}>{label}</span>
-      {count ? <span className="text-[12px] tabular-nums text-pane-muted">{count}</span> : null}
-      {active ? <Icon icon={Tick02Icon} size={14} className="shrink-0 text-accent" /> : null}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {count ? <CountBadge count={count} className={active ? "bg-lime text-lime-fg" : "bg-white/[0.08] text-frame-fg/70"} /> : null}
     </button>
   );
 }

@@ -366,11 +366,31 @@ export const Sidebar = stableHandlers(function Sidebar(props: Props) {
             }
           />
         </LayoutGroup>
-        {column ? (
+        {props.inDrawer ? (
           <LayoutGroup id="sidebar-column">
             <MailColumn {...props} />
           </LayoutGroup>
-        ) : null}
+        ) : (
+          // Folding the column in and out: the panel's width springs while the column (fixed width, so it
+          // never reflows) slides in from the rail with a light blur fade; closing runs a tier quicker.
+          <AnimatePresence initial={false}>
+            {column ? (
+              <motion.div
+                key="column"
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: "auto", opacity: 1, transition: { ...springSnappy, opacity: spring.moderate } }}
+                exit={{ width: 0, opacity: 0, transition: exitFor.moderate }}
+                className="flex shrink-0 overflow-hidden"
+              >
+                <motion.div initial={{ x: -12, filter: "blur(4px)" }} animate={{ x: 0, filter: "blur(0px)", transition: spring.moderate }} className="flex">
+                  <LayoutGroup id="sidebar-column">
+                    <MailColumn {...props} />
+                  </LayoutGroup>
+                </motion.div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        )}
       </div>
       {/* The mail column peeking over the panes beside the rail: nothing under it moves. */}
       <AnimatePresence>
@@ -465,7 +485,7 @@ function SectionRail(props: Props & { mail: boolean; column: boolean; peek?: Ret
       <aside className="flex min-h-0 w-[60px] shrink-0 flex-col bg-black/25 pb-3 pt-3 short:pb-2 short:pt-2">
         {props.onToggleColumn && props.mail ? (
           <div className="mb-2 flex justify-center px-2 short:mb-1">
-            <Tooltip label={props.column ? "Hide the mail column" : "Show the mail column"} shortcut="menu" side="right">
+            <Tooltip label={props.column ? "Hide the mail column" : "Show the mail column"} shortcut="menu" side="right" className="flex w-full">
               <button
                 aria-label={props.column ? "Hide the mail column" : "Show the mail column"}
                 aria-pressed={props.column}
