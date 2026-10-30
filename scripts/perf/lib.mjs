@@ -122,7 +122,8 @@ export async function startServer({ port, dataDir, label, env = {} }) {
 }
 
 export async function getJson(base, route) {
-  const res = await fetch(`${base}${route}`);
+  // A reused connection can be reset as the server closes it (a busy first sync hits this): that isn't a failure.
+  const res = await fetch(`${base}${route}`).catch(() => sleep(250).then(() => fetch(`${base}${route}`)));
   if (!res.ok) throw new Error(`GET ${route} -> ${res.status}`);
   return res.json();
 }

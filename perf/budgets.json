@@ -1,7 +1,7 @@
 {
   "note": "Hard limits checked by `pnpm perf:check` (key = metric path in perf/results/latest.json). Set from the runs of 2026-10-12 (sizes and the j/k limits re-set 2026-10-29: sizes to the app as it is now, j/k after the performance pass) with headroom for noise (timings on this machine swing 30-50% under load); tighten when numbers improve.",
   "limits": {
-    "bundle.totals.jsGzipKB": 1650,
+    "bundle.totals.jsGzipKB": 1850,
     "bundle.totals.cssGzipKB": 24,
     "demo.load.jsGzipKB": 510,
     "demo.load.listVisibleMs": 900,

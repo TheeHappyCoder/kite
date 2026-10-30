@@ -608,9 +608,14 @@ const FILES = `${MESSAGES}, json_each(m.value, '$.attachments') a WHERE COALESCE
 function textSql(term: SearchTerm): { sql: string; args: string[] } | null {
   const match = ftsMatch(term.value, undefined, !term.phrase);
   if (!match) return null;
+  const words = "t.id IN (SELECT id FROM threads_fts WHERE threads_fts MATCH ?)";
+  // The documents first: few match, and only then is a conversation's JSON worth reading (every search would read all of it).
+  const like = `%${term.value.toLowerCase().replace(/[!%_]/g, (c) => `!${c}`)}%`;
+  const documents = getDb().prepare("SELECT account_id, message_id FROM document_text WHERE lower(text) LIKE ? ESCAPE '!'").all(like) as { account_id: string; message_id: string }[];
+  if (!documents.length) return { sql: `(${words})`, args: [match] };
   return {
-    sql: `(t.id IN (SELECT id FROM threads_fts WHERE threads_fts MATCH ?) OR EXISTS (SELECT 1 FROM document_text dt, json_each(t.list_data, '$.messages') dm WHERE dt.account_id = t.account_id AND dt.message_id = json_extract(dm.value, '$.id') AND lower(dt.text) LIKE ? ESCAPE '!'))`,
-    args: [match, `%${term.value.toLowerCase().replace(/[!%_]/g, (c) => `!${c}`)}%`],
+    sql: `(${words} OR EXISTS (SELECT 1 FROM json_each(?) d WHERE d.value ->> 0 = t.account_id AND instr(t.list_data, d.value ->> 1) > 0 AND EXISTS (SELECT 1 FROM json_each(t.list_data, '$.messages') dm WHERE json_extract(dm.value, '$.id') = d.value ->> 1)))`,
+    args: [match, JSON.stringify(documents.map((d) => [d.account_id, d.message_id]))],
   };
 }
 
