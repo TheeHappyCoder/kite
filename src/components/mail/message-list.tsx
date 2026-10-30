@@ -67,6 +67,8 @@ import type { Provider } from "@/lib/mail/types";
 import { LabelChip, type LabelLookup } from "./labels";
 
 import { FLUID_ITEM, FluidList } from "../ui/fluid-hover";
+import { BUTTON_ICONS } from "./button-icons";
+import type { HoverAction } from "@/lib/buttons";
 import { stableHandlers } from "../ui/stable";
 import { Spinner } from "../ui/spinner";
 import { AccentTitle } from "../ui/accent-title";
@@ -121,8 +123,10 @@ type Props = {
   onToggleRead: (id: string) => void;
   onTrash: (id: string) => void;
   onEmptyTrash?: () => void;
-  /** What swiping a row does, per direction (Settings → Appearance). */
+  /** What swiping a row does, per direction (Settings → Buttons). */
   swipe: SwipePrefs;
+  /** The hover row's buttons, before More (Settings → Buttons). */
+  hover: HoverAction[];
   /** Marks every unread conversation in the current inbox tab read. */
   onMarkAllRead: () => void;
   onCompose: () => void;
@@ -608,6 +612,7 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
               hideSpace={view.kind === "space" ? view.spaceId : null}
               vips={props.vips}
               compact={compact}
+              hover={props.hover}
             />
           ))}
           </FluidList>
@@ -690,6 +695,7 @@ const ThreadRow = memo(function ThreadRow({
   spaces,
   hideSpace,
   compact = false,
+  hover,
 }: {
   index: number;
   thread: Thread;
@@ -712,6 +718,7 @@ const ThreadRow = memo(function ThreadRow({
   vips: Set<string>;
   /** One line: who, what, and the amount an automation collected (the inbox's Everything else side). */
   compact?: boolean;
+  hover: HoverAction[];
 }) {
   const id = thread.id;
   // The hover actions mount only under the pointer: most rows never need them.
@@ -940,17 +947,14 @@ const ThreadRow = memo(function ThreadRow({
 
       {armed && !screener && !thread.scheduled ? (
         <div className="invisible absolute right-2 top-1.5 group-data-[lit]:visible flex items-center gap-0.5 rounded-full border border-pane-border bg-pane p-0.5 shadow-sm">
-          <RowAction label={thread.mailbox === "trash" ? "Move to inbox" : "Archive"} shortcut="archive" onClick={actions.onArchive}>
-            <Icon icon={Archive02Icon} size={14} />
-          </RowAction>
-          <RowAction label={thread.mailbox === "trash" ? "Delete permanently…" : "Delete"} shortcut="delete" onClick={actions.onTrash}>
-            <Icon icon={Delete02Icon} size={14} />
-          </RowAction>
-          {thread.mailbox !== "trash" ? (
-            <RowAction label="Snooze until tomorrow" shortcut="snooze" onClick={actions.onSnooze}>
-              <Icon icon={Clock01Icon} size={14} />
-            </RowAction>
-          ) : null}
+          {hover.map((action) => {
+            const button = hoverButton(action, thread, actions);
+            return button ? (
+              <RowAction key={action} label={button.label} shortcut={button.shortcut} onClick={button.run}>
+                <Icon icon={button.icon} size={14} className={button.iconClassName} />
+              </RowAction>
+            ) : null;
+          })}
           <Tooltip label="More" shortcut="actions">
             <button
               aria-label="More"
@@ -970,6 +974,31 @@ const ThreadRow = memo(function ThreadRow({
     </div>
   );
 });
+
+/** One hover-row button as it stands for this row; null where it doesn't apply (no Snooze in Trash). */
+function hoverButton(
+  action: HoverAction,
+  thread: Thread,
+  actions: { onArchive: () => void; onTrash: () => void; onSnooze: () => void; onToggleRead: () => void; onStar: () => void; onPin: () => void; onMute: () => void },
+): { label: string; icon: IconData; shortcut: ShortcutAction; run: () => void; iconClassName?: string } | null {
+  const trash = thread.mailbox === "trash";
+  switch (action) {
+    case "archive":
+      return { label: trash ? "Move to inbox" : "Archive", icon: BUTTON_ICONS.archive, shortcut: "archive", run: actions.onArchive };
+    case "trash":
+      return { label: trash ? "Delete permanently…" : "Delete", icon: BUTTON_ICONS.trash, shortcut: "delete", run: actions.onTrash };
+    case "snooze":
+      return trash ? null : { label: "Snooze until tomorrow", icon: BUTTON_ICONS.snooze, shortcut: "snooze", run: actions.onSnooze };
+    case "read":
+      return { label: thread.unread ? "Mark as read" : "Mark as unread", icon: thread.unread ? MailOpen01Icon : Mail01Icon, shortcut: "toggleRead", run: actions.onToggleRead };
+    case "star":
+      return { label: thread.starred ? "Unstar" : "Star", icon: StarIcon, shortcut: "star", run: actions.onStar, iconClassName: cn(thread.starred && "fill-warning text-warning") };
+    case "pin":
+      return { label: thread.pinned ? "Unpin" : "Pin to the top", icon: PinIcon, shortcut: "pin", run: actions.onPin };
+    case "mute":
+      return { label: thread.muted ? "Unmute" : "Mute", icon: thread.muted ? Notification02Icon : NotificationOff02Icon, shortcut: "mute", run: actions.onMute };
+  }
+}
 
 function RowAction({
   label,

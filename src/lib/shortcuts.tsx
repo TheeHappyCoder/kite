@@ -45,6 +45,7 @@ export type ShortcutAction =
   | "screenPrivacy"
   | "lock"
   | "files"
+  | "threadFiles"
   | "notes"
   | "home"
   | "contacts"
@@ -126,6 +127,7 @@ export const SHORTCUT_DEFINITIONS: Definition[] = [
   { id: "note", label: "Private note", group: "Conversation", defaults: ["n"] },
   { id: "merge", label: "Merge with another conversation", group: "Conversation", defaults: ["shift+m"] },
   { id: "people", label: "People in this conversation", group: "Conversation", defaults: ["i"] },
+  { id: "threadFiles", label: "Files in this conversation", group: "Conversation", defaults: ["d"] },
   { id: "vip", label: "Mark VIP / not VIP", group: "Conversation", defaults: ["shift+v"] },
   { id: "label", label: "Labels / folders", group: "Conversation", defaults: ["l"] },
   { id: "space", label: "Add to a space", group: "Conversation", defaults: ["y"] },

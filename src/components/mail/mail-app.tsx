@@ -279,6 +279,11 @@ export function MailApp() {
     (thread: Thread | null) => !!thread && (state.overrides[thread.id]?.chat ?? preferences.chatView),
     [state.overrides, preferences.chatView],
   );
+  // The files drawer, open for one conversation (moving to another closes it).
+  const [filesFor, setFilesFor] = useState<string | null>(null);
+  const toggleFiles = useCallback(() => {
+    if (selected) setFilesFor((open) => (open === selected.id ? null : selected.id));
+  }, [selected]);
   const toggleChat = useCallback(() => {
     if (!selected) return;
     const chat = !chatFor(selected);
@@ -647,6 +652,7 @@ export function MailApp() {
     pickSpace: (list, move) => setSpacePick({ threads: list, move }),
     put: (list, id, move) => void spaces.put(list, id, { move }),
     takeOut: (list, id, deep) => void spaces.takeOut(list, id, deep),
+    customise: () => setView({ kind: "settings", section: "buttons" }),
   });
   const { create: createSpace, update: updateSpace, remove: removeSpace } = spaces;
   /** The space editor: which space, opened at which point (no point: closed, kept mounted so it fades out). */
@@ -663,7 +669,7 @@ export function MailApp() {
         setPaneDetail(false);
       },
     }),
-    [dispatch, createSpace, updateSpace, removeSpace],
+    [dispatch, createSpace, updateSpace, removeSpace, setSpaceEdit, setPaneDetail],
   );
   const mergeCandidates = useMemo(
     () => (mergeOpen ? state.threads.map((t) => applyOverride(t, state.overrides[t.id])) : []),
@@ -834,6 +840,7 @@ export function MailApp() {
       note: selected && !selecting ? () => requestEdit("note") : undefined,
       summarise: selected && !selecting && !selected.scheduled ? () => summarise(selected) : undefined,
       people: selected ? () => setPeopleOpen((open) => !open) : undefined,
+      threadFiles: selected && selected.messages.some((m) => m.attachments?.some((a) => !a.inline)) ? toggleFiles : undefined,
       vip: selected && !selecting ? toggleVip : undefined,
       label: selecting ? () => bulk("label") : selected && !selected.scheduled ? () => openLabels([selected]) : undefined,
       space: pickSpaceFor ? () => pickSpaceFor(false) : undefined,
@@ -1006,6 +1013,10 @@ export function MailApp() {
       edit={editRequest && selected && editRequest.threadId === selected.id ? editRequest : undefined}
       onRequestEdit={requestEdit}
       onTogglePeople={() => setPeopleOpen((open) => !open)}
+      buttons={preferences.buttons}
+      onCustomiseButtons={() => setView({ kind: "settings", section: "buttons" })}
+      filesOpen={!!selected && filesFor === selected.id}
+      onToggleFiles={toggleFiles}
       onPerson={showPerson}
       people={
         peopleOpen && selected
@@ -1254,6 +1265,7 @@ export function MailApp() {
                   onTrash={(id) => actions.remove(id)}
                   onEmptyTrash={() => live ? mailBatch.open({ account: state.accountId, action: "permanent" }) : setToast({ message: "Connect an account to manage its Trash." })}
                   swipe={preferences.swipe}
+                  hover={preferences.buttons.hover}
                   onMarkAllRead={markAllRead}
                   onCompose={() => openCompose()}
                   onRefresh={refresh}

@@ -3,16 +3,11 @@
 import { onDownloadClick } from "@/lib/mail/download";
 import { useEffect, useState } from "react";
 import {
-  Attachment01Icon,
-  Doc01Icon,
   Download04Icon,
   FilePenIcon,
-  Image02Icon,
   LinkSquare02Icon,
   Mail01Icon,
-  Pdf01Icon,
   RepeatIcon,
-  Xls01Icon,
 } from "@hugeicons/core-free-icons";
 import { parseIcs } from "@/lib/calendar/ics";
 import { isCalendarFile, type Invite } from "@/lib/calendar/invite";
@@ -20,11 +15,13 @@ import { attachmentUrl, canPreview } from "@/lib/mail/attachments";
 import type { Attachment, Contact } from "@/lib/mail/types";
 import type { Layout } from "@/lib/pdf/layout";
 import { cn } from "@/lib/utils";
-import { Icon, type IconData } from "../icon";
+import { Icon } from "../icon";
 import { Dialog } from "../ui/dialog";
 import { Tooltip } from "../ui/tooltip";
 import { useFillSign } from "./fill-sign";
 import { InviteSummary } from "../mail/invite-card";
+import { FileTypeIcon } from "./file-icon";
+import { PDF_THUMB_MAX_BYTES, usePdfThumb } from "./pdf-thumb";
 
 /** An attachment plus where it lives. `messageId` is null for demo mail, which has nothing to download. */
 export type FileRef = {
@@ -37,31 +34,31 @@ export type FileRef = {
   from?: Contact;
 };
 
-const FILE_ICONS: Record<Attachment["kind"], IconData> = {
-  pdf: Pdf01Icon,
-  doc: Doc01Icon,
-  sheet: Xls01Icon,
-  image: Image02Icon,
-  other: Attachment01Icon,
-};
 
 export function fileUrl(file: FileRef, download = false) {
   return file.messageId ? attachmentUrl(file.accountId, file.messageId, file.attachment, download) : null;
 }
 
-/** Image thumbnail when the file is a viewable image, otherwise the kind's icon. */
+/**
+ * What a file looks like at a glance: a viewable image itself, a PDF's first page (drawn once it's on
+ * screen, up to PDF_THUMB_MAX_BYTES), else its type's tile. `size` is the tile's height in pixels.
+ */
 export function FileThumb({ file, size = 20, className }: { file: FileRef; size?: number; className?: string }) {
   const [failed, setFailed] = useState(false);
   const url = fileUrl(file);
-  if (url && file.attachment.kind === "image" && canPreview(file.attachment) && !failed) {
+  const { attachment } = file;
+  const pdfUrl = url && attachment.kind === "pdf" && (attachment.bytes ?? 0) > 0 && attachment.bytes! <= PDF_THUMB_MAX_BYTES ? url : null;
+  const { target, src: pdfPage } = usePdfThumb<HTMLSpanElement>(pdfUrl);
+  const picture = attachment.kind === "image" && canPreview(attachment) ? url : pdfPage;
+  if (picture && !failed) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- local, same-origin attachment bytes
-      <img src={url} alt="" loading="lazy" onError={() => setFailed(true)} className={cn("object-cover", className)} />
+      // eslint-disable-next-line @next/next/no-img-element -- local, same-origin attachment bytes (or a PDF page drawn here)
+      <img src={picture} alt="" loading="lazy" onError={() => setFailed(true)} className={cn("bg-white object-cover object-top", className)} />
     );
   }
   return (
-    <span className={cn("grid place-items-center text-pane-muted", className)}>
-      <Icon icon={FILE_ICONS[file.attachment.kind]} size={size} />
+    <span ref={target} className={cn("grid place-items-center", className)}>
+      <FileTypeIcon name={attachment.name} mimeType={attachment.mimeType} className="h-auto" style={{ height: Math.round(size * 1.35) }} />
     </span>
   );
 }
@@ -246,9 +243,7 @@ function CalendarPreview({ file, url }: { file: FileRef; url: string }) {
 function Placeholder({ file, text }: { file: FileRef; text: string }) {
   return (
     <div className="blur-fade flex flex-col items-center gap-3 border-t border-pane-border px-6 py-14 text-center">
-      <span className="grid size-14 place-items-center rounded-2xl bg-pane-2 text-pane-muted">
-        <Icon icon={FILE_ICONS[file.attachment.kind]} size={26} />
-      </span>
+      <FileTypeIcon name={file.attachment.name} mimeType={file.attachment.mimeType} className="h-14" />
       <p className="max-w-sm text-[12.5px] text-pane-muted">{text}</p>
     </div>
   );

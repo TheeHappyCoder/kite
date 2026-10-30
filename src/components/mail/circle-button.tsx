@@ -17,6 +17,7 @@ export function CircleButton({
   status,
   className,
   iconClassName,
+  badge,
 }: {
   icon: IconData;
   label: string;
@@ -26,6 +27,8 @@ export function CircleButton({
   status?: "busy" | "done" | null;
   className?: string;
   iconClassName?: string;
+  /** A count in the corner (files in the conversation). */
+  badge?: number;
 }) {
   return (
     <Tooltip label={label} shortcut={shortcut}>
@@ -34,7 +37,7 @@ export function CircleButton({
         aria-busy={status === "busy" || undefined}
         onClick={onClick}
         className={cn(
-          "grid size-9 shrink-0 place-items-center rounded-full touch:size-11 border border-pane-border text-pane-fg/80 transition-[background-color,color,transform] duration-150 hover:bg-pane-hover hover:text-pane-fg active:scale-95",
+          "relative grid size-9 shrink-0 place-items-center rounded-full touch:size-11 border border-pane-border text-pane-fg/80 transition-[background-color,color,transform] duration-150 hover:bg-pane-hover hover:text-pane-fg active:scale-95",
           active && "border-accent/40 bg-accent-soft text-accent",
           status === "done" && "text-success",
           className,
@@ -55,6 +58,11 @@ export function CircleButton({
             </motion.span>
           </AnimatePresence>
         )}
+        {badge ? (
+          <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-lime px-1 text-[10px] font-semibold tabular-nums text-lime-fg">
+            {badge}
+          </span>
+        ) : null}
       </button>
     </Tooltip>
   );

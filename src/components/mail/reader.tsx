@@ -1,43 +1,31 @@
 "use client";
 
-import { Fragment, forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import {
   AiMagicIcon,
   ArrowLeft01Icon,
-  Tag01Icon,
-  BubbleChatIcon,
   CornerDownRightIcon,
-  Archive02Icon,
-  Clock01Icon,
   Delete02Icon,
-  Forward01Icon,
   Mail01Icon,
   MailOpen01Icon,
-  MailReplyAll01Icon,
-  SpamIcon,
-  StarIcon,
   AlarmClockIcon,
   FileEditIcon,
   SquareArrowExpand01Icon,
   TimeScheduleIcon,
   UserCheck01Icon,
   GitMergeIcon,
-  CalendarAdd01Icon,
   Scissor01Icon,
   Camera01Icon,
-  PinIcon,
   NotificationOff02Icon,
   Notification02Icon,
   Note01Icon,
   PencilEdit01Icon,
   Cancel01Icon,
-  UserCircleIcon,
   FlowIcon,
   MoreHorizontalIcon,
+  Settings02Icon,
   ArrowUp01Icon,
-  Attachment01Icon,
-  ArrowDown01Icon,
 } from "@hugeicons/core-free-icons";
 import { differenceInCalendarDays, format } from "date-fns";
 import { accountName, type Account, type Message, type Regroup, type Thread } from "@/lib/mail/types";
@@ -60,7 +48,10 @@ import { FilePreview, type FileRef } from "../files/file-preview";
 import { htmlToText, messagePreview, paragraphs, splitMessage, unwrap } from "@/lib/mail/quotes";
 import { CollapsedPart, ExpandedText, forkParent, replyingLabel, quoteLabel, shortDate, signatureLabel } from "./quote-card";
 import { ChatThread } from "./chat-view";
-import { AttachmentChip, ThreadFiles, messageFiles } from "./thread-files";
+import { FilesDrawer, MessageFiles, messageFiles } from "./thread-files";
+import { BUTTON_ICONS } from "./button-icons";
+import { BUTTON_INFO, DIVIDER, MENU_ORDER, tidySlots, type ButtonAction, type ButtonPrefs, type ToolbarSlot } from "@/lib/buttons";
+import { ContextMenu, type MenuPoint } from "../ui/context-menu";
 import { InviteCard } from "./invite-card";
 import { threadKey } from "@/lib/mail/threads";
 import type { Snippet } from "@/lib/settings";
@@ -128,6 +119,13 @@ type Props = {
   /** The People panel beside the conversation (rendered by the app, opening files in this reader's preview), or null when closed. */
   people: ((onPreview: (file: FileRef) => void) => React.ReactNode) | null;
   onTogglePeople: () => void;
+  /** Which actions sit on the toolbar (Settings → Buttons); the rest are in More. */
+  buttons: ButtonPrefs;
+  /** Opens Settings → Buttons (right-click on the toolbar). */
+  onCustomiseButtons?: () => void;
+  /** The files drawer over the reader's right side. */
+  filesOpen: boolean;
+  onToggleFiles: () => void;
   /** Shows one person in the People panel (clicking a sender's name). */
   onPerson: (email: string) => void;
   /** The conversation's own labels/folders, resolved. */
@@ -164,6 +162,10 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
   const subjectInBar = !!thread && titleGone === thread.id;
   // With the subject up there the toolbar keeps only triage, Star and More (the rest moves into More), so the subject has room.
   const compact = narrow || subjectInBar;
+  // The files drawer jumps to a message through the conversation's own `jump`.
+  const fileCount = thread ? thread.messages.reduce((n, m) => n + messageFiles(m, thread).length, 0) : 0;
+  const jumpRef = useRef<((messageId: string) => void) | null>(null);
+  const [customise, setCustomise] = useState<MenuPoint | null>(null);
 
   if (!thread) {
     return (
@@ -188,30 +190,35 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
     );
   }
 
+  const acts = readerActions(props, thread, fileCount);
+  // Narrow, or with the subject in the bar: the left group up to its first divider and the right group's first two.
+  const toolbar = compact
+    ? { left: firstGroup(props.buttons.toolbar.left), right: props.buttons.toolbar.right.slice(0, 2) }
+    : props.buttons.toolbar;
+  const placed = new Set([...toolbar.left, ...toolbar.right]);
+  const more = moreItems(acts, placed);
+
   return (
     <SearchQuery.Provider value={props.searchQuery ?? ""}><section ref={readerRef} className="@container flex h-full min-w-0 flex-col bg-pane text-pane-fg">
       {/*
-        One row, three groups: triage (what you do to most mail), writing (reply is the box
-        below, so only reply all and forward), and how you see it. Everything else is in More,
-        grouped, each with its shortcut.
+        One row: the left and right groups from Settings → Buttons (right-click for it), the subject
+        between them once it scrolls away. Everything not placed is in More, grouped, each with its shortcut.
       */}
-      <header className="flex items-center gap-1.5 border-b border-pane-border px-4 py-3 @max-[520px]:px-3">
+      <header
+        onContextMenu={(e) => {
+          if (!props.onCustomiseButtons) return;
+          e.preventDefault();
+          setCustomise({ x: e.clientX, y: e.clientY });
+        }}
+        className="flex items-center gap-1.5 border-b border-pane-border px-4 py-3 @max-[520px]:px-3"
+      >
         {back ? (
           <>
             <CircleButton icon={ArrowLeft01Icon} label="Back to the list" shortcut="back" onClick={back} />
             <span className="mx-1 h-5 w-px shrink-0 bg-pane-border" />
           </>
         ) : null}
-        <CircleButton icon={Archive02Icon} label={thread.mailbox === "trash" ? "Move to inbox" : "Archive"} shortcut="archive" onClick={props.onArchive} />
-        {thread.mailbox !== "trash" ? <CircleButton icon={Clock01Icon} label="Snooze until tomorrow" shortcut="snooze" onClick={props.onSnooze} /> : null}
-        <CircleButton icon={Delete02Icon} label={thread.mailbox === "trash" ? "Delete permanently…" : "Delete"} shortcut="delete" onClick={props.onDelete} />
-        {thread.scheduled || compact ? null : (
-          <span className="blur-fade flex items-center gap-1.5">
-            <span className="mx-1.5 h-5 w-px shrink-0 bg-pane-border" />
-            <CircleButton icon={MailReplyAll01Icon} label="Reply all" shortcut="replyAll" onClick={() => props.onCompose("replyAll")} />
-            <CircleButton icon={Forward01Icon} label="Forward" shortcut="forward" onClick={() => props.onCompose("forward")} />
-          </span>
-        )}
+        <ToolbarGroup slots={toolbar.left} acts={acts} />
         <div className="flex min-w-0 flex-1 items-center">
           {subjectInBar ? (
             <>
@@ -223,31 +230,13 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
           ) : null}
         </div>
         <div className="flex items-center gap-1.5">
-          <CircleButton
-            icon={StarIcon}
-            label={thread.starred ? "Unstar" : "Star"}
-            shortcut="star"
-            onClick={props.onStar}
-            iconClassName={cn(thread.starred && "fill-warning text-warning")}
-          />
-          {compact ? null : (
-            <span className="blur-fade flex items-center gap-1.5">
-              <CircleButton
-                icon={BubbleChatIcon}
-                label={props.chat ? "Show as email" : "Show as chat"}
-                shortcut="chatView"
-                onClick={props.onToggleChat}
-                active={props.chat}
-              />
-              <CircleButton icon={UserCircleIcon} label={props.people ? "Hide people" : "People in this conversation"} shortcut="people" onClick={props.onTogglePeople} active={!!props.people} />
-              <CircleButton icon={Camera01Icon} label="Screenshot" shortcut="screenshot" onClick={() => props.onScreenshot()} />
-            </span>
-          )}
-          {thread.scheduled ? null : <ThreadMenu items={menuItems(props, compact)} />}
+          <ToolbarGroup slots={toolbar.right} acts={acts} />
+          {thread.scheduled || !more.length ? null : <ThreadMenu items={more} />}
         </div>
       </header>
 
       <div className="relative flex min-h-0 flex-1">
+        <div className="relative flex min-w-0 flex-1 flex-col">
         <div
           // No elastic bounce past any edge: it stretched the whole conversation and slid the stuck header under the toolbar.
           className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-none"
@@ -269,30 +258,38 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
             }
           }}
         >
-          <Conversation key={thread.id} {...props} thread={thread} onPreview={setPreview} />
+          <Conversation key={thread.id} {...props} thread={thread} onPreview={setPreview} jumpRef={jumpRef} />
         </div>
+        {thread.scheduled || thread.messages.every((m) => m.draft) ? null : (
+        <QuickReply
+          key={thread.id}
+          ref={replyRef}
+          to={thread.messages.find((m) => m.from.name !== "You")?.from.name ?? "recipient"}
+          recipient={thread.messages.findLast((m) => !m.draft && !isSelf(m.from, props.account))?.from}
+          signature={props.signature}
+          onSend={props.onSend}
+          onExpand={(body, files) => props.onCompose("reply", body, files)}
+          alwaysShowExpand={props.chat}
+          snippets={props.snippets}
+          onManageSnippets={props.onManageSnippets}
+          prepared={props.prepared}
+          onDiscardPrepared={props.onDiscardPrepared}
+          onDraftAi={props.onDraftAi}
+        />
+        )}
+        </div>
+        <FilesDrawer thread={thread} open={props.filesOpen} onClose={props.onToggleFiles} onPreview={setPreview} onJump={(id) => jumpRef.current?.(id)} />
         {props.people?.(setPreview)}
       </div>
 
       <FilePreview file={preview} onClose={() => setPreview(null)} />
-
-      {thread.scheduled || thread.messages.every((m) => m.draft) ? null : (
-      <QuickReply
-        key={thread.id}
-        ref={replyRef}
-        to={thread.messages.find((m) => m.from.name !== "You")?.from.name ?? "recipient"}
-        recipient={thread.messages.findLast((m) => !m.draft && !isSelf(m.from, props.account))?.from}
-        signature={props.signature}
-        onSend={props.onSend}
-        onExpand={(body, files) => props.onCompose("reply", body, files)}
-        alwaysShowExpand={props.chat}
-        snippets={props.snippets}
-        onManageSnippets={props.onManageSnippets}
-        prepared={props.prepared}
-        onDiscardPrepared={props.onDiscardPrepared}
-        onDraftAi={props.onDraftAi}
+      <ContextMenu
+        at={customise}
+        label="Toolbar"
+        items={[{ id: "customise", label: "Customise buttons…", icon: Settings02Icon, onSelect: props.onCustomiseButtons }]}
+        onClose={() => setCustomise(null)}
       />
-      )}
+
     </section></SearchQuery.Provider>
   );
 });
@@ -300,58 +297,114 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
 /** Below this width the reader's toolbar keeps triage only; the rest moves into More. */
 const NARROW_READER = 520;
 
-/** The "More" menu: conversation actions without a toolbar button of their own (`narrow`: the toolbar's writing and view buttons too). */
-function menuItems(props: Props, narrow: boolean): ThreadMenuItem[] {
-  const thread = props.thread!;
-  if (thread.mailbox === "trash") return [
-    { id: "restore", icon: Mail01Icon, label: "Move to inbox", onSelect: props.onArchive },
-    { id: "delete", icon: Delete02Icon, label: "Delete permanently…", danger: true, onSelect: props.onDelete },
-  ];
-  const moved: ThreadMenuItem[] = narrow
-    ? [
-        { id: "replyAll", icon: MailReplyAll01Icon, label: "Reply all", shortcut: "replyAll", onSelect: () => props.onCompose("replyAll") },
-        { id: "forward", icon: Forward01Icon, label: "Forward", shortcut: "forward", onSelect: () => props.onCompose("forward") },
-        { id: "chat", icon: BubbleChatIcon, label: props.chat ? "Show as email" : "Show as chat", shortcut: "chatView", onSelect: props.onToggleChat },
-        { id: "people", icon: UserCircleIcon, label: props.people ? "Hide people" : "People in this conversation", shortcut: "people", onSelect: props.onTogglePeople },
-        { id: "screenshot", icon: Camera01Icon, label: "Screenshot", shortcut: "screenshot", onSelect: () => props.onScreenshot() },
-      ]
-    : [];
-  return [
-    ...moved,
-    // Organise
-    {
-      id: "read",
-      section: narrow,
-      icon: thread.unread ? MailOpen01Icon : Mail01Icon,
-      label: thread.unread ? "Mark as read" : "Mark as unread",
-      shortcut: "toggleRead",
-      onSelect: props.onToggleRead,
+/** A conversation action as the reader shows it now: on a button or in More. */
+type ReaderAction = ThreadMenuItem & { active?: boolean; badge?: number; iconClassName?: string };
+
+/**
+ * Every action (lib/buttons.ts) as it stands for this conversation, or missing where it doesn't apply:
+ * Trash keeps the way back, Delete for good and how you see it; a scheduled send has nothing to write.
+ */
+function readerActions(props: Props, thread: Thread, fileCount: number): Partial<Record<ButtonAction, ReaderAction>> {
+  const trash = thread.mailbox === "trash";
+  const writing = !thread.scheduled;
+  const organise = !trash && !thread.scheduled;
+  const acts: Partial<Record<ButtonAction, ReaderAction>> = {
+    archive: { id: "archive", icon: trash ? Mail01Icon : BUTTON_ICONS.archive, label: trash ? "Move to inbox" : "Archive", shortcut: "archive", onSelect: props.onArchive },
+    trash: { id: "trash", icon: BUTTON_ICONS.trash, label: trash ? "Delete permanently…" : "Delete", shortcut: "delete", danger: trash, onSelect: props.onDelete },
+    star: {
+      id: "star",
+      icon: BUTTON_ICONS.star,
+      label: thread.starred ? "Unstar" : "Star",
+      shortcut: "star",
+      onSelect: props.onStar,
+      iconClassName: cn(thread.starred && "fill-warning text-warning"),
     },
-    { id: "pin", icon: PinIcon, label: thread.pinned ? "Unpin" : "Pin to the top", shortcut: "pin", onSelect: props.onPin },
-    {
-      id: "labels",
-      icon: Tag01Icon,
-      label: `${capitalise(accountSpec(props.account).organise.plural)}…`,
-      shortcut: "label",
-      onSelect: props.onLabels,
+    chat: { id: "chat", icon: BUTTON_ICONS.chat, label: props.chat ? "Show as email" : "Show as chat", shortcut: "chatView", onSelect: props.onToggleChat, active: props.chat },
+    people: {
+      id: "people",
+      icon: BUTTON_ICONS.people,
+      label: props.people ? "Hide people" : "People in this conversation",
+      shortcut: "people",
+      onSelect: props.onTogglePeople,
+      active: !!props.people,
     },
-    {
-      id: "mute",
-      icon: thread.muted ? Notification02Icon : NotificationOff02Icon,
-      label: thread.muted ? "Unmute" : "Mute conversation",
-      shortcut: "mute",
-      onSelect: props.onMute,
-    },
-    // Your AI, on this conversation only
-    { id: "summarise", section: true, icon: AiMagicIcon, label: "Summarise with AI", shortcut: "summarise", onSelect: props.onSummarise },
-    // Only in Kite
-    { id: "note", section: true, icon: Note01Icon, label: thread.note ? "Edit private note" : "Add a private note", shortcut: "note", onSelect: () => props.onRequestEdit("note") },
-    { id: "rename", icon: PencilEdit01Icon, label: "Rename subject", onSelect: () => props.onRequestEdit("rename") },
-    { id: "merge", icon: GitMergeIcon, label: "Merge with…", shortcut: "merge", onSelect: props.onMerge },
-    { id: "calendar", icon: CalendarAdd01Icon, label: "Add to calendar…", shortcut: "addToCalendar", onSelect: props.onAddToCalendar },
-    // Set apart, so it isn't hit by accident
-    { id: "spam", section: true, danger: true, icon: SpamIcon, label: "Report spam", shortcut: "spam", onSelect: props.onSpam },
-  ];
+    screenshot: { id: "screenshot", icon: BUTTON_ICONS.screenshot, label: "Screenshot", shortcut: "screenshot", onSelect: () => props.onScreenshot() },
+  };
+  if (fileCount) {
+    acts.files = {
+      id: "files",
+      icon: BUTTON_ICONS.files,
+      label: props.filesOpen ? "Hide files" : "Files in this conversation",
+      shortcut: "threadFiles",
+      onSelect: props.onToggleFiles,
+      active: props.filesOpen,
+      badge: fileCount,
+    };
+  }
+  if (writing) {
+    acts.replyAll = { id: "replyAll", icon: BUTTON_ICONS.replyAll, label: "Reply all", shortcut: "replyAll", onSelect: () => props.onCompose("replyAll") };
+    acts.forward = { id: "forward", icon: BUTTON_ICONS.forward, label: "Forward", shortcut: "forward", onSelect: () => props.onCompose("forward") };
+  }
+  if (!trash) acts.snooze = { id: "snooze", icon: BUTTON_ICONS.snooze, label: "Snooze until tomorrow", shortcut: "snooze", onSelect: props.onSnooze };
+  if (organise) {
+    Object.assign(acts, {
+      read: { id: "read", icon: thread.unread ? MailOpen01Icon : Mail01Icon, label: thread.unread ? "Mark as read" : "Mark as unread", shortcut: "toggleRead", onSelect: props.onToggleRead },
+      pin: { id: "pin", icon: BUTTON_ICONS.pin, label: thread.pinned ? "Unpin" : "Pin to the top", shortcut: "pin", onSelect: props.onPin, active: thread.pinned },
+      labels: { id: "labels", icon: BUTTON_ICONS.labels, label: `${capitalise(accountSpec(props.account).organise.plural)}…`, shortcut: "label", onSelect: props.onLabels },
+      mute: {
+        id: "mute",
+        icon: thread.muted ? Notification02Icon : NotificationOff02Icon,
+        label: thread.muted ? "Unmute" : "Mute conversation",
+        shortcut: "mute",
+        onSelect: props.onMute,
+      },
+      summarise: { id: "summarise", icon: BUTTON_ICONS.summarise, label: "Summarise with AI", shortcut: "summarise", onSelect: props.onSummarise },
+      note: { id: "note", icon: BUTTON_ICONS.note, label: thread.note ? "Edit private note" : "Add a private note", shortcut: "note", onSelect: () => props.onRequestEdit("note") },
+      rename: { id: "rename", icon: BUTTON_ICONS.rename, label: "Rename subject", onSelect: () => props.onRequestEdit("rename") },
+      merge: { id: "merge", icon: BUTTON_ICONS.merge, label: "Merge with…", shortcut: "merge", onSelect: props.onMerge },
+      calendar: { id: "calendar", icon: BUTTON_ICONS.calendar, label: "Add to calendar…", shortcut: "addToCalendar", onSelect: props.onAddToCalendar },
+      spam: { id: "spam", danger: true, icon: BUTTON_ICONS.spam, label: "Report spam", shortcut: "spam", onSelect: props.onSpam },
+    } satisfies Partial<Record<ButtonAction, ReaderAction>>);
+  }
+  return acts;
+}
+
+/** A group up to its first divider. */
+function firstGroup(slots: ToolbarSlot[]) {
+  const cut = slots.indexOf(DIVIDER);
+  return cut > 0 ? slots.slice(0, cut) : slots;
+}
+
+/** More: every action that applies and isn't on the toolbar, in BUTTON_INFO's groups (a divider between). */
+function moreItems(acts: Partial<Record<ButtonAction, ReaderAction>>, placed: Set<ToolbarSlot>): ThreadMenuItem[] {
+  let group: string | null = null;
+  return MENU_ORDER.flatMap((action) => {
+    const act = acts[action];
+    if (!act || placed.has(action)) return [];
+    const section = group !== null && group !== BUTTON_INFO[action].group;
+    group = BUTTON_INFO[action].group;
+    return [{ id: act.id, icon: act.icon, label: act.label, shortcut: act.shortcut, onSelect: act.onSelect, danger: act.danger, section }];
+  });
+}
+
+/** One side of the toolbar: its buttons in order, a thin line where the layout has a divider. */
+function ToolbarGroup({ slots, acts }: { slots: ToolbarSlot[]; acts: Partial<Record<ButtonAction, ReaderAction>> }) {
+  return tidySlots(slots.filter((slot) => slot === DIVIDER || acts[slot])).map((slot, i) => {
+    if (slot === DIVIDER) return <span key={`divider:${i}`} className="mx-1.5 h-5 w-px shrink-0 bg-pane-border" />;
+    const act = acts[slot]!;
+    return (
+      <CircleButton
+        key={slot}
+        icon={act.icon}
+        label={act.label}
+        shortcut={act.shortcut}
+        onClick={act.onSelect}
+        active={act.active}
+        badge={act.badge}
+        iconClassName={act.iconClassName}
+      />
+    );
+  });
 }
 
 
@@ -505,7 +558,7 @@ function RegroupNote({ regroup, onUndo }: { regroup: Regroup; onUndo: () => void
 }
 
 /** The scrolling body of one conversation; keyed by thread so its open/highlight state resets per thread. */
-function Conversation(props: Props & { thread: Thread; onPreview: (file: FileRef) => void }) {
+function Conversation(props: Props & { thread: Thread; onPreview: (file: FileRef) => void; jumpRef: React.Ref<(messageId: string) => void> }) {
   const { thread } = props;
   const lastId = thread.messages[thread.messages.length - 1]?.id;
   // Fixed for this visit: marking the thread read must not move the divider.
@@ -514,7 +567,6 @@ function Conversation(props: Props & { thread: Thread; onPreview: (file: FileRef
   const firstNew = thread.messages.findIndex((m) => unseen.has(m.id));
   const [highlight, setHighlight] = useState<string | null>(null);
   const [unfolded, setUnfolded] = useState(false);
-  const [filesOpen, setFilesOpen] = useState(false);
   const isOpen = (m: Message) => expanded.has(m.id) || m.id === lastId;
   const items = unfolded ? thread.messages.map((message) => ({ message })) : foldRuns(thread.messages, isOpen);
   const highlightTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -538,10 +590,11 @@ function Conversation(props: Props & { thread: Thread; onPreview: (file: FileRef
     clearTimeout(highlightTimer.current);
     highlightTimer.current = setTimeout(() => setHighlight(null), 1800);
   };
+  useImperativeHandle(props.jumpRef, () => jump);
 
   return (
     // `data-screenshot-root`: what Screenshot draws (Kite's own cards and buttons are marked `data-screenshot-hide`).
-    <div ref={container} data-screenshot-root className="blur-fade-up mx-auto max-w-[760px] px-8 pb-10 pt-7 @max-[520px]:px-4 @max-[520px]:pt-5">
+    <div ref={container} data-screenshot-root className="blur-fade-up mx-auto max-w-[760px] px-8 pb-28 pt-7 @max-[520px]:px-4 @max-[520px]:pt-5">
       <Title
         thread={thread}
         editing={renaming || handled.rename < 0}
@@ -549,12 +602,11 @@ function Conversation(props: Props & { thread: Thread; onPreview: (file: FileRef
         onDone={() => setHandled((h) => ({ ...h, rename: props.edit?.n ?? 0 }))}
         onRename={props.onRename}
       />
-      <ThreadMeta thread={thread} account={props.account} filesOpen={filesOpen} onFiles={() => setFilesOpen((v) => !v)} />
+      <ThreadMeta thread={thread} account={props.account} onFiles={props.onToggleFiles} />
 
       <LabelRow labels={props.labels} account={props.account} onOpen={props.onOpenLabel} onEdit={props.onLabels} />
       {thread.regroup ? <RegroupNote regroup={thread.regroup} onUndo={() => props.onUndoRegroup(thread.regroup!)} /> : null}
 
-      <ThreadFiles thread={thread} open={filesOpen} onPreview={props.onPreview} onJump={jump} />
       <div data-screenshot-hide className="contents">
       <ThreadBanner thread={thread} onScheduled={props.onScheduled} onSender={props.onSender} onDraft={props.onDraft} onUnmute={props.onMute} />
       {props.summary ? (
@@ -724,35 +776,49 @@ function FoldRow({ count, onClick }: { count: number; onClick: () => void }) {
   );
 }
 
-/** Under the subject: the account, how many messages, who's in it, and the files pill. */
-function ThreadMeta({ thread, account, filesOpen, onFiles }: { thread: Thread; account?: Account; filesOpen: boolean; onFiles: () => void }) {
-  const fileCount = thread.messages.reduce((n, m) => n + messageFiles(m, thread).length, 0);
+/** Under the subject: who's in it (their faces, then names), how many messages, and the account on the right. */
+function ThreadMeta({ thread, account, onFiles }: { thread: Thread; account?: Account; onFiles: () => void }) {
+  const { people, you } = participants(thread, account);
   const count = thread.messages.length;
+  const files = thread.messages.reduce((n, m) => n + messageFiles(m, thread).length, 0);
+  const faces = people.slice(0, 3);
+  // "Rico, Ana and you", "Rico, Ana, 2 others and you": names bold, the rest muted.
+  const names = people.map(firstName);
+  const parts: { text: string; name: boolean }[] = [
+    ...(names.length > 3 ? names.slice(0, 2) : names).map((text) => ({ text, name: true })),
+    ...(names.length > 3 ? [{ text: `${names.length - 2} others`, name: false }] : []),
+    ...(you ? [{ text: names.length ? "you" : "Just you", name: false }] : []),
+  ];
   return (
-    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 text-[12px] text-pane-muted">
+    <div className="mt-3 flex min-w-0 items-center gap-2.5 text-[13px]">
+      <span data-sensitive className="flex shrink-0">
+        {faces.map((person, i) => (
+          <Avatar key={person.email} name={person.name} email={person.email} className={cn("size-7 text-[10px] ring-2 ring-pane", i > 0 && "-ml-2")} />
+        ))}
+        {you && account ? <Avatar name={accountName(account)} email={account.email} className={cn("size-7 text-[10px] ring-2 ring-pane", faces.length && "-ml-2")} /> : null}
+      </span>
+      <span data-sensitive className="min-w-0 truncate">
+        {parts.map((part, i) => (
+          <Fragment key={i}>
+            {i === 0 ? "" : <span className="text-pane-muted">{i === parts.length - 1 ? " and " : ", "}</span>}
+            <span className={part.name ? "font-medium" : "text-pane-muted"}>{part.text}</span>
+          </Fragment>
+        ))}
+        {count > 1 ? <span className="text-pane-muted"> · {count} messages</span> : null}
+        {files ? (
+          <>
+            <span className="text-pane-muted"> · </span>
+            <button onClick={onFiles} className="text-accent hover:underline">
+              {files} file{files > 1 ? "s" : ""}
+            </button>
+          </>
+        ) : null}
+      </span>
       {account ? (
-        <span className="flex min-w-0 items-center gap-1.5">
+        <span className="ml-auto flex min-w-0 shrink items-center gap-1.5 pl-2 text-[12px] text-pane-muted @max-[420px]:hidden">
           <span className="size-1.5 shrink-0 rounded-full" style={{ background: account.color }} />
           <span className="truncate">{accountName(account)}</span>
-          <span aria-hidden>·</span>
         </span>
-      ) : null}
-      <span data-sensitive className="min-w-0 truncate">
-        {count} message{count > 1 ? "s" : ""} · {participants(thread, account)}
-      </span>
-      {fileCount ? (
-        <button
-          onClick={onFiles}
-          aria-expanded={filesOpen}
-          className={cn(
-            "flex h-6 shrink-0 items-center gap-1 rounded-full border px-2.5 font-medium transition-colors duration-150 hover:bg-pane-hover hover:text-pane-fg hover:transition-none",
-            filesOpen ? "border-accent/40 text-pane-fg" : "border-pane-border",
-          )}
-        >
-          <Icon icon={Attachment01Icon} size={12} />
-          {fileCount} file{fileCount > 1 ? "s" : ""}
-          <Icon icon={ArrowDown01Icon} size={12} className={cn("transition-transform duration-200", filesOpen && "rotate-180")} />
-        </button>
       ) : null}
     </div>
   );
@@ -762,21 +828,20 @@ type Person = { name: string; email: string };
 const isSelf = (person: Person, account?: Account) => person.name === "You" || (!!account && person.email.toLowerCase() === account.email.toLowerCase());
 const firstName = (person: Person) => person.name.split(/\s+/)[0] || person.email.split("@")[0];
 
-/** "Ada, Sam and you": everyone in the conversation by first name, you last. */
+/** Everyone in the conversation but you, the people who wrote first; `you`: whether you're in it. */
 function participants(thread: Thread, account?: Account) {
-  const seen = new Map<string, Person>();
+  const writers = new Map<string, Person>();
+  const others = new Map<string, Person>();
   let you = false;
   for (const m of thread.messages) {
-    for (const person of [m.from, ...m.to, ...(m.cc ?? [])]) {
+    for (const [person, wrote] of [[m.from, true], ...[...m.to, ...(m.cc ?? [])].map((p) => [p, false] as const)] as const) {
+      const key = person.email.toLowerCase();
       if (isSelf(person, account)) you = true;
-      else if (!seen.has(person.email.toLowerCase())) seen.set(person.email.toLowerCase(), person);
+      else if (wrote && !writers.has(key)) writers.set(key, person);
+      else if (!wrote && !others.has(key)) others.set(key, person);
     }
   }
-  const names = [...seen.values()].map(firstName);
-  const shown = names.length > 3 ? [...names.slice(0, 3), `${names.length - 3} other${names.length > 4 ? "s" : ""}`] : names;
-  if (you) shown.push("you");
-  if (shown.length === 1 && you) return "just you";
-  return shown.length > 1 ? `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}` : (shown[0] ?? "");
+  return { people: [...writers.values(), ...[...others.values()].filter((p) => !writers.has(p.email.toLowerCase()))], you };
 }
 
 /** "to Sam, you · cc Lee", left out when it only went to you. The full addresses are in the tooltip. */
@@ -1004,13 +1069,7 @@ function MessageView({
 
       <MessageBody message={message} thread={thread} split={split} loadRemote={privacy.loadRemote} translated={translation.translated} />
 
-      {files.length ? (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {files.map((file, i) => (
-            <AttachmentChip key={`${file.attachment.partId ?? ""}:${file.attachment.name}`} file={file} index={i} onPreview={onPreview} />
-          ))}
-        </div>
-      ) : null}
+      {files.length ? <MessageFiles files={files} onPreview={onPreview} /> : null}
       </div>
     </article>
   );
@@ -1176,7 +1235,9 @@ const QuickReply = forwardRef<
   };
 
   return (
-    <div className="px-4 pb-4 pt-2">
+    // Floats over the end of the conversation (the text scrolls on underneath and fades out behind it), so it takes no row of its own.
+    // The fade leaves the scrollbar alone (`right-3`); only the box itself takes the pointer.
+    <div data-quick-reply className="pointer-events-none absolute bottom-0 left-0 right-3 z-10 bg-linear-to-b from-transparent to-pane to-50% px-4 pb-4 pt-10">
       <div
         onDragOver={(e) => {
           if (!e.dataTransfer.types.includes("Files")) return;
@@ -1190,7 +1251,7 @@ const QuickReply = forwardRef<
         }}
         className={cn(
           // A real radius (not rounded-full's 9999px) so the pill eases into the card instead of snapping.
-          "flex items-end gap-2 border border-pane-border bg-pane px-4 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[border-radius,border-color] duration-200 ease-out focus-within:border-accent/50",
+          "pointer-events-auto mx-auto flex w-full max-w-[728px] items-end gap-2 border border-pane-border bg-pane px-4 py-2 shadow-[0_6px_20px_rgba(0,0,0,0.08)] transition-[border-radius,border-color] duration-200 ease-out focus-within:border-accent/50",
           expanded ? "rounded-2xl" : "rounded-[25px]",
         )}
       >

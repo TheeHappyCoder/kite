@@ -1,0 +1,48 @@
+import {
+  AiMagicIcon,
+  Archive02Icon,
+  Attachment01Icon,
+  BubbleChatIcon,
+  CalendarAdd01Icon,
+  Camera01Icon,
+  Clock01Icon,
+  Delete02Icon,
+  Forward01Icon,
+  GitMergeIcon,
+  MailOpen01Icon,
+  MailReplyAll01Icon,
+  Note01Icon,
+  NotificationOff02Icon,
+  PencilEdit01Icon,
+  PinIcon,
+  SpamIcon,
+  StarIcon,
+  Tag01Icon,
+  UserCircleIcon,
+} from "@hugeicons/core-free-icons";
+import type { ButtonAction } from "@/lib/buttons";
+import type { IconData } from "../icon";
+
+/** Each action's icon at rest (the reader swaps some for their state: unread, muted). */
+export const BUTTON_ICONS: Record<ButtonAction, IconData> = {
+  archive: Archive02Icon,
+  trash: Delete02Icon,
+  snooze: Clock01Icon,
+  replyAll: MailReplyAll01Icon,
+  forward: Forward01Icon,
+  read: MailOpen01Icon,
+  star: StarIcon,
+  pin: PinIcon,
+  mute: NotificationOff02Icon,
+  labels: Tag01Icon,
+  files: Attachment01Icon,
+  chat: BubbleChatIcon,
+  people: UserCircleIcon,
+  screenshot: Camera01Icon,
+  summarise: AiMagicIcon,
+  note: Note01Icon,
+  rename: PencilEdit01Icon,
+  merge: GitMergeIcon,
+  calendar: CalendarAdd01Icon,
+  spam: SpamIcon,
+};

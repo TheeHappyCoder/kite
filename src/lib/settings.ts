@@ -3,6 +3,7 @@ import { DrivePrefs } from "./drive";
 import { AI_TASKS, AiModelChoices, type AiTask } from "./ai-tasks";
 import { Design } from "./design/spec";
 import { SwipePrefs } from "./swipe";
+import { ButtonPrefs, DEFAULT_BUTTONS } from "./buttons";
 
 // User preferences, stored as one validated JSON record in the local `settings` table.
 // Kept as plain typed data so the UI, the sync engine and (later) an AI can all read and change it.
@@ -173,6 +174,8 @@ export const Preferences = z.object({
   startView: z.enum(START_VIEWS).default("last"),
   /** What swiping a message-list row does, per direction (touch screens). */
   swipe: SwipePrefs.default(SwipePrefs.parse({})),
+  /** Which actions sit on the reader's toolbar and the list's hover row (lib/buttons.ts); the rest are in More. */
+  buttons: ButtonPrefs.default(DEFAULT_BUTTONS),
   notifications: NotificationPrefs.default(NotificationPrefs.parse({})),
   /** Signature per account id. */
   signatures: Signatures.default({}),
@@ -205,6 +208,8 @@ export const PreferencesPatch = z.object({
   chatView: z.boolean().optional(),
   startView: z.enum(START_VIEWS).optional(),
   swipe: patchOf(SwipePrefs).optional(),
+  /** Replaces the whole layout. */
+  buttons: ButtonPrefs.optional(),
   notifications: patchOf(NotificationPrefs).optional(),
   signatures: z.record(z.string(), Design.nullable()).optional(),
   /** Replaces the whole list. */
@@ -257,6 +262,7 @@ export function applyPatch(current: Preferences, patch: PreferencesPatch): Prefe
     chatView: patch.chatView ?? current.chatView,
     startView: patch.startView ?? current.startView,
     swipe: { ...current.swipe, ...patch.swipe },
+    buttons: patch.buttons ?? current.buttons,
     notifications: { ...current.notifications, ...patch.notifications },
     signatures,
     snippets: patch.snippets ?? current.snippets,

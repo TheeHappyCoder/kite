@@ -54,6 +54,19 @@
   --success: #12a46b;
   --warning: #d98a00;
   --danger: #e5484d;
+  /* File-type tiles (components/files/file-icon.tsx): the colours people know each kind of file by. */
+  --file-word: #2b62c4;
+  --file-sheet: #1f7a45;
+  --file-slides: #d0532b;
+  --file-pdf: #de3b33;
+  --file-image: #7c5cd6;
+  --file-video: #d2427a;
+  --file-audio: #d98a00;
+  --file-archive: #8a6a4a;
+  --file-text: #5f6b7a;
+  --file-calendar: #305dde;
+  --file-mail: #1590c8;
+  --file-other: #8b919a;
 
   --tooltip: #262628;
   --tooltip-fg: #f4f4f5;
@@ -226,6 +239,18 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-file-word: var(--file-word);
+  --color-file-sheet: var(--file-sheet);
+  --color-file-slides: var(--file-slides);
+  --color-file-pdf: var(--file-pdf);
+  --color-file-image: var(--file-image);
+  --color-file-video: var(--file-video);
+  --color-file-audio: var(--file-audio);
+  --color-file-archive: var(--file-archive);
+  --color-file-text: var(--file-text);
+  --color-file-calendar: var(--file-calendar);
+  --color-file-mail: var(--file-mail);
+  --color-file-other: var(--file-other);
   --color-tooltip: var(--tooltip);
   --color-tooltip-fg: var(--tooltip-fg);
   --font-sans: var(--font-ui, var(--font-geist-sans));

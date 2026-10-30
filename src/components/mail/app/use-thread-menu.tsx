@@ -20,6 +20,7 @@ import {
   StarIcon,
   Tag01Icon,
   UserBlock01Icon,
+  Settings02Icon,
 } from "@hugeicons/core-free-icons";
 import type { View } from "@/lib/mail/store";
 import type { Thread } from "@/lib/mail/types";
@@ -54,6 +55,8 @@ type Deps = {
   /** `move`: out of the space in view and the Inbox too (use-spaces.ts `put`). */
   put: (threads: Thread[], spaceId: string, move: boolean) => void;
   takeOut: (threads: Thread[], spaceId: string, deep?: boolean) => void;
+  /** Opens Settings → Buttons (the hover row's buttons). */
+  customise: () => void;
 };
 
 /**
@@ -137,6 +140,8 @@ function build(targets: Thread[], d: Deps): MenuItem[] {
 
     ...(trash ? [] : [{ id: "spam", section: true, label: "Report spam", icon: SpamIcon, shortcut: "spam" as const, danger: true, onSelect: act("spam", d.one.spam) }]),
     ...(many || trash ? [] : [{ id: "block", label: "Block the sender", icon: UserBlock01Icon, danger: true, onSelect: () => d.one.block(first.id) }]),
+
+    { id: "customise", section: true, label: "Customise buttons…", icon: Settings02Icon, onSelect: d.customise },
   ];
   return items;
 }

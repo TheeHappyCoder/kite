@@ -128,3 +128,17 @@ export function setSpaceDragImage(e: React.DragEvent<HTMLElement>, { name, color
   </div>`;
   followPointer(e, card);
 }
+
+/** A button being placed in Settings → Buttons: its icon (copied from the element dragged) and its name, on the same card. */
+export function setButtonDragImage(e: React.DragEvent<HTMLElement>, { name, hint }: { name: string; hint: string }) {
+  const icon = e.currentTarget.querySelector("svg")?.outerHTML ?? "";
+  const card = cardShell(e, { width: 230, height: 46 });
+  card.innerHTML = `<div style="position:absolute;inset:0;display:flex;align-items:center;gap:10px;padding:0 14px 0 8px;border-radius:999px;background:var(--pane);color:var(--pane-fg);border:1px solid var(--pane-border);box-shadow:0 1px 2px rgb(0 0 0 / 0.06), 0 10px 24px -12px rgb(0 0 0 / 0.35)">
+    <span style="display:grid;place-items:center;flex:none;width:30px;height:30px;border-radius:999px;border:1px solid var(--pane-border);color:var(--pane-fg)">${icon}</span>
+    <span style="display:flex;flex-direction:column;min-width:0;gap:1px">
+      <span style="font-size:13px;font-weight:600;line-height:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${text(name)}</span>
+      <span style="font-size:11.5px;line-height:15px;color:var(--pane-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${text(hint)}</span>
+    </span>
+  </div>`;
+  followPointer(e, card);
+}

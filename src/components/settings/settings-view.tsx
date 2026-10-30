@@ -18,6 +18,7 @@ import {
   Notification03Icon,
   PlugSocketIcon,
   PaintBoardIcon,
+  CursorPointer01Icon,
   Search01Icon,
   SignatureIcon,
   SparklesIcon,
@@ -62,6 +63,7 @@ import { Confirm, Group, Note, Page, Row, Segmented, ToggleRow, buttonClass } fr
 import { TranslateGroup } from "./translate-section";
 import { Spinner } from "../ui/spinner";
 import { Select } from "../ui/select";
+import { ButtonsSection } from "./buttons-section";
 import { SWIPE_ACTIONS, SWIPE_INFO, type SwipeAction, type SwipeSide } from "@/lib/swipe";
 import { syncCount, useAccountSync } from "../mail/first-sync";
 import { AccentTitle } from "../ui/accent-title";
@@ -74,7 +76,7 @@ function shortcutLabel(accelerator: string) {
   return accelerator.replace("CommandOrControl", /Mac/.test(navigator.userAgent) ? "Cmd" : "Ctrl");
 }
 
-export type SettingsSection = "accounts" | "labels" | "compose" | "signatures" | "templates" | "fillSign" | "notifications" | "bar" | "files" | "ai" | "privacy" | "appearance" | "data" | "about";
+export type SettingsSection = "accounts" | "labels" | "compose" | "signatures" | "templates" | "fillSign" | "notifications" | "bar" | "files" | "ai" | "privacy" | "appearance" | "buttons" | "data" | "about";
 
 type NavItem = { id: SettingsSection; label: string; icon: IconData } | { id: "shortcuts"; label: string; icon: IconData; opens: true };
 
@@ -104,6 +106,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
     title: "Kite",
     items: [
       { id: "appearance", label: "Appearance", icon: PaintBoardIcon },
+      { id: "buttons", label: "Buttons", icon: CursorPointer01Icon },
       { id: "privacy", label: "Privacy", icon: Shield01Icon },
       { id: "shortcuts", label: "Shortcuts", icon: KeyboardIcon, opens: true },
       { id: "data", label: "Data", icon: DatabaseIcon },
@@ -153,8 +156,10 @@ const SEARCH: { section: SettingsSection | "shortcuts"; label: string; words?: s
   { section: "appearance", label: "Open Kite on", words: "start startup launch home inbox last screen remember" },
   { section: "appearance", label: "Open conversations as chat", words: "bubbles reading view" },
   { section: "appearance", label: "Fonts", words: "typeface interface reading" },
-  { section: "appearance", label: "Swipe right", words: "gesture touch swipe actions archive snooze trash phone tablet" },
-  { section: "appearance", label: "Swipe left", words: "gesture touch swipe actions archive snooze trash phone tablet" },
+  { section: "buttons", label: "Reader toolbar", words: "buttons icons customise customize archive snooze delete reply forward star files chat people screenshot more toolbar" },
+  { section: "buttons", label: "Conversation list", words: "hover buttons icons customise customize archive snooze delete read star pin mute row" },
+  { section: "buttons", label: "Swipe right", words: "gesture touch swipe actions archive snooze trash phone tablet" },
+  { section: "buttons", label: "Swipe left", words: "gesture touch swipe actions archive snooze trash phone tablet" },
   { section: "appearance", label: "Translate into", words: "translate translation language foreign spanish afrikaans offline firefox" },
   { section: "appearance", label: "Downloaded languages", words: "translate translation remove storage" },
   { section: "privacy", label: "Remote images", words: "tracking pixels load" },
@@ -572,6 +577,15 @@ export function SettingsView(props: Props) {
               />
             </Group>
             <TranslateGroup preferences={preferences} onPreferences={props.onPreferences} />
+            <Group title="Fonts" bare>
+              <FontSection />
+            </Group>
+          </Page>
+        );
+      case "buttons":
+        return (
+          <Page icon={CursorPointer01Icon} title="Buttons" description="Which actions get a button of their own. Everything else stays one click away in More.">
+            <ButtonsSection buttons={preferences.buttons} onChange={(buttons) => void props.onPreferences({ buttons })} />
             <Group title="Touch-screen swipes" description="These gestures need a touch screen. With a mouse, hover over a conversation for Delete, Mark as unread and other actions. The Screener always swipes to Allow and Block.">
               {(["right", "left"] as SwipeSide[]).map((side) => (
                 <Row
@@ -587,9 +601,6 @@ export function SettingsView(props: Props) {
                   }
                 />
               ))}
-            </Group>
-            <Group title="Fonts" bare>
-              <FontSection />
             </Group>
           </Page>
         );
