@@ -1,181 +1,44 @@
 "use client";
 
-import { fetchJson } from "@/lib/fetch-json";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { formatDistanceToNow } from "date-fns";
-import {
-  Alert02Icon,
-  ArrowUpRight01Icon,
-  ComputerIcon,
-  DatabaseIcon,
-  InformationCircleIcon,
-  FilePenIcon,
-  FolderCloudIcon,
-  KeyboardIcon,
-  LayoutTemplateIcon,
-  MailEdit02Icon,
-  Moon02Icon,
-  Notification03Icon,
-  PlugSocketIcon,
-  PaintBoardIcon,
-  CursorPointer01Icon,
-  Search01Icon,
-  SignatureIcon,
-  SparklesIcon,
-  Sun03Icon,
-  Shield01Icon,
-  UserCircleIcon,
-  Cancel01Icon,
-  Tag01Icon,
-} from "@hugeicons/core-free-icons";
-import { accountName, type Account } from "@/lib/mail/types";
+import { Alert02Icon, ArrowUpRight01Icon, ComputerIcon, DatabaseIcon, InformationCircleIcon, FilePenIcon, LayoutTemplateIcon, MailEdit02Icon, Moon02Icon, PaintBoardIcon, CursorPointer01Icon, Search01Icon, SignatureIcon, SparklesIcon, Sun03Icon, Shield01Icon, UserCircleIcon, Cancel01Icon, Tag01Icon } from "@hugeicons/core-free-icons";
+import { type Account } from "@/lib/mail/types";
 import { blurFade, springSnappy } from "@/lib/motion";
 import { inDesktopApp } from "@/lib/desktop";
 import { AboutSection } from "./about-section";
-import { DEFAULT_CODE_SHORTCUT, UNDO_SEND_CHOICES, WAIT_DAY_CHOICES, type NotificationKind, type Preferences, type PreferencesPatch, type StartView, type StorageInfo } from "@/lib/settings";
+import { UNDO_SEND_CHOICES, WAIT_DAY_CHOICES, type Preferences, type PreferencesPatch, type StartView, type StorageInfo } from "@/lib/settings";
 import { useShortcuts } from "@/lib/shortcuts";
 import type { ThemePref } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Icon, type IconData } from "../icon";
 import { KeyCombo } from "../ui/kbd";
-import type { Design } from "@/lib/design/spec";
 import { SignatureEditor } from "../design/design-editor";
-import { DesignPreview } from "../design/design-preview";
-import { AccountFace } from "../mail/account-face";
-import { AccountLook } from "./account-look";
 import { FillSignSection } from "./fill-sign-section";
 import { SnippetsSection } from "./snippets-section";
 import { TemplatesSection } from "./templates-section";
-import { BatchTimes, VipList } from "./notification-rules";
 import { LabelsSection } from "./labels-section";
 import { AiSection } from "./ai-section";
 import { BarSection } from "./bar-section";
 import { DriveSection } from "./drive-section";
 import type { AiUsageSummary } from "@/lib/ai-pricing";
-import { signInCompany } from "@/lib/mail/connect";
-import { accountSpec, permissionHref, serviceName } from "@/lib/mail/providers";
 import { ImageSenders, ImagesRow, LockRow, PrivacyLog } from "./privacy-section";
 import type { PersonPatch, PersonPrefs } from "@/lib/mail/person-prefs";
 import { FontSection } from "./font-section";
 import { FLUID_ITEM, FluidList } from "../ui/fluid-hover";
 import { Tooltip } from "../ui/tooltip";
-import { Confirm, Group, Note, Page, Row, Segmented, ToggleRow, buttonClass } from "./settings-ui";
+import { Group, Note, Page, Row, Segmented, ToggleRow, buttonClass } from "./settings-ui";
 import { TranslateGroup } from "./translate-section";
-import { Spinner } from "../ui/spinner";
 import { Select } from "../ui/select";
 import { ButtonsSection } from "./buttons-section";
 import { SWIPE_ACTIONS, SWIPE_INFO, type SwipeAction, type SwipeSide } from "@/lib/swipe";
-import { syncCount, useAccountSync } from "../mail/first-sync";
 import { AccentTitle } from "../ui/accent-title";
-import { formatBytes } from "@/lib/format";
+import { NAV, type NavItem, PAGES, SEARCH, type SettingsSection, pageIndex } from "./settings-nav";
+import { AccountRow, CalendarAccess, SenderPhotos, SignatureCard } from "./account-row";
+import { DataSection } from "./data-section";
+import { NotificationsSection } from "./notifications-section";
 
 const noSubscribe = () => () => {};
-
-/** "CommandOrControl+Alt+C" -> "Ctrl+Alt+C" (or "Cmd+Alt+C" on a Mac). Client only. */
-function shortcutLabel(accelerator: string) {
-  return accelerator.replace("CommandOrControl", /Mac/.test(navigator.userAgent) ? "Cmd" : "Ctrl");
-}
-
-export type SettingsSection = "accounts" | "labels" | "compose" | "signatures" | "templates" | "fillSign" | "notifications" | "bar" | "files" | "ai" | "privacy" | "appearance" | "buttons" | "data" | "about";
-
-type NavItem = { id: SettingsSection; label: string; icon: IconData } | { id: "shortcuts"; label: string; icon: IconData; opens: true };
-
-/** The nav, in groups. Shortcuts opens its own dialog. */
-const NAV: { title: string; items: NavItem[] }[] = [
-  {
-    title: "Mail",
-    items: [
-      { id: "accounts", label: "Accounts", icon: UserCircleIcon },
-      { id: "labels", label: "Labels & folders", icon: Tag01Icon },
-      { id: "compose", label: "Compose", icon: MailEdit02Icon },
-      { id: "signatures", label: "Signatures", icon: SignatureIcon },
-      { id: "templates", label: "Templates", icon: LayoutTemplateIcon },
-      { id: "fillSign", label: "Fill & sign", icon: FilePenIcon },
-      { id: "files", label: "Files", icon: FolderCloudIcon },
-    ],
-  },
-  {
-    title: "Automation",
-    items: [
-      { id: "notifications", label: "Notifications", icon: Notification03Icon },
-      { id: "bar", label: "Kite bar", icon: PlugSocketIcon },
-      { id: "ai", label: "AI", icon: SparklesIcon },
-    ],
-  },
-  {
-    title: "Kite",
-    items: [
-      { id: "appearance", label: "Appearance", icon: PaintBoardIcon },
-      { id: "buttons", label: "Buttons", icon: CursorPointer01Icon },
-      { id: "privacy", label: "Privacy", icon: Shield01Icon },
-      { id: "shortcuts", label: "Shortcuts", icon: KeyboardIcon, opens: true },
-      { id: "data", label: "Data", icon: DatabaseIcon },
-      { id: "about", label: "About", icon: InformationCircleIcon },
-    ],
-  },
-];
-
-const PAGES = NAV.flatMap((g) => g.items).filter((item): item is Extract<NavItem, { id: SettingsSection }> => !("opens" in item));
-const pageIndex = (id: SettingsSection) => PAGES.findIndex((p) => p.id === id);
-
-/**
- * What search finds: each entry is a row label (or group title) on a page, plus words people might
- * type for it. Labels must match the `label`/`title` the page renders, so search can land on the row.
- */
-const SEARCH: { section: SettingsSection | "shortcuts"; label: string; words?: string }[] = [
-  { section: "accounts", label: "Connected accounts", words: "gmail outlook imap reconnect disconnect add sign in nickname rename colour color picture photo avatar ring" },
-  { section: "accounts", label: "Photos from Google contacts", words: "avatar picture people" },
-  { section: "accounts", label: "Use your calendar", words: "events invites today google outlook" },
-  { section: "labels", label: "Labels & folders", words: "label folder category tag new make create rename delete remove organise" },
-  { section: "compose", label: "Undo send", words: "delay hold take back" },
-  { section: "compose", label: "Waiting on", words: "reply tracking follow up nudge no answer days today" },
-  { section: "compose", label: "Snippets", words: "text shortcut ; canned replies" },
-  { section: "signatures", label: "Signatures", words: "sign off footer logo" },
-  { section: "templates", label: "Brand kit", words: "logo colours font designed email" },
-  { section: "templates", label: "Templates", words: "designed email" },
-  { section: "fillSign", label: "Your signature", words: "pdf fill sign draw" },
-  { section: "fillSign", label: "Remembered layouts", words: "pdf form fill sign like last time" },
-  { section: "notifications", label: "Desktop notifications", words: "alerts popups" },
-  { section: "notifications", label: "Show content in notifications", words: "lock screen private" },
-  { section: "notifications", label: "Deliver the rest in batches", words: "summary times digest" },
-  { section: "notifications", label: "VIPs", words: "important people crown" },
-  { section: "notifications", label: "Sign-in codes", words: "otp 2fa verification code toast bar" },
-  { section: "notifications", label: "Scheduled sends", words: "send later" },
-  { section: "bar", label: "Codes in the Kite bar", words: "otp 2fa verification sign-in desktop" },
-  { section: "bar", label: "Important mail in the Kite bar", words: "vip notify reply archive desktop" },
-  { section: "bar", label: "Meetings starting soon", words: "calendar join reminder event" },
-  { section: "bar", label: "Quiet", words: "do not disturb pill calm bar" },
-  { section: "bar", label: "Other apps and scripts", words: "integrations api token webhook plugin developer ai claude bar" },
-  { section: "files", label: "Show your files in Explorer", words: "drive explorer onedrive folder windows open dialog attachments upload" },
-  { section: "files", label: "Folders", words: "drive explorer people spaces month labels saved searches order layout" },
-  { section: "ai", label: "Usage", words: "ai cost spend tokens dollars requests" },
-  { section: "ai", label: "Limits", words: "ai limit daily monthly budget cap cost tokens dollars" },
-  { section: "ai", label: "Setup", words: "ai anthropic claude openai ollama model key price" },
-  { section: "ai", label: "Recent", words: "ai requests log calls" },
-  { section: "appearance", label: "Theme", words: "dark light system mode" },
-  { section: "appearance", label: "Open Kite on", words: "start startup launch home inbox last screen remember" },
-  { section: "appearance", label: "Open conversations as chat", words: "bubbles reading view" },
-  { section: "appearance", label: "Fonts", words: "typeface interface reading" },
-  { section: "buttons", label: "Reader toolbar", words: "buttons icons customise customize archive snooze delete reply forward star files chat people screenshot more toolbar" },
-  { section: "buttons", label: "Conversation list", words: "hover buttons icons customise customize archive snooze delete read star pin mute row" },
-  { section: "buttons", label: "Swipe right", words: "gesture touch swipe actions archive snooze trash phone tablet" },
-  { section: "buttons", label: "Swipe left", words: "gesture touch swipe actions archive snooze trash phone tablet" },
-  { section: "appearance", label: "Translate into", words: "translate translation language foreign spanish afrikaans offline firefox" },
-  { section: "appearance", label: "Downloaded languages", words: "translate translation remove storage" },
-  { section: "privacy", label: "Remote images", words: "tracking pixels load" },
-  { section: "privacy", label: "Clean tracking from links", words: "utm redirect" },
-  { section: "privacy", label: "Company logos from the web", words: "gravatar bimi pictures duckduckgo" },
-  { section: "privacy", label: "Cloudflare DNS when this computer's fails", words: "dns doh lookup domain fallback" },
-  { section: "privacy", label: "Check for updates", words: "updates github version automatic" },
-  { section: "privacy", label: "Lock with a PIN", words: "password lock security" },
-  { section: "privacy", label: "What left this computer", words: "log third party" },
-  { section: "shortcuts", label: "Shortcuts", words: "keys keyboard bindings" },
-  { section: "data", label: "Clear pictures and files", words: "cache storage avatars attachments" },
-  { section: "data", label: "Reset local copy", words: "resync download again" },
-  { section: "data", label: "Erase everything", words: "delete reset" },
-  { section: "about", label: "Kite", words: "about version update check for updates new release install restart" },
-];
 
 const SWIPE_OPTIONS = SWIPE_ACTIONS.map((value: SwipeAction) => ({ value, label: value === "none" ? "Nothing" : SWIPE_INFO[value].label }));
 
@@ -223,8 +86,6 @@ type Props = {
   lockOn: boolean;
   onLockChanged: (on: boolean) => void;
 };
-
-const request = <T,>(url: string, method: string, body?: unknown) => fetchJson<T>(url, method, body, "Request failed");
 
 export function SettingsView(props: Props) {
   const [active, setActive] = useState<SettingsSection>(() => props.section ?? storedSection() ?? "accounts");
@@ -333,7 +194,6 @@ export function SettingsView(props: Props) {
   };
 
   const { preferences } = props;
-  const notify = (key: NotificationKind | "batch") => (value: boolean) => void props.onPreferences({ notifications: { [key]: value } });
   const desktop = useSyncExternalStore(noSubscribe, inDesktopApp, () => false);
   const reconnectCount = props.reconnect.length;
 
@@ -454,80 +314,7 @@ export function SettingsView(props: Props) {
           </Page>
         );
       case "notifications":
-        return (
-          <Page icon={Notification03Icon} title="Notifications" description="What Kite tells you about while you're working elsewhere.">
-            <Group title="Alerts">
-              <DesktopNotifications value={preferences.notifications.desktop} onChange={notify("desktop")} />
-              <ToggleRow
-                label="Show content in notifications"
-                detail={
-                  preferences.notifications.showContent
-                    ? "Sender, subject and codes show, including on the lock screen."
-                    : "Only “New mail” or “Sign-in code ready”. Nothing private on the lock screen."
-                }
-                value={preferences.notifications.showContent}
-                onChange={(showContent) => void props.onPreferences({ notifications: { showContent } })}
-              />
-            </Group>
-
-            <Group title="New mail" description="Your automations decide what notifies. VIPs come straight away.">
-              <Row
-                label="Which mail notifies"
-                detail="“VIPs: notify now” and “Everyone else: notify” in Automations."
-                control={
-                  <button onClick={props.onOpenAutomations} className={buttonClass}>
-                    Open Automations
-                    <Icon icon={ArrowUpRight01Icon} size={13} />
-                  </button>
-                }
-              />
-              <ToggleRow
-                label="Deliver the rest in batches"
-                detail={preferences.notifications.batch ? "Everything but VIPs and codes waits for the next time below, as one summary." : "Notifications come as mail arrives."}
-                value={preferences.notifications.batch}
-                onChange={notify("batch")}
-              >
-                <AnimatePresence initial={false}>
-                  {preferences.notifications.batch ? (
-                    <motion.div {...blurFade({ y: -4 })}>
-                      <BatchTimes times={preferences.notifications.batchTimes} onChange={(batchTimes) => void props.onPreferences({ notifications: { batchTimes } })} />
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
-              </ToggleRow>
-              <VipList people={props.people} onRemove={(email) => props.onPerson({ email, vip: false })} />
-            </Group>
-
-            <Group title="Sign-in codes">
-              <ToggleRow
-                label="Sign-in codes"
-                detail={desktop ? "Codes and sign-in links pop up as they arrive, ready to copy or open." : "Codes pop up as they arrive, ready to copy."}
-                value={preferences.notifications.codes}
-                onChange={notify("codes")}
-              />
-              {desktop ? (
-                <>
-                  <ToggleRow
-                    label="Codes as Windows notifications"
-                    detail="With Copy code or Open link. Do Not Disturb holds these back."
-                    value={preferences.desktop.codeToast}
-                    onChange={(codeToast) => void props.onPreferences({ desktop: { codeToast } })}
-                  />
-                  <ToggleRow
-                    label="Copy code shortcut"
-                    detail={`${shortcutLabel(DEFAULT_CODE_SHORTCUT)} in any app copies the newest code (last 10 minutes).`}
-                    value={preferences.desktop.codeShortcut !== ""}
-                    onChange={(on) => void props.onPreferences({ desktop: { codeShortcut: on ? DEFAULT_CODE_SHORTCUT : "" } })}
-                  />
-                </>
-              ) : null}
-            </Group>
-
-            <Group title="Reminders">
-              <ToggleRow label="Scheduled sends" detail="When a message you scheduled goes out." value={preferences.notifications.scheduled} onChange={notify("scheduled")} />
-            </Group>
-          </Page>
-        );
+        return <NotificationsSection preferences={preferences} onPreferences={props.onPreferences} desktop={desktop} people={props.people} onPerson={props.onPerson} onOpenAutomations={props.onOpenAutomations} />;
       case "bar":
         return <BarSection preferences={preferences} onPreferences={props.onPreferences} desktop={desktop} />;
       case "files":
@@ -808,310 +595,6 @@ export function SettingsView(props: Props) {
   );
 }
 
-function DesktopNotifications({ value, onChange }: { value: boolean; onChange: (value: boolean) => void }) {
-  const supported = typeof Notification !== "undefined";
-  const [permission, setPermission] = useState<NotificationPermission>(supported ? Notification.permission : "denied");
-  return (
-    <ToggleRow
-      label="Desktop notifications"
-      detail={
-        !supported
-          ? "This browser can't show notifications."
-          : permission === "denied"
-            ? "Blocked for Kite. Allow notifications for this site in your browser's settings."
-            : "Shown only when Kite isn't the window you're looking at."
-      }
-      value={value && permission !== "denied"}
-      onChange={onChange}
-    >
-      {supported && permission === "default" && value ? (
-        <button onClick={() => void Notification.requestPermission().then(setPermission)} className="self-start text-[12px] font-medium text-accent hover:opacity-80">
-          Allow notifications
-        </button>
-      ) : null}
-    </ToggleRow>
-  );
-}
-
-/**
- * "Reconnect" links for accounts whose sign-in is missing a permission, under a short why. Gmail over
- * IMAP gets "Connect Google" instead: its optional Google sign-in asks for it.
- */
-function ReconnectNote({ why, accounts }: { why: string; accounts: Account[] }) {
-  return (
-    <AnimatePresence initial={false}>
-      {accounts.length ? (
-        <motion.div {...blurFade({ y: -4 })}>
-          <Note>
-            {why}
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {accounts.map((account) => {
-                const verb = account.googleLink !== undefined ? "Connect Google" : "Reconnect";
-                return (
-                  <a key={account.id} href={permissionHref(account)} className={cn(buttonClass, "border-accent/50 text-accent")}>
-                    {accounts.length === 1 ? verb : `${verb} for ${accountName(account)}`}
-                  </a>
-                );
-              })}
-            </div>
-          </Note>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
-  );
-}
-
-function SenderPhotos({ value, accounts, onChange }: { value: boolean; accounts: Account[]; onChange: (value: boolean) => void }) {
-  // Accounts whose sign-in doesn't include contacts yet. Until they reconnect, Kite uses the other sources.
-  const missing = value ? accounts.filter((a) => a.contactPhotos === false) : [];
-  return (
-    <ToggleRow
-      label="Photos from Google contacts"
-      detail={value ? "Kite asks Google only about senders you see, and keeps the photos here." : "Show the photo from your Google contacts next to people who email you."}
-      value={value}
-      onChange={onChange}
-    >
-      <ReconnectNote
-        why="Google needs your permission first: tick the contacts boxes when it asks. Until then Kite uses logos and Gravatar."
-        accounts={missing}
-      />
-    </ToggleRow>
-  );
-}
-
-function CalendarAccess({ value, accounts, onChange }: { value: boolean; accounts: Account[]; onChange: (value: boolean) => void }) {
-  // Accounts whose sign-in doesn't include the calendar yet. Until they reconnect, invite cards ask first.
-  const missing = value ? accounts.filter((a) => a.calendar === false) : [];
-  return (
-    <ToggleRow
-      label="Use your calendar"
-      detail={
-        value
-          ? "Events show in Today and Calendar; invite answers and Add to calendar go to your calendar. Kite never answers or adds by itself."
-          : "Show your events, answer invites in your calendar and add events from mail."
-      }
-      value={value}
-      onChange={onChange}
-    >
-      <ReconnectNote
-        why="Allow calendar access first. Until then Today has no events for these accounts."
-        accounts={missing}
-      />
-      <MailCalendarNote accounts={accounts.filter((a) => a.mailCalendar)} />
-    </ToggleRow>
-  );
-}
-
-/** Accounts without a calendar Kite can reach get Kite's mail calendar: say plainly what it can and can't do. */
-function MailCalendarNote({ accounts }: { accounts: Account[] }) {
-  if (!accounts.length) return null;
-  return (
-    <Note>
-      {accounts.map(accountName).join(", ")} {accounts.length === 1 ? "has" : "have"} no calendar Kite can reach, so Kite builds one from the invites in
-      your mail: ones you answered Yes or Maybe, and ones you haven&rsquo;t answered yet. It can&rsquo;t see events that never came by email, and events you
-      add stay in Kite, not on your phone.
-      {accounts.some((a) => a.googleLink === false) ? " For Gmail, Connect Google on the account above to use Google Calendar instead." : null}
-    </Note>
-  );
-}
-
-function AccountRow({
-  account,
-  demo,
-  reconnect,
-  info,
-  onDisconnected,
-  onChange,
-  onError,
-  onSignInAgain,
-}: {
-  account: Account;
-  demo: boolean;
-  reconnect: boolean;
-  info?: StorageInfo["accounts"][number];
-  onDisconnected: () => void;
-  onChange: (patch: Partial<Account>) => void;
-  onError: (message: string) => void;
-  onSignInAgain: () => void;
-}) {
-  const [confirming, setConfirming] = useState(false);
-  const [look, setLook] = useState(false);
-  const [name, setName] = useState(account.nickname ?? "");
-
-  /** Saves the name shown in Kite's sidebar and switcher. Empty goes back to the Google name. */
-  const saveName = async () => {
-    const nickname = name.trim() || null;
-    if (nickname === (account.nickname ?? null)) return;
-    const before = account.nickname ?? null;
-    onChange({ nickname });
-    if (demo) return;
-    try {
-      await request(`/api/accounts`, "PATCH", { id: account.id, nickname });
-    } catch (error) {
-      onChange({ nickname: before });
-      setName(before ?? "");
-      onError(error instanceof Error && error.message !== "Request failed" ? error.message : "Couldn't rename the account. Try again.");
-    }
-  };
-  const [busy, setBusy] = useState(false);
-  const spec = accountSpec(account);
-  const syncing = useAccountSync(account.id);
-  const status = demo
-    ? "Demo account"
-    : syncing && !reconnect
-      ? `Syncing · ${syncCount(syncing)}`
-    : reconnect
-      ? spec.signIn === "imap"
-        ? "Your mail server stopped accepting the password. Reconnect to keep syncing."
-        : `${signInCompany(spec.signIn)} stopped letting Kite in. Reconnect to keep syncing.`
-      : info
-        ? `${info.threads.toLocaleString()} conversations${info.syncedAt ? ` · synced ${formatDistanceToNow(new Date(info.syncedAt), { addSuffix: true })}` : ""}`
-        : serviceName(account);
-
-  const disconnect = async () => {
-    setBusy(true);
-    try {
-      await request(`/api/accounts?id=${encodeURIComponent(account.id)}`, "DELETE");
-      onDisconnected();
-    } catch {
-      onError("Couldn't disconnect. Try again.");
-      setBusy(false);
-    }
-  };
-
-  const highlight = reconnect || !!account.reconnectFor;
-  return (
-    <div className="flex flex-col gap-2.5 px-4 py-3.5" data-sensitive>
-      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
-        <Tooltip label={look ? "Done" : "Colour and picture"}>
-          <button aria-label="Colour and picture" aria-expanded={look} onClick={() => setLook((v) => !v)} className="rounded-full transition-transform duration-150 hover:scale-105">
-            <AccountFace account={account} syncing={!!syncing && !reconnect} className="size-9 text-[12px]" />
-          </button>
-        </Tooltip>
-        <div className="min-w-0 flex-1 basis-48">
-          <input
-            value={name}
-            maxLength={40}
-            aria-label={`Name for ${account.email} in Kite`}
-            placeholder={account.name || "Name this account"}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={() => void saveName()}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-              if (e.key === "Escape") {
-                setName(account.nickname ?? "");
-                requestAnimationFrame(() => (e.target as HTMLInputElement).blur());
-              }
-            }}
-            className="-mx-1.5 h-7 w-full max-w-[260px] rounded-md border border-transparent bg-transparent px-1.5 text-[13.5px] font-semibold outline-none transition-colors placeholder:text-pane-fg hover:border-pane-border focus:border-accent/60 focus:placeholder:text-pane-muted"
-          />
-          <p className="truncate text-[12px] text-pane-muted">
-            {account.email} <span className="opacity-60">·</span> {serviceName(account)}
-          </p>
-          <p className={cn("mt-0.5 flex items-center gap-1 truncate text-[12px]", reconnect ? "text-warning" : "text-pane-muted")}>
-            {reconnect ? <Icon icon={Alert02Icon} size={13} className="shrink-0" /> : syncing ? <Spinner size={12} className="shrink-0 text-accent" /> : null}
-            {status}
-          </p>
-        </div>
-        {demo ? null : (
-          <div className="flex shrink-0 items-center gap-1.5">
-            {spec.signIn === "imap" ? (
-              // A password account signs in again in Kite's own form.
-              <button onClick={onSignInAgain} className={cn(buttonClass, highlight && "border-accent/50 text-accent")}>
-                Reconnect
-              </button>
-            ) : (
-              <a href={`/api/auth/${spec.signIn}?hint=${encodeURIComponent(account.email)}`} className={cn(buttonClass, highlight && "border-accent/50 text-accent")}>
-                Reconnect
-              </a>
-            )}
-            <button onClick={() => setConfirming(true)} disabled={confirming} className={buttonClass}>
-              Disconnect
-            </button>
-          </div>
-        )}
-      </div>
-      <AnimatePresence initial={false}>{look ? <AccountLook account={account} demo={demo} onChange={onChange} onError={onError} /> : null}</AnimatePresence>
-      {account.reconnectFor && !reconnect && !demo ? <Note>{account.reconnectFor}</Note> : null}
-      {account.googleLink !== undefined && !demo ? <GoogleLink account={account} onError={onError} /> : null}
-      <AnimatePresence initial={false}>
-        {confirming ? (
-          <Confirm action="Disconnect" busy={busy} onCancel={() => setConfirming(false)} onConfirm={() => void disconnect()}>
-            Kite signs out and removes this account&apos;s mail from this computer. Nothing changes in {serviceName(account)}.
-          </Confirm>
-        ) : null}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/**
- * Gmail over IMAP: the optional Google sign-in for what IMAP can't give (the account's photo, its
- * calendar, photos from its contacts). Never asks for mail, never required.
- */
-function GoogleLink({ account, onError }: { account: Account; onError: (message: string) => void }) {
-  const [busy, setBusy] = useState(false);
-  const unlink = async () => {
-    setBusy(true);
-    try {
-      await request(`/api/google-link?account=${encodeURIComponent(account.id)}`, "DELETE");
-    } catch {
-      onError("Couldn't disconnect Google. Try again.");
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg bg-pane-2 px-3 py-2 text-[12px]">
-      <span className="min-w-0 flex-1 basis-56 text-pane-muted">
-        {account.googleLink
-          ? "Google sign-in connected for your photo, calendar and contact photos. It can't read your mail."
-          : "Connect Google for your photo, calendar and contact photos. Optional, and it can't read your mail."}
-      </span>
-      {account.googleLink ? (
-        <button onClick={() => void unlink()} disabled={busy} className={cn(buttonClass, "flex items-center gap-1.5")}>
-          {busy ? <Spinner size={12} /> : null}
-          Disconnect Google
-        </button>
-      ) : (
-        <a href={permissionHref(account)} className={buttonClass}>
-          Connect Google
-        </a>
-      )}
-    </div>
-  );
-}
-
-function SignatureCard({ account, design, onEdit }: { account: Account; design: Design | undefined; onEdit: () => void }) {
-  return (
-    <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-pane-border">
-      <div className="flex min-w-0 items-center gap-2.5 px-3.5 py-3">
-        <AccountFace account={account} className="size-6 text-[10px]" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-medium">{accountName(account)}</p>
-          <p className="truncate text-[11.5px] text-pane-muted">{account.email}</p>
-        </div>
-        <button onClick={onEdit} className={buttonClass}>
-          {design ? "Edit" : "Design"}
-        </button>
-      </div>
-      <button
-        onClick={onEdit}
-        className="group block min-h-24 flex-1 border-t border-pane-border bg-pane-2/60 p-2 text-left transition-colors hover:bg-pane-hover"
-        aria-label={`${design ? "Edit" : "Design a"} signature for ${account.email}`}
-      >
-        {design ? (
-          <DesignPreview design={design} className="pointer-events-none" />
-        ) : (
-          <span className="grid h-full min-h-20 place-items-center rounded-lg border border-dashed border-pane-border text-[12px] text-pane-muted transition-colors group-hover:text-pane-fg">
-            No signature yet
-          </span>
-        )}
-      </button>
-    </div>
-  );
-}
-
 const START_OPTIONS: { id: StartView; label: string }[] = [
   { id: "last", label: "Last screen" },
   { id: "home", label: "Home" },
@@ -1128,133 +611,4 @@ function ShortcutsHint() {
   const { primary } = useShortcuts();
   const combo = primary("shortcuts");
   return combo ? <KeyCombo combo={combo} keyClassName="bg-pane-2 text-pane-muted" /> : null;
-}
-
-function DataSection({
-  storage,
-  onChanged,
-  onToast,
-}: {
-  storage: StorageInfo | null;
-  onChanged: (storage: StorageInfo) => void;
-  onToast: (message: string) => void;
-}) {
-  const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState<"reset-cache" | "clear-avatars" | null>(null);
-
-  const run = async (action: "reset-cache" | "clear-avatars") => {
-    setBusy(action);
-    try {
-      const res = await request<{ storage: StorageInfo }>("/api/settings", "POST", { action });
-      onChanged(res.storage);
-      onToast(action === "reset-cache" ? "Local copy cleared. Downloading your mail again." : "Pictures and files cleared");
-      setConfirming(false);
-    } catch {
-      onToast("That didn't go through. Try again.");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const stats: [string, string][] = storage
-    ? [
-        ["Mail database", formatBytes(storage.database)],
-        ["Pictures and files", formatBytes(storage.avatars + (storage.attachments ?? 0))],
-        ["Conversations", storage.threads.toLocaleString()],
-        ["Readable offline", storage.offline.toLocaleString()],
-      ]
-    : [];
-
-  return (
-    <>
-      <Group title="On this computer" bare>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,9rem),1fr))] gap-2">
-          {(stats.length ? stats : [["", ""], ["", ""], ["", ""], ["", ""]]).map(([label, value], i) => (
-            <div key={i} className="rounded-xl border border-pane-border px-3.5 py-3">
-              {label ? (
-                <div key={value} className="blur-fade">
-                  <p className="text-[18px] font-semibold tabular-nums tracking-tight">{value}</p>
-                  <p className="mt-0.5 text-[11.5px] text-pane-muted">{label}</p>
-                </div>
-              ) : (
-                <div className="h-[45px] animate-pulse rounded-md bg-pane-2" />
-              )}
-            </div>
-          ))}
-        </div>
-      </Group>
-
-      <Group title="Maintenance">
-        <Row
-          label="Clear pictures and files"
-          detail="Sender pictures and opened attachments. Fetched again when needed."
-          control={
-            <button onClick={() => void run("clear-avatars")} disabled={busy != null} className={buttonClass}>
-              {busy === "clear-avatars" ? <Spinner /> : null}
-              Clear
-            </button>
-          }
-        />
-        <Row
-          label="Reset local copy"
-          detail="Fixes mail that looks out of date by downloading it again."
-          control={
-            <button onClick={() => setConfirming(true)} disabled={busy != null || confirming} className={buttonClass}>
-              Reset
-            </button>
-          }
-        >
-          <AnimatePresence initial={false}>
-            {confirming ? (
-              <Confirm action="Reset and download" busy={busy === "reset-cache"} onCancel={() => setConfirming(false)} onConfirm={() => void run("reset-cache")}>
-                Removes the local copy of your mail. Accounts, Screener decisions, automations and their collections, snoozes and scheduled sends are kept.
-              </Confirm>
-            ) : null}
-          </AnimatePresence>
-        </Row>
-      </Group>
-
-      <Group title="Start over">
-        <EraseRow onToast={onToast} />
-      </Group>
-    </>
-  );
-}
-
-/** Erases everything Kite keeps and disconnects every account, after an inline confirm. */
-function EraseRow({ onToast }: { onToast: (message: string) => void }) {
-  const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const erase = async () => {
-    setBusy(true);
-    try {
-      await request("/api/settings", "POST", { action: "erase-everything" });
-      try {
-        for (const key of Object.keys(localStorage)) if (key.startsWith("kite-")) localStorage.removeItem(key);
-      } catch {}
-      window.location.reload();
-    } catch {
-      setBusy(false);
-      onToast("Kite couldn't erase everything. Try again.");
-    }
-  };
-  return (
-    <Row
-      label="Erase everything"
-      detail="Disconnects every account and deletes all mail, settings, automations and files Kite keeps here."
-      control={
-        <button onClick={() => setConfirming(true)} disabled={busy || confirming} className={cn(buttonClass, "text-warning")}>
-          Erase
-        </button>
-      }
-    >
-      <AnimatePresence initial={false}>
-        {confirming ? (
-          <Confirm action="Erase everything" danger busy={busy} onCancel={() => setConfirming(false)} onConfirm={() => void erase()}>
-            This can&apos;t be undone. Your mail stays with your provider.
-          </Confirm>
-        ) : null}
-      </AnimatePresence>
-    </Row>
-  );
 }

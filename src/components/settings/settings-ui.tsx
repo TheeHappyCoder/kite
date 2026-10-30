@@ -3,6 +3,7 @@
 import { useId } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { blurFade, springSnappy } from "@/lib/motion";
+import { fetchJson } from "@/lib/fetch-json";
 import { cn } from "@/lib/utils";
 import { Icon, type IconData } from "../icon";
 import { FLUID_ITEM, FluidList } from "../ui/fluid-hover";
@@ -229,3 +230,5 @@ export function Confirm({
 export function Note({ children, className }: { children: React.ReactNode; className?: string }) {
   return <div className={cn("rounded-lg bg-pane-2 px-3 py-2.5 text-[12px] leading-snug text-pane-muted", className)}>{children}</div>;
 }
+
+export const request = <T,>(url: string, method: string, body?: unknown) => fetchJson<T>(url, method, body, "Request failed");

@@ -3,7 +3,7 @@ import { sideOf, type InboxSide } from "./sides";
 import { inScope, type AccountScope } from "./scope";
 import { matchesSearch, parseSearch } from "./search";
 import { applyOverride, pinnedFirst, type ThreadOverride } from "./overrides";
-import type { SettingsSection } from "@/components/settings/settings-view";
+import type { SettingsSection } from "@/components/settings/settings-nav";
 import { within, type Space } from "../spaces";
 
 export type View =
