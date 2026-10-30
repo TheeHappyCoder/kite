@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useDismiss } from "@/components/ui/use-dismiss";
+import { Fragment, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
 import { MoreHorizontalIcon } from "@hugeicons/core-free-icons";
@@ -43,18 +44,7 @@ export function ThreadMenu({
   const root = useRef<HTMLDivElement>(null);
   const shortcuts = useShortcuts();
 
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !root.current?.contains(e.target as Node)) setOpen(false);
-    };
-    window.addEventListener("mousedown", close);
-    window.addEventListener("keydown", close);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("keydown", close);
-    };
-  }, [open]);
+  useDismiss(open, root, setOpen);
 
   return (
     <div ref={root} className="relative">

@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useDismiss } from "@/components/ui/use-dismiss";
+import { createContext, useContext, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Alert02Icon,
@@ -87,18 +88,7 @@ export function PrivacyChip({ message, state }: { message: Message; state: Retur
   // Warnings outrank everything: a forged sender or links that lie about where they go.
   const warn = auth === "fail" || misleading > 0;
 
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !root.current?.contains(e.target as Node)) setOpen(false);
-    };
-    window.addEventListener("mousedown", close);
-    window.addEventListener("keydown", close);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("keydown", close);
-    };
-  }, [open]);
+  useDismiss(open, root, setOpen);
 
   if (!stopped && !remoteImages && !warn) return null;
 
