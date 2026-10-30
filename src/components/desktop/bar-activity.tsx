@@ -136,7 +136,7 @@ function glance(value: BarValue | undefined, now: number) {
 export const ticks = (activity: BarActivity) => activity.value?.type === "countdown";
 
 /** How far along the tile's ring is (progress only). */
-export const activityLine = (activity: BarActivity) => (activity.value?.type === "progress" ? activity.value.progress : null);
+const activityLine = (activity: BarActivity) => (activity.value?.type === "progress" ? activity.value.progress : null);
 
 /** Whether there's a body to show under the row while open. */
 export const hasSheet = (activity: BarActivity) => Boolean(activity.body);

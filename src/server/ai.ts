@@ -19,7 +19,7 @@ import { getPreferences, updatePreferences } from "./settings";
 
 type AiProvider = "anthropic" | "openai-compatible";
 
-export type AiSettings = {
+type AiSettings = {
   provider: AiProvider;
   preset: string;
   /** At least one. Each carries the price the user pays (US dollars per million tokens), or null for tokens only. */

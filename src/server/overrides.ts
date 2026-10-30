@@ -40,7 +40,7 @@ export function listOverrides(): Record<string, ThreadOverride> {
 }
 
 /** One conversation's local state as the client keeps it (spaces included). */
-export function shownOverride(threadId: string): ThreadOverride | null {
+function shownOverride(threadId: string): ThreadOverride | null {
   const own = getOverride(threadId);
   const spaces = threadSpaces([threadId])[threadId];
   const shown = { ...own, ...(spaces.length ? { spaces } : {}) };

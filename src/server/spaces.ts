@@ -22,7 +22,7 @@ type SpaceRow = {
   threads: number;
 };
 
-export class SpaceError extends Error {
+class SpaceError extends Error {
   name = "SpaceError";
 }
 

@@ -155,7 +155,7 @@ export function DayPanel({ data, now, demo, dot, onOpen }: { data: TodayData; no
   );
 }
 
-export function Section({ title, icon, index, count, children }: { title: string; icon: IconData; index: number; count?: number; children: React.ReactNode }) {
+function Section({ title, icon, index, count, children }: { title: string; icon: IconData; index: number; count?: number; children: React.ReactNode }) {
   return (
     <section className="blur-fade-up min-w-0" style={{ "--i": index } as React.CSSProperties}>
       <h2 className="mb-2 flex items-center gap-2 px-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-pane-muted">
@@ -224,7 +224,7 @@ function EventRow({ event, dot }: { event: CalendarEvent; dot?: string }) {
   );
 }
 
-export function Row({ title, detail, dot, onClick }: { title: string; detail: string; dot?: string; onClick: () => void }) {
+function Row({ title, detail, dot, onClick }: { title: string; detail: string; dot?: string; onClick: () => void }) {
   return (
     <button {...FLUID_ITEM} onClick={onClick} className="blur-fade relative flex w-full flex-col rounded-lg px-2.5 py-2 text-left">
       <span className="truncate text-[13.5px] font-medium" title={title}>
@@ -383,6 +383,6 @@ function RowAction({ icon, label, onClick }: { icon: IconData; label: string; on
   );
 }
 
-export function Empty({ children }: { children: React.ReactNode }) {
+function Empty({ children }: { children: React.ReactNode }) {
   return <p className="blur-fade px-2.5 py-1 text-[12.5px] leading-relaxed text-pane-muted">{children}</p>;
 }

@@ -156,7 +156,7 @@ export const NEW_MAIL_ONLY = new Set<Verb>(["notify", "screen", "prepare_reply",
 // ---------------------------------------------------------------------------
 
 /** new_mail: mail arriving; sent: mail you send (from Kite or anywhere else); schedule: a day each week or month. */
-export const TRIGGERS = ["new_mail", "sent", "schedule"] as const;
+const TRIGGERS = ["new_mail", "sent", "schedule"] as const;
 export type Trigger = (typeof TRIGGERS)[number];
 
 export const TRIGGER_NAMES: Record<Trigger, string> = { new_mail: "Mail arrives", sent: "I send mail", schedule: "On a schedule" };

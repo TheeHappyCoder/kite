@@ -91,9 +91,9 @@ function startRect(slot: number): Rect {
 }
 
 /** Where minimised composers sit: along the bottom, left or right edge, never over the middle. */
-export type DockEdge = "bottom" | "left" | "right";
+type DockEdge = "bottom" | "left" | "right";
 /** An edge and the tab's centre along it (0 to 1), so a spot survives viewport changes. */
-export type DockSpot = { edge: DockEdge; at: number };
+type DockSpot = { edge: DockEdge; at: number };
 
 const DOCK_KEY = "kite-compose-dock";
 /** Space between tabs on one edge. */

@@ -33,7 +33,7 @@ export type Space = {
   threads: number;
 };
 
-export const SpaceName = z.string().trim().min(1, "Give it a name").max(80);
+const SpaceName = z.string().trim().min(1, "Give it a name").max(80);
 
 export const NewSpace = z.object({
   name: SpaceName,

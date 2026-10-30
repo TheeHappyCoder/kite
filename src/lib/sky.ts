@@ -2,7 +2,7 @@
 // <html> as data-sky, set before first paint (skyScript, inline in layout.tsx) and kept current while
 // Kite is open (useSkyPhase in use-sky.ts). Dark panes always get the night sky, whatever the phase.
 
-export type SkyPhase = "dawn" | "day" | "golden" | "night";
+type SkyPhase = "dawn" | "day" | "golden" | "night";
 
 /** The phase for a local time, in minutes past midnight. */
 export function skyPhase(minutes: number): SkyPhase {

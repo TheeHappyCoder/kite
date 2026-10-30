@@ -22,7 +22,7 @@ import { Tooltip } from "../ui/tooltip";
 // so what's stored and sent is typed text with **bold**, *italic*, [links](…) and lists, never
 // pasted HTML. Typing ";" opens the snippet picker.
 
-export type FormatCommand = "bold" | "italic" | "link" | "bulletList" | "numberList";
+type FormatCommand = "bold" | "italic" | "link" | "bulletList" | "numberList";
 export type FormatState = Record<Exclude<FormatCommand, "link">, boolean>;
 export type RichEditorHandle = {
   focus: () => void;

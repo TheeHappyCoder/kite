@@ -19,11 +19,11 @@ import { Spinner } from "../ui/spinner";
  * What the reader needs to know: the target, whether to offer, and `register`: the newest message
  * hands in what the shortcut does (mail-app calls it on `t`); returns the unregister.
  */
-export type TranslateSettings = { to: string; offer: boolean; register: (handler: () => void) => () => void };
+type TranslateSettings = { to: string; offer: boolean; register: (handler: () => void) => () => void };
 export const TranslateContext = createContext<TranslateSettings>({ to: "", offer: true, register: () => () => {} });
 
 /** The language messages go into: the preference, else the user's own. */
-export const targetOf = (to: string) => to || ownLanguage();
+const targetOf = (to: string) => to || ownLanguage();
 
 /** How long a message stays open before its language is worked out. */
 const DETECT_AFTER_MS = 400;
@@ -47,7 +47,7 @@ function detect(text: string) {
 
 /** What can be translated into each target, read once per target (again after a download or removal). */
 const states = new Map<string, Promise<TranslateState>>();
-export function translateStateFor(target: string, fresh = false) {
+function translateStateFor(target: string, fresh = false) {
   if (fresh) states.delete(target);
   let state = states.get(target);
   if (!state) {

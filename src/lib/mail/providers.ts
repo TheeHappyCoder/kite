@@ -35,7 +35,7 @@ type OrganiseModel = {
 };
 
 /** Which kinds of the user's own labels Kite can make, rename and delete for a provider. */
-export type LabelManagement = { create: LabelKind[]; rename: LabelKind[]; remove: LabelKind[] };
+type LabelManagement = { create: LabelKind[]; rename: LabelKind[]; remove: LabelKind[] };
 
 export type ProviderSpec = {
   id: Provider;

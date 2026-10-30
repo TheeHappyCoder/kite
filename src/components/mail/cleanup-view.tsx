@@ -329,7 +329,7 @@ export function useCleanup({
   };
 }
 
-export type CleanupState = ReturnType<typeof useCleanup>;
+type CleanupState = ReturnType<typeof useCleanup>;
 
 // ---------------------------------------------------------------------------
 // The sender table

@@ -23,7 +23,7 @@ const MODEL_MAJORS = new Set(["1", "2"]);
 /** The list of languages is read again after this long. */
 const RECORDS_MAX_AGE = 7 * 86_400_000;
 
-export type FileType = "model" | "lex" | "vocab" | "srcvocab" | "trgvocab";
+type FileType = "model" | "lex" | "vocab" | "srcvocab" | "trgvocab";
 const FILE_TYPES = new Set<string>(["model", "lex", "vocab", "srcvocab", "trgvocab"]);
 
 type Attachment = { hash: string; size: number; location: string };
@@ -32,15 +32,15 @@ type WasmRecord = { name: string; version: string; attachment: Attachment; filte
 type Records = { at: number; models: ModelRecord[]; engine: WasmRecord | null };
 
 /** One model file as the worker loads it. */
-export type ModelFile = { type: FileType; file: string; name: string; size: number };
+type ModelFile = { type: FileType; file: string; name: string; size: number };
 /** A pair's files (from -> to), what the worker builds one TranslationModel from. */
-export type PairFiles = { from: string; to: string; files: ModelFile[] };
+type PairFiles = { from: string; to: string; files: ModelFile[] };
 
 const dir = (...parts: string[]) => dataDir("translations", ...parts);
 const fileOf = (attachment: Attachment, ext: string) => `${attachment.hash.slice(0, 32)}${ext}`;
 
 /** Files the worker may ask for: only names Kite wrote (a hash and an extension). */
-export const FILE_NAME = /^[a-f0-9]{32}\.(bin|spm|wasm)$/;
+const FILE_NAME = /^[a-f0-9]{32}\.(bin|spm|wasm)$/;
 
 type State = { records?: Records; downloads: Map<string, Promise<void>> };
 const store = globalThis as unknown as { kiteTranslate?: State };

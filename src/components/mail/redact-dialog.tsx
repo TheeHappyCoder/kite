@@ -14,7 +14,7 @@ import { Spinner } from "../ui/spinner";
 import { Switch } from "../ui/switch";
 import { Icon } from "../icon";
 
-export const NO_REDACTIONS: Redactions = { phrases: [], images: [], hideTo: false };
+const NO_REDACTIONS: Redactions = { phrases: [], images: [], hideTo: false };
 
 type Source = { html: string | null; text: string };
 

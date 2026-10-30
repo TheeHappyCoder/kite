@@ -2,7 +2,7 @@ import type { Transition, Variants } from "motion/react";
 
 /** Motion counterparts of the `blur-fade*` CSS utilities in globals.css. */
 
-export const EASE_OUT: Transition["ease"] = [0.22, 1, 0.36, 1];
+const EASE_OUT: Transition["ease"] = [0.22, 1, 0.36, 1];
 
 const blurFadeTransition: Transition = { duration: 0.32, ease: EASE_OUT };
 

@@ -8,7 +8,7 @@ import type { IconData } from "../icon";
 import { ExpandingTabs, type ExpandingTab } from "../ui/expanding-tabs";
 
 /** The tab shortcuts, by position. */
-export const TAB_SHORTCUTS: ShortcutAction[] = ["tab1", "tab2", "tab3", "tab4"];
+const TAB_SHORTCUTS: ShortcutAction[] = ["tab1", "tab2", "tab3", "tab4"];
 
 /** Each tab's icon (Outlook's Focused / Other share Primary's and Updates'). */
 const TAB_ICONS: Record<InboxSide, IconData> = {

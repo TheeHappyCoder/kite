@@ -381,7 +381,7 @@ type Arrival = {
 };
 
 /** Whether one message matches an answer's search (expectations: "payment received", from:stripe.com). */
-export function matchesAnswer(thread: Thread, message: Message, answer: string) {
+function matchesAnswer(thread: Thread, message: Message, answer: string) {
   const terms = parseSearch(answer);
   if (!terms.length) return true;
   const labels = message.labels ?? [];

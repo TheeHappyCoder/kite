@@ -850,7 +850,7 @@ export function ScheduleEditor({ value, onChange }: { value: Schedule; onChange:
 const ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** The people a schedule is for: an address per chip, typed or pasted (several at once, split on commas or spaces). */
-export function PeopleEditor({ emails, onChange }: { emails: string[]; onChange: (emails: string[]) => void }) {
+function PeopleEditor({ emails, onChange }: { emails: string[]; onChange: (emails: string[]) => void }) {
   const [text, setText] = useState("");
   const add = () => {
     const found = text

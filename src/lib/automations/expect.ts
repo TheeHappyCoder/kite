@@ -18,7 +18,7 @@ export const NUDGES = [
  */
 export type ExpectPlan = { askSubject: string; ask: string; nudges: string[]; every: number; auto: boolean; period?: string };
 
-export type ExpectStatus = "waiting" | "met" | "stopped";
+type ExpectStatus = "waiting" | "met" | "stopped";
 
 export type Expectation = {
   id: string;

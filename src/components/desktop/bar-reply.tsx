@@ -23,10 +23,10 @@ import { BTN, PRIMARY } from "./bar-activity";
  */
 
 
-export type ReplyFile = { key: string; name: string; bytes: number; type: string; ref?: AttachmentRef; error?: string };
+type ReplyFile = { key: string; name: string; bytes: number; type: string; ref?: AttachmentRef; error?: string };
 
 /** writing → sending → held (Undo send) → sent; failed goes back to writing with the reason. */
-export type ReplyPhase = "writing" | "sending" | "held" | "sent";
+type ReplyPhase = "writing" | "sending" | "held" | "sent";
 
 type Sent = { held?: string; seconds: number };
 
@@ -163,7 +163,7 @@ export function useQuickReply(mail: DesktopMail | null, demo: boolean) {
   return { text, setText, files, addFiles, removeFile, phase, error, sent, canSend, uploading, prepare, reset, send, undo };
 }
 
-export type QuickReplyState = ReturnType<typeof useQuickReply>;
+type QuickReplyState = ReturnType<typeof useQuickReply>;
 
 const iconFor = (file: ReplyFile) => (file.type.startsWith("image/") ? Image01Icon : file.type === "application/pdf" ? Pdf01Icon : Attachment01Icon);
 

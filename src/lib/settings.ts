@@ -9,7 +9,7 @@ import { ButtonPrefs, DEFAULT_BUTTONS } from "./buttons";
 // Kept as plain typed data so the UI, the sync engine and (later) an AI can all read and change it.
 
 /** Where Kite opens (Settings → Appearance). */
-export const START_VIEWS = ["last", "home", "inbox"] as const;
+const START_VIEWS = ["last", "home", "inbox"] as const;
 export type StartView = (typeof START_VIEWS)[number];
 
 export const NotificationPrefs = z.object({
@@ -136,7 +136,7 @@ const PrivacyPrefs = z.object({
  * the one switch that pauses all of it. What it spends counts against `aiLimits`.
  */
 /** Translation on this computer (server/translate.ts): into which language, and whether the reader offers it. */
-export const TranslatePrefs = z.object({
+const TranslatePrefs = z.object({
   /** A model code ("en", "af"); empty = the user's own language from the browser. */
   to: z
     .string()

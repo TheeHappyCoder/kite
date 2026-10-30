@@ -7,7 +7,7 @@ import type { Profile } from "./profile";
 // so "Customer name", "Doctor's phone" or "Describe your symptoms" never match. An AI layer can
 // later add rules or propose matches without changing the editor.
 
-export type ProfileKey =
+type ProfileKey =
   | "fullName"
   | "firstNames"
   | "surname"

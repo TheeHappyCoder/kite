@@ -28,7 +28,7 @@ export type HomeData = {
 };
 
 /** What a candidate carries beyond ReplyCandidate: whether it came from a mailing list (List-Unsubscribe). */
-export type HomeCandidate = ReplyCandidate & { list: boolean };
+type HomeCandidate = ReplyCandidate & { list: boolean };
 
 
 const LIMITS = { things: 80, reading: 12 };

@@ -73,7 +73,7 @@ function view(r: Row): Expectation {
 
 const getRow = (id: string) => getDb().prepare("SELECT * FROM expectations WHERE id = ?").get(id) as Row | undefined;
 
-export class ExpectError extends Error {
+class ExpectError extends Error {
   name = "ExpectError";
 }
 
@@ -164,7 +164,7 @@ export function reopenExpectation(id: string) {
 // ---------------------------------------------------------------------------
 
 /** Whether one message matches an answer's search (the rules engine's matcher, passed in). */
-export type AnswerTest = (thread: Thread, message: Message, answer: string) => boolean;
+type AnswerTest = (thread: Thread, message: Message, answer: string) => boolean;
 
 /** An answer's search names who it comes from itself (a payment service): then anyone counts. */
 const namesSender = (answer: string) => /(^|\s)-?from:/i.test(answer);
@@ -284,7 +284,7 @@ export function stepDraft(id: string): { account: AccountRow; draft: ComposeDraf
 }
 
 /** The step went (sent by Kite, or held for Undo send): counted now, so the tick never sends it twice. */
-export function recordStep(id: string, step: ExpectStep, sent?: { threadId: string | null }) {
+function recordStep(id: string, step: ExpectStep, sent?: { threadId: string | null }) {
   const at = now();
   if (step.kind === "ask") {
     getDb()
@@ -298,7 +298,7 @@ export function recordStep(id: string, step: ExpectStep, sent?: { threadId: stri
 }
 
 /** A provider thread id as the Kite conversation now holding it. */
-export function kiteThread(accountId: string, remoteId: string) {
+function kiteThread(accountId: string, remoteId: string) {
   return rowsHolding(accountId, remoteId).sort((a, b) => b.row.last_date.localeCompare(a.row.last_date))[0]?.row.id ?? `${accountId}:${remoteId}`;
 }
 

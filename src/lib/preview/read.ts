@@ -25,7 +25,7 @@ function unpacksTooBig(bytes: ArrayBuffer) {
   return false;
 }
 
-export function refuseHuge(bytes: ArrayBuffer) {
+function refuseHuge(bytes: ArrayBuffer) {
   if (bytes.byteLength > OFFICE_MAX_BYTES || unpacksTooBig(bytes)) throw new Error("This file is too big to preview.");
 }
 

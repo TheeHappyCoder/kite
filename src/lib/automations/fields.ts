@@ -23,7 +23,7 @@ export const FIELD_TYPE_NAMES: Record<FieldType, string> = {
 };
 
 export const BUILTINS = ["sender_name", "sender_email", "company", "subject", "received"] as const;
-export type Builtin = (typeof BUILTINS)[number];
+type Builtin = (typeof BUILTINS)[number];
 
 export const BUILTIN_NAMES: Record<Builtin, string> = {
   sender_name: "Sender's name",

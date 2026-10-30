@@ -12,7 +12,7 @@ import { notify, postJson, type SetToast } from "./util";
 /** New mail from the sync engine (server/sync.ts `mail` event). */
 type MailEvent = { threadId: string; from: { email: string; name: string }; subject: string; count: number; notify: "now" | "batch" };
 
-export type Deliver = (decision: NotifyDecision, title: string, body: string, item: BatchItem, plain?: [string, string]) => void;
+type Deliver = (decision: NotifyDecision, title: string, body: string, item: BatchItem, plain?: [string, string]) => void;
 
 /**
  * The notification rules (lib/notify-rules.ts) with the current preferences, and delivery:
@@ -52,7 +52,7 @@ export function useNotifications(preferencesRef: React.RefObject<Preferences>) {
   return { decide, deliver };
 }
 
-export type LiveHandlers = {
+type LiveHandlers = {
   decide: (event: NotifyEvent) => NotifyDecision;
   deliver: Deliver;
   setToast: SetToast;

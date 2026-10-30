@@ -7,7 +7,7 @@ import { format } from "date-fns";
 // (server/drive.ts); the desktop shell keeps placeholders for it and downloads a file only when it's
 // opened. Read-only: nothing done in Explorer changes mail.
 
-export const DRIVE_FOLDERS = ["people", "spaces", "months", "labels", "searches"] as const;
+const DRIVE_FOLDERS = ["people", "spaces", "months", "labels", "searches"] as const;
 export type DriveFolder = (typeof DRIVE_FOLDERS)[number];
 
 export const DRIVE_FOLDER_INFO: Record<DriveFolder, { name: string; label: string; detail: string }> = {
@@ -19,7 +19,7 @@ export const DRIVE_FOLDER_INFO: Record<DriveFolder, { name: string; label: strin
 };
 
 /** What a folder can be split by inside, in the order the user adds them (dates keep year › month › week). */
-export const DRIVE_LEVELS = ["person", "year", "month", "week", "type", "account"] as const;
+const DRIVE_LEVELS = ["person", "year", "month", "week", "type", "account"] as const;
 export type DriveLevel = (typeof DRIVE_LEVELS)[number];
 export const DRIVE_LEVEL_INFO: Record<DriveLevel, string> = { person: "Person", year: "Year", month: "Month", week: "Week", type: "File type", account: "Account" };
 const DATE_LEVELS: DriveLevel[] = ["year", "month", "week"];
@@ -27,7 +27,7 @@ const DATE_LEVELS: DriveLevel[] = ["year", "month", "week"];
 export const MAX_LEVELS = 3;
 
 /** What each building block splits into when the user hasn't chosen (By date's levels are its own folders). */
-export const DEFAULT_LEVELS: Record<DriveFolder, DriveLevel[]> = { people: ["month"], spaces: ["month"], months: ["month"], labels: ["month"], searches: [] };
+const DEFAULT_LEVELS: Record<DriveFolder, DriveLevel[]> = { people: ["month"], spaces: ["month"], months: ["month"], labels: ["month"], searches: [] };
 
 /** "Only split big folders": a folder with this many files or fewer stays one list; 0 = always split. */
 export const SPLIT_CHOICES = [0, 20, 30, 50, 100] as const;
@@ -38,7 +38,7 @@ const Folder = z.object({
   /** Inside each folder of this kind, outermost first. Missing: DEFAULT_LEVELS. */
   levels: z.array(z.enum(DRIVE_LEVELS)).max(MAX_LEVELS).optional(),
 });
-export type DriveFolderPref = z.infer<typeof Folder>;
+type DriveFolderPref = z.infer<typeof Folder>;
 
 export const DrivePrefs = z.object({
   /** Off until the user turns it on (Settings → Files, or the one-time offer). */
@@ -145,7 +145,7 @@ export function bytesOf(size: string | undefined) {
 const RUNNABLE = /\.(exe|com|scr|pif|msi|msix|msixbundle|appx|appxbundle|msp|bat|cmd|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|cpl|jar|lnk|url|reg|iso|img|vhd|vhdx|chm|application|gadget|inf|dll|sys)$/i;
 export const runnable = (name: string) => RUNNABLE.test(name.trim().replace(/[. ]+$/, ""));
 
-export const driveFileId =(f: Pick<DriveFile, "accountId" | "messageId" | "partId">) => `${f.accountId}\n${f.messageId}\n${f.partId}`;
+const driveFileId =(f: Pick<DriveFile, "accountId" | "messageId" | "partId">) => `${f.accountId}\n${f.messageId}\n${f.partId}`;
 
 const KIND_NAMES: Record<DriveFile["kind"], string> = { pdf: "PDFs", doc: "Documents", sheet: "Spreadsheets", image: "Images", other: "Other files" };
 

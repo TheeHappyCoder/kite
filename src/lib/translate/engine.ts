@@ -29,7 +29,7 @@ function getWorker() {
 }
 
 /** Downloads what `from` -> `to` needs (once) and says which files the worker loads. */
-export async function prepareTranslation(from: string, to: string): Promise<Prepared> {
+async function prepareTranslation(from: string, to: string): Promise<Prepared> {
   const res = await fetch("/api/translate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ from, to }) });
   const data = (await res.json().catch(() => ({}))) as Prepared & { error?: string };
   if (!res.ok) throw new Error(data.error ?? "Couldn't get the language ready.");
