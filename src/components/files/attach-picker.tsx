@@ -318,7 +318,7 @@ export function AttachPicker({
                       }}
                       className={cn(
                         "grid size-4 shrink-0 place-items-center rounded-full border transition-colors",
-                        isSelected || isAttached ? "border-accent bg-accent text-white" : "border-pane-border",
+                        isSelected || isAttached ? "border-accent bg-accent text-accent-fg" : "border-pane-border",
                       )}
                     >
                       {isSelected || isAttached ? <Icon icon={Tick02Icon} size={11} /> : null}

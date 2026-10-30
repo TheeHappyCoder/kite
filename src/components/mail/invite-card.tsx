@@ -222,7 +222,7 @@ export function InviteCard({
                     <motion.span
                       layoutId={`invite-${messageId}`}
                       transition={springSnappy}
-                      className="absolute inset-0 rounded-full bg-pane-raised shadow-[0_1px_2px_rgba(0,0,0,0.08),0_0_0_1px_var(--pane-border)]"
+                      className="absolute inset-0 rounded-full bg-pane-raised shadow-pill"
                     />
                   ) : null}
                   <span className="relative">{RESPONSE_LABEL[r]}</span>

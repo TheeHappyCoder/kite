@@ -334,7 +334,7 @@ function ModelRow({
           onClick={onTick}
           className={cn("grid size-4 shrink-0 place-items-center rounded-[5px] border transition-colors duration-150", on ? "border-accent bg-accent" : "border-pane-border")}
         >
-          {on ? <Icon icon={Tick02Icon} size={11} className="text-white" /> : null}
+          {on ? <Icon icon={Tick02Icon} size={11} className="text-accent-fg" /> : null}
         </button>
       ) : null}
       {children}

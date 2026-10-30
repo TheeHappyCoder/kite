@@ -709,7 +709,7 @@ export function SidebarDrawer({ open, onClose, ...props }: Props & { open: boole
       {open ? (
         <div key="drawer" className="fixed inset-0 z-40">
           <motion.div
-            className="absolute inset-0 bg-black/45 backdrop-blur-[3px]"
+            className="absolute inset-0 bg-scrim backdrop-blur-[3px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, transition: spring.moderate }}
             exit={{ opacity: 0, transition: exitFor.moderate }}

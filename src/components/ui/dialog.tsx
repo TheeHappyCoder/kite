@@ -71,7 +71,7 @@ export function Dialog({
             <motion.div className="on-sky bg-sky absolute inset-0" exit={{ opacity: 0, filter: "blur(12px)", scale: 1.03, transition: exitFor.slow }} />
           ) : (
             <motion.div
-              className="absolute inset-0 bg-black/45 backdrop-blur-[3px]"
+              className="absolute inset-0 bg-scrim backdrop-blur-[3px]"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1, transition: { duration: 0.24 } }}
               exit={{ opacity: 0, transition: exitFor.slow }}

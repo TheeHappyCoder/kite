@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { highlightSearch, useSearchQuery } from "./search-highlight";
+import { highlightSearch, SEARCH_HIGHLIGHT_CSS, useSearchQuery } from "./search-highlight";
 import { holdRemoteImages } from "@/lib/mail/privacy";
 import { frameFont, useFonts } from "@/lib/use-fonts";
 
@@ -38,7 +38,7 @@ export function EmailFrame({ html, loadRemote }: { html: string; loadRemote: boo
   img{max-width:100%;height:auto}
   table{max-width:100%}
   pre{white-space:pre-wrap}
-  ::highlight(kite-search){background:#fde68a;color:#171717}
+  ${SEARCH_HIGHLIGHT_CSS}
   a{color:#5b4ff0}
   img[data-kite-held]{background:#f1f1f4;border-radius:4px;color:#8b8b95;font-size:12px}
   a[data-kite-misleading]{outline:2px dashed #d97706;outline-offset:2px;border-radius:2px}

@@ -183,7 +183,7 @@ function MenuBody({ at, items, onClose, label }: { at: MenuPoint; items: MenuIte
       onContextMenu={(e) => e.preventDefault()}
       {...blurFade({ y: -4, blur: 4, speed: "moderate" })}
       style={{ left: place?.left ?? at.x, top: place?.top ?? at.y, width: WIDTH, visibility: place ? undefined : "hidden" }}
-      className="fixed z-[60] rounded-xl border border-pane-border bg-pane-raised p-1 text-pane-fg shadow-[0_12px_32px_rgba(0,0,0,0.28)] outline-none"
+      className="fixed z-[60] rounded-xl border border-pane-border bg-pane-raised p-1 text-pane-fg shadow-menu outline-none"
     >
       <Rows
         items={items}
@@ -202,7 +202,7 @@ function MenuBody({ at, items, onClose, label }: { at: MenuPoint; items: MenuIte
           {...blurFade({ x: openRight ? -4 : 4, blur: 4, speed: "moderate" })}
           style={{ width: SUB_WIDTH, top: subTop - 5 }}
           className={cn(
-            "scroll-fade absolute z-10 max-h-[min(420px,70vh)] overflow-y-auto rounded-xl border border-pane-border bg-pane-raised p-1 shadow-[0_12px_32px_rgba(0,0,0,0.28)]",
+            "scroll-fade absolute z-10 max-h-[min(420px,70vh)] overflow-y-auto rounded-xl border border-pane-border bg-pane-raised p-1 shadow-menu",
             openRight ? "left-[calc(100%+6px)]" : "right-[calc(100%+6px)]",
           )}
         >

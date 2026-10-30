@@ -167,7 +167,7 @@ export function Segmented<T extends string | number>({
               <motion.span
                 layoutId={layoutId}
                 transition={springSnappy}
-                className="absolute inset-0 rounded-full bg-pane-raised shadow-[0_1px_2px_rgba(0,0,0,0.08),0_0_0_1px_var(--pane-border)]"
+                className="absolute inset-0 rounded-full bg-pane-raised shadow-pill"
               />
             ) : null}
             {option.icon ? <Icon icon={option.icon} size={14} className="relative" /> : null}

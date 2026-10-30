@@ -2,6 +2,9 @@
 import { createContext, useContext, useEffect, type RefObject } from "react";
 import { parseSearch } from "@/lib/mail/search";
 export const SearchQuery = createContext("");
+
+/** Added to email frames, whose styles can't read Kite's tokens. */
+export const SEARCH_HIGHLIGHT_CSS = "::highlight(kite-search){background:#fde68a;color:#171717}";
 export function highlightSearch(root: HTMLElement, query: string) {
   const doc = root.ownerDocument;
   const view = doc.defaultView as (Window & { Highlight?: new (...ranges: Range[]) => Highlight; CSS?: typeof CSS }) | null;
@@ -10,7 +13,7 @@ export function highlightSearch(root: HTMLElement, query: string) {
   if (!doc.getElementById("kite-search-style")) {
     const style = doc.createElement("style");
     style.id = "kite-search-style";
-    style.textContent = "::highlight(kite-search){background:#fde68a;color:#171717}";
+    style.textContent = SEARCH_HIGHLIGHT_CSS;
     doc.head.append(style);
   }
   const words = parseSearch(query).filter((t) => !t.negate && ["text", "subject"].includes(t.field)).map((t) => t.value).filter(Boolean);

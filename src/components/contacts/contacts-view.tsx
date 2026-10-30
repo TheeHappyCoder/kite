@@ -122,7 +122,7 @@ export const ContactsView = forwardRef<
                 }}
                 className={cn(
                   "relative h-8 flex-1 rounded-full px-3 text-[13px] transition-[color,font-weight] duration-150",
-                  filter === f.id ? "bg-pane-raised font-medium text-pane-fg shadow-[0_1px_2px_rgba(0,0,0,0.08),0_0_0_1px_var(--pane-border)]" : "text-pane-muted data-[lit]:text-pane-fg",
+                  filter === f.id ? "bg-pane-raised font-medium text-pane-fg shadow-pill" : "text-pane-muted data-[lit]:text-pane-fg",
                 )}
               >
                 {f.label}

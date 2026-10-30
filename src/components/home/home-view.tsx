@@ -518,7 +518,7 @@ function CodeChip({ code }: { code: DesktopCode }) {
   const value = code.code ?? code.choices?.at(-1);
   return (
     <motion.div {...blurFade({ y: -4, blur: 4 })} className="flex h-9 shrink-0 items-center gap-2 rounded-full border border-frame-border bg-frame-hover pl-3.5 pr-1 text-[13px] backdrop-blur-md">
-      <span className="size-1.5 rounded-full bg-lime shadow-[0_0_0_3px_rgb(198_245_111/0.3)]" />
+      <span className="size-1.5 rounded-full bg-lime shadow-[0_0_0_3px_color-mix(in_srgb,var(--lime)_30%,transparent)]" />
       <span className="text-frame-fg/85">{code.service}</span>
       {value ? (
         <>

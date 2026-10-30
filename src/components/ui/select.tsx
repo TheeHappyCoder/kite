@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { blurFade } from "@/lib/motion";
+import { blurFade, spring } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { Icon } from "../icon";
 import { FLUID_ITEM, FluidList } from "./fluid-hover";
@@ -161,7 +161,7 @@ export function Select<T extends string>({
           {current?.label ?? "Select…"}
           {current?.detail ? <span className="text-pane-muted"> · {current.detail}</span> : null}
         </span>
-        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ type: "spring", duration: 0.16, bounce: 0 }} className="grid shrink-0 text-pane-muted">
+        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={spring.moderate} className="grid shrink-0 text-pane-muted">
           <Icon icon={ArrowDown01Icon} size={13} />
         </motion.span>
       </button>
@@ -180,7 +180,7 @@ export function Select<T extends string>({
                   onKeyDown={onKey}
                   {...blurFade({ y: place.top !== undefined ? -4 : 4, blur: 4, speed: "moderate" })}
                   style={{ position: "fixed", left: place.left, top: place.top, bottom: place.bottom, minWidth: place.minWidth, maxHeight: place.maxHeight }}
-                  className="scroll-fade z-50 max-w-[min(320px,calc(100vw-16px))] overflow-y-auto rounded-xl border border-pane-border bg-pane-raised p-1 text-pane-fg shadow-[0_12px_32px_rgba(0,0,0,0.28)]"
+                  className="scroll-fade z-50 max-w-[min(320px,calc(100vw-16px))] overflow-y-auto rounded-xl border border-pane-border bg-pane-raised p-1 text-pane-fg shadow-menu"
                 >
                   <FluidList tone="pane" follow="[data-selected=true]" className="flex flex-col">
                     {options.map((option, i) => {
