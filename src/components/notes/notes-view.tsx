@@ -1,7 +1,8 @@
 "use client";
 
 import { forwardRef, useEffect, useMemo, useState } from "react";
-import { Delete02Icon, Mail01Icon, Note01Icon, PencilEdit01Icon, Search01Icon, UserIcon } from "@hugeicons/core-free-icons";
+import { Delete02Icon, Mail01Icon, Note01Icon, PencilEdit01Icon, UserIcon } from "@hugeicons/core-free-icons";
+import { SearchPill } from "@/components/ui/search-pill";
 import { formatDistanceToNow } from "date-fns";
 import { bodyToHtml } from "@/lib/mail/body";
 import { demoNotes, noteMatches, type ConversationNote, type NoteEntry, type NoteFilter, type PersonNote } from "@/lib/mail/notes";
@@ -101,22 +102,7 @@ export const NotesView = forwardRef<HTMLInputElement, Props>(function NotesView(
           </header>
 
           <div className="mb-5 flex flex-wrap items-center gap-3">
-            <label className="flex h-10 min-w-[220px] flex-1 items-center gap-2 rounded-full border border-pane-border bg-pane px-3.5 text-[13.5px] transition-colors focus-within:border-accent/60 touch:h-11">
-              <Icon icon={Search01Icon} size={16} className="text-pane-muted" />
-              <input
-                ref={searchRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    setQuery("");
-                    e.currentTarget.blur();
-                  }
-                }}
-                placeholder="Search notes, subjects and people"
-                className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-pane-muted"
-              />
-            </label>
+            <SearchPill inputRef={searchRef} value={query} onChange={setQuery} placeholder="Search notes, subjects and people" className="min-w-[220px] touch:h-11" />
             <Segmented
               value={filter}
               options={FILTERS.map(([id, label]): [NoteFilter, string] => [id, id === "all" ? label : `${label} ${counts[id]}`])}

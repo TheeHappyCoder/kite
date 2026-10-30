@@ -2,10 +2,11 @@
 
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { inScope, singleAccount, type AccountScope } from "@/lib/mail/scope";
-import { FolderCloudIcon, Folder02Icon, Search01Icon } from "@hugeicons/core-free-icons";
+import { FolderCloudIcon, Folder02Icon } from "@hugeicons/core-free-icons";
 import type { Account, Attachment, FileItem, Thread } from "@/lib/mail/types";
 import { threadFiles } from "@/lib/mail/attachments";
 import { cn, formatListDate } from "@/lib/utils";
+import { SearchPill } from "@/components/ui/search-pill";
 import { Icon } from "../icon";
 import { Segmented } from "../design/block-editor";
 import { FilePreview, FileThumb, type FileRef } from "./file-preview";
@@ -136,22 +137,7 @@ export const FilesView = forwardRef<
           ) : null}
 
           <div className="mb-5 flex flex-wrap items-center gap-3">
-            <label className="flex h-10 min-w-[240px] flex-1 items-center gap-2 rounded-full border border-pane-border bg-pane px-3.5 text-[13.5px] transition-colors focus-within:border-accent/60">
-              <Icon icon={Search01Icon} size={16} className="text-pane-muted" />
-              <input
-                ref={searchRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    setQuery("");
-                    e.currentTarget.blur();
-                  }
-                }}
-                placeholder="Search names, senders or document text"
-                className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-pane-muted"
-              />
-            </label>
+            <SearchPill inputRef={searchRef} value={query} onChange={setQuery} placeholder="Search names, senders or document text" className="min-w-[240px]" />
             {live ? <button className="rounded-full border border-pane-border px-3 py-2 text-xs" onClick={() => indexing ? indexAbort.current?.abort() : void indexFiles()}>{indexing ? "Stop indexing" : "Make documents searchable"}</button> : null}
             <Segmented value={kind} options={KINDS} onChange={setKind} />
           </div>
