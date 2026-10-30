@@ -15,7 +15,8 @@
     "tauri": "tauri",
     "perf": "node scripts/perf/run.mjs",
     "perf:check": "node scripts/perf/check.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "whats-new": "node scripts/whats-new.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",

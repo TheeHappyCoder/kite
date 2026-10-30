@@ -72,6 +72,18 @@
         "--port=3106"
       ],
       "port": 3106
+    },
+    {
+      "name": "kite-samples",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "C:/Apps/kite",
+        "dev:scratch",
+        "--data=data-scratch-samples",
+        "--port=3107"
+      ],
+      "port": 3107
     }
   ]
 }

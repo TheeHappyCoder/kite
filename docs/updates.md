@@ -6,17 +6,29 @@ The installer removes the previous bundled `server` directory. User data in the 
 
 Settings → Privacy → Check for updates turns the timed checks off; Settings → About's Check for updates still works.
 
+## A release's folder
+
+Each release gets one folder, `docs/whats-new/<version>/`: `notes.md` plus the pictures it shows, and nothing else. In `notes.md` a picture is only its file name (`media: files.webp`, format in `src/lib/release-notes.ts`).
+
+- `pnpm whats-new new 0.2.6` makes the folder and removes all but the newest 5 (the dialog only shows the latest notes; git keeps the rest).
+- `node scripts/whats-new-media.mjs --version=0.2.6 --only=<scene>` records a clip into it from a demo-data Kite. Scenes are in `scripts/whats-new/scenes.mjs` and last one release: empty the file when the next one starts. For a clip that opens real files, demo mail has none, so run `node scripts/whats-new/sample-mailbox.mjs` on the `kite-samples` server (`--url=http://localhost:3107`) and delete `data-scratch-samples/` afterwards.
+- `?update-demo` in dev shows the newest folder in the real dialog.
+- `pnpm whats-new check` refuses TODOs, missing or unused pictures, anything over 1 MB, and pictures elsewhere in the repository (only `docs/images` and `docs/screenshots` are also allowed, for the website and README).
+
 ## Publishing a Windows x64 update
 
 Releases are built by GitHub Actions (`.github/workflows/release.yml`), never on a personal computer, so each one traces back to this repository (SignPath Foundation's rule for free signing, CODE_SIGNING.md).
 
 1. Increment the version in `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, and `package.json` together, and commit.
-2. Tag it with the release notes as the tag message and push the tag:
+2. Write the notes in the release's folder, push `main` so the website has its pictures, then tag:
 
    ```powershell
-   git tag -a v0.2.1 -m "What changed, in a few lines"
+   pnpm whats-new tag
+   git tag -a v0.2.1 --cleanup=verbatim -F <the file it names>
    git push origin v0.2.1
    ```
+
+   `--cleanup=verbatim` matters: without it git treats `## ` lines as comments and deletes them, and the dialog loses its feature tabs and pictures. Use the command `pnpm whats-new tag` prints.
 
 3. The workflow checks the tag matches the version, builds `kite.exe`, has SignPath sign it, makes the installer around the signed exe, has SignPath sign the installer, signs it for the updater, writes `latest.json`, and drafts the GitHub release with the installer, its `.sig`, `latest.json` and `Kite-Setup.exe` (the site's Download button). Each SignPath step waits for you to approve it in SignPath (up to two hours).
 4. Look over the draft release and publish it as Latest. Installed copies update from the published Latest release only; drafts and prereleases are never offered.

@@ -436,40 +436,6 @@ function useShellUpdate(enabled: boolean) {
 
 // ---- Development demo: ?update-demo ----------------------------------------------------------
 
-// The recordings in docs/whats-new/0.2.5 (scripts/whats-new-media.mjs), through a dev-only route; a release links the website's copies.
-const SHOTS = "/api/dev/whats-new/0.2.5";
-const DEMO_NOTES = `Your files and your mail now work together: find a file's email, send it back, print straight into a message. And a calmer reader.
-- A new look above each conversation: who's in it, with their faces.
-- The reply box floats over the end of the conversation, so there's more room to read.
-- File icons in each type's colour, so Word, Excel, PowerPoint and PDFs stand out.
-- Downloads in the desktop app go to your Downloads folder, and a download that can't finish says why.
-- Snooze is in More now. Put it back on the toolbar in Settings → Buttons.
-## Show the email in Kite
-media: ${SHOTS}/show-email.webp
-Right-click any file in Explorer and choose Show the email in Kite: the conversation it came in opens. Renamed or edited since you saved it, Kite still knows.
-You can also drop a file onto Kite to find its email.
-## Send back in Kite
-media: ${SHOTS}/send-back.webp
-Edited a contract or signed a form? Right-click it and choose Send back in Kite: a reply to whoever sent it opens, with the file attached.
-## Files in a conversation
-media: ${SHOTS}/files.webp
-Each email's files sit at its end, with Download all. The paperclip above a conversation (or D) opens every file in it: a PDF's first page, pictures, and older versions of the same file folded under the newest.
-## Your buttons
-media: ${SHOTS}/buttons.webp
-Choose which actions get a button above a conversation and on the list. Drag them where you want them; everything else stays in More.
-Settings → Buttons, or right-click the toolbar.
-## Forward with parts removed
-media: ${SHOTS}/forward.webp
-Forwarding something with an account number or someone's address in it? Remove parts… shows the message as it will go. Select what to take out, or click a picture.
-- Removed text is taken out of the message, not covered, so there's nothing to lift.
-- Leave out who it was first sent to, in one switch.
-## Print to Kite
-media: ${SHOTS}/print.webp
-A printer called Kite in every app's Print window. Print an invoice from your accounting app and a new message opens with the PDF, named after the document.
-Switch it on in Settings → Files. Windows asks for permission once.
-## Kite in Explorer
-Every file in your mail as folders in Explorer: by person, space, date or label, split the way you choose. Files download only when you open them, and programs are left out.
-Switch it on in Settings → Files.`;
 const DEMO_SIZE = 38.4 * 1048576;
 
 const demoParam = () => (process.env.NODE_ENV !== "production" ? new URLSearchParams(window.location.search).get("update-demo") : null);
@@ -485,13 +451,24 @@ function useUpdateDemo() {
   const on = param !== null;
   const [state, setState] = useState<UpdateState>(() => ({
     phase: "available",
-    current: "0.2.4",
-    version: "0.2.5",
-    notes: DEMO_NOTES,
+    current: process.env.KITE_VERSION ?? "",
+    version: "",
+    notes: "",
     downloaded: 0,
     total: null,
     error: null,
   }));
+  // The newest release's real notes and pictures (docs/whats-new/<version>/), so they can be read here before tagging.
+  useEffect(() => {
+    if (!on) return;
+    let live = true;
+    void fetch("/api/dev/whats-new")
+      .then((res) => res.json() as Promise<{ version: string; notes: string }>)
+      .then(({ version, notes }) => live && setState((s) => ({ ...s, version, notes })));
+    return () => {
+      live = false;
+    };
+  }, [on]);
   // `?update-demo=error`: the first download stops halfway, to show the failure and Try again.
   const [failedOnce, setFailedOnce] = useState(false);
   const failNext = param === "error" && !failedOnce;
