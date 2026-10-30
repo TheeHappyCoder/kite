@@ -403,7 +403,7 @@ export function MailApp() {
   const { prepared, setPrepared, dropPrepared, startCompose } = sending;
 
   /**
-   * What an automation waits for (Waiting on, Today): Send goes through the usual send (Undo send
+   * What an automation waits for (Home's Waiting on and Expected): Send goes through the usual send (Undo send
    * applies; the wait counts it when it goes); Edit, or a blank Kite couldn't fill, opens compose.
    */
   const expectAction = async (item: Expectation, action: ExpectAction) => {

@@ -5,7 +5,7 @@ import type { Attachment, Contact, Message } from "./types";
 import { formatBytes } from "@/lib/format";
 import { Redactions } from "./redact";
 
-// What the compose window edits. The same record is saved as a Gmail draft, sent, or
+// What the compose window edits. The same record is saved as a provider draft, sent, or
 // queued for later, so it's plain validated data. The body is markup (see body.ts), or a
 // kite-design/1 document in `design` for a designed email.
 
@@ -63,7 +63,7 @@ export const ComposeDraft = z.object({
   inReplyTo: z.string().max(1000).refine((s) => !/[\r\n]/.test(s)).optional(),
   references: z.string().max(8000).refine((s) => !/[\r\n]/.test(s)).optional(),
   quote: Quote.optional(),
-  /** The Gmail draft this was saved as. */
+  /** The provider draft this was saved as. */
   draftId: z.string().regex(REMOTE_ID).optional(),
   /**
    * Send separately: each person in To gets their own copy (no Cc or Bcc), with `{first_name}` and

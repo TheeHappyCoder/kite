@@ -174,7 +174,7 @@ export function Compose({
    * Called at once: `draftId` settles when a draft save still under way finishes.
    */
   onSend: (draft: ComposeDraft, options: SendOptions, draftId: Promise<string | undefined>) => Promise<void>;
-  /** Live accounts: saves to Gmail drafts. Absent in demo mode. */
+  /** Live accounts: saves to the provider's drafts. Absent in demo mode. */
   onSaveDraft?: (draft: ComposeDraft) => Promise<{ draftId: string }>;
   onDiscardDraft?: (ref: { accountId: string; draftId: string }) => Promise<void>;
   onManageSnippets?: () => void;

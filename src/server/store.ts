@@ -729,7 +729,7 @@ function hydrateFound(row: ThreadRow) {
   return hydrate([row], mailbox)[0];
 }
 
-/** Threads by id, newest first (results Gmail found for "Search older mail in Gmail"). */
+/** Threads by id, newest first (results the provider found for "Search older mail"). */
 export function threadsByIds(ids: string[]): Thread[] {
   if (!ids.length) return [];
   const rows = getDb()

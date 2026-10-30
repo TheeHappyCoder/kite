@@ -601,7 +601,7 @@ function RailAccounts(props: Props) {
   );
 }
 
-/** The mail column: New message, then Home and Today, MAILBOXES, LABELS and saved searches. */
+/** The mail column: New message, then Home, MAILBOXES, SPACES, LABELS and saved searches. */
 function MailColumn(props: Props) {
   const shortcuts = useShortcuts();
   const { view, counts } = props;

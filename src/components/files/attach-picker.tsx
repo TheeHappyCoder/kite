@@ -15,7 +15,7 @@ import { demoFiles, KINDS, matches, type Kind } from "./files-view";
 export type AttachContext = {
   /** Kite thread id of the conversation being answered. */
   threadId?: string;
-  /** The account and Gmail thread a reopened reply draft belongs to. */
+  /** The account and provider thread a reopened reply draft belongs to. */
   accountId?: string;
   remoteThreadId?: string;
   /** New text of the message being answered, for the "asked for" ordering. Never leaves the browser. */

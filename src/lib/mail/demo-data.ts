@@ -34,7 +34,7 @@ function nextTuesday(hour: number) {
 
 /** Demo labels (Gmail-style, so their name is also their id; see lib/mail/search.ts). */
 /**
- * The demo calendar: a plausible fortnight (this week and next) around the sample mail, so Today and
+ * The demo calendar: a plausible fortnight (this week and next) around the sample mail, so Home and
  * Calendar have something to show. Times are local, relative to this week's Monday.
  */
 export function demoCalendar(): CalendarEvent[] {
@@ -367,7 +367,7 @@ function demoThreads(): Thread[] {
       ],
     },
     {
-      // Sent days ago with no answer: Today's "Waiting on" (lib/replies.ts).
+      // Sent days ago with no answer: Home's "Waiting on" (lib/replies.ts).
       id: "t-garden-wall",
       accountId: "personal",
       subject: "Quote for the garden wall",

@@ -848,12 +848,12 @@ export function notifyChanged(accountId: string) {
   emit({ type: "changed", accountId });
 }
 
-/** Tells open windows to read the accounts again (a Google sign-in added or dropped). */
 /** Reads the account's calendar now (after an invite answer changes the mail calendar) and tells open windows. */
 export async function refreshCalendar(account: AccountRow) {
   if (await syncCalendar(account, true)) emit({ type: "calendar", accountId: account.id });
 }
 
+/** Tells open windows to read the accounts again (a Google sign-in added or dropped). */
 export function emitAccounts() {
   emit({ type: "accounts" });
 }

@@ -241,7 +241,7 @@ function Row({ title, detail, dot, onClick }: { title: string; detail: string; d
 /**
  * What automations wait for (the expect verb), grouped by automation: who's answered, who hasn't,
  * and the request or nudge that's ready. `all`: the whole checklist (Waiting on); otherwise only
- * what's ready or overdue (Today).
+ * what's ready or overdue (Home).
  */
 export function Expected({
   items,

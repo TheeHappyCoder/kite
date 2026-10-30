@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Spinner } from "../ui/spinner";
 
 // An account's first sync, shown wherever mail would be: the list (an empty state, then a strip
-// above it), the reader's empty pane, and the views built from mail (Today, Files, Cleanup...), so
+// above it), the reader's empty pane, and the views built from mail (Home, Files, Cleanup...), so
 // nothing says "All caught up" or "No files" while mail is still coming in. mail-app provides it.
 
 /** A first sync's progress: conversations stored so far, and how many there are once the lists are read. */

@@ -17,8 +17,8 @@ From Reddit (r/Bookkeeping, r/freelance, r/smallbusiness, r/jobs, r/Parenting, r
 
 1. **Features:** the top section above, then Automations' gaps (below) once Mark has used them on his own mail, the gaps below that matter day to day, Designed mail 3, Calendar later items as wanted
 2. **Reach:** real IMAP accounts, then the browser extension and the MCP server
-3. **Desktop release:** start on login, OAuth deep links, OAuth client as build config, auto-update and signing
-4. **Public release:** Gmail over IMAP with an app-password walkthrough (no CASA), Google verification for calendar and contacts, tests, error reporting, big-mailbox test, landing page
+3. **Desktop release:** start on login, OAuth deep links, OAuth client as build config
+4. **Public release:** Gmail over IMAP with an app-password walkthrough (no CASA), Google verification for calendar and contacts, tests, error reporting, big-mailbox test
 
 ## Bugs and gaps from live tests
 
@@ -50,7 +50,7 @@ Built: When → Read → Check → Do, collections with month totals and coming 
 
 ## Mail client
 
-- **Compose in three sizes:** the quick reply (inline), the floating window, and a new **full** size: the same window filling the area beside the sidebar (text column ~760 px, sky around it), so a draft never remounts when it changes size. Switch with a maximise button in the title bar, a double-click on it, a shortcut (`Mod+Shift+F` is free) and Escape back; new composers open in the size used last (localStorage `kite-compose-mode`, a "Open new messages as" setting later). Fix first: quick-reply text is lost when you switch conversations (keep it per conversation in mail-app); expanding drops the signature choice and the prepared-reply note (hand over a whole ComposeDraft); expanding waits on `/api/mail/compose` (open from the local `replyDraft`, fill recipients when it answers). Later: the quick reply as a real autosaved draft (so a full reply can fold back into it), a full reply beside the conversation (thread left, reply right), the sky held still while writing, a desktop pop-out window only if asked (its own webview, drafts synced through the drafts API)
+- **Compose sizes:** an "Open new messages as" setting. To fix: quick-reply text is lost when you switch conversations (keep it per conversation in mail-app); expanding drops the signature choice and the prepared-reply note (hand over a whole ComposeDraft); expanding waits on `/api/mail/compose` (open from the local `replyDraft`, fill recipients when it answers). Later: the quick reply as a real autosaved draft (so a full reply can fold back into it), the sky held still while writing, a desktop pop-out window only if asked (its own webview, drafts synced through the drafts API)
 - **Read receipts:** ask for one when sending (Disposition-Notification-To; Outlook's isReadReceiptRequested), show "Read by … at …" when one returns (multipart/report disposition-notification; Outlook's by subject), answer others' requests only on the user's click
 - **Code Fill by shortcut:** a global shortcut that types the newest code where the cursor is (today Fill is the Kite bar's button)
 - **Translate:** names in a sign-off sometimes get translated ("Ria" -> "Mary"): keep the signature-like last lines as written; Firefox now ships newer models (3.x) and engine (4.x, zstd) than Kite uses (2.x / 3.0): move up when Mozilla's public bucket offers them; translate the subject line too; translate replies you write (into their language)
@@ -65,7 +65,7 @@ Built: When → Read → Check → Do, collections with month totals and coming 
 - **Notifications:** held batches in a server-side queue (today the open window holds them); new-mail toasts from the desktop shell; a VIP-only filter or tab (`is:vip`)
 - **Labels:** pick label colours in Kite; rename an Outlook category (Graph can't: make one, move the mail, delete the old); delete a folder that still holds mail (move it out first today); a deleted Outlook category stays on mail Kite hasn't stored
 - **Sidebar:** drag to reorder accounts (drives `Alt+1`–`Alt+9`)
-- **Attachments:** Range requests so long videos seek; search inside PDFs and documents (local text extraction); a total size cap for the attachment cache (today: 25 MB per file, 30-day sweep); scale wide fixed-width emails to fit
+- **Attachments:** Range requests so long videos seek; a total size cap for the attachment cache (today: 25 MB per file, 30-day sweep)
 - **Cleanup:** message sizes (only file sizes are stored, so the Files column leaves out bodies); "Archive future mail" for several ticked senders at once; the queue's Undo lasts while the toast does (the server keeps it 10 minutes)
 - **Privacy:** clean links in plain-text bodies and chat bubbles; tracker count in list rows (maybe); verified-sender results for mail stored before they existed (refetch headers once); Windows Hello instead of the PIN in the desktop app
 
@@ -114,7 +114,6 @@ Built: When → Read → Check → Do, collections with month totals and coming 
 - The OAuth client comes from `.env.local` at build time; move it to build config
 - "Open link" for magic links in the in-app code popup
 - The secrets key in the Windows Credential Manager (today sealed with DPAPI)
-- Auto-update; code signing
 - Verify on the release build that sync, scheduled sends and nudges keep running while the window is hidden
 
 ## Before public release
@@ -125,7 +124,7 @@ Built: When → Read → Check → Do, collections with month totals and coming 
 - Google OAuth verification for the sensitive scopes above (calendar, contacts); justify the contacts scopes and enable the People API (off in the current project too: contact photo lookups get 403)
 - Tests (IMAP, Gmail mode, rules, sending and scheduling are covered, `pnpm test`): the Gmail API and Outlook providers (incl. history and delta edge cases), AI drafts and Describe an automation (with a stub provider)
 - Error reporting that never includes email content; crash-safe schema migrations (a transaction and a version, or a backup first)
-- Landing page, privacy policy, pricing (one-time purchase)
+- Pricing (one-time purchase)
 
 ## Low priority
 

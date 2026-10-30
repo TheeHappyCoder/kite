@@ -3,7 +3,7 @@ import { VERBS, type Condition, type Rule } from "./spec";
 
 // "Also run in Gmail": a rule Gmail can express, written as a Gmail filter (users.settings.filters)
 // so it runs while Kite is closed. Shared by the rule editor (whether to offer the switch, and why
-// not) and server/gmail-filters.ts (what to create). Labels stay names here; the server resolves
+// not) and server/providers/gmail/filters.ts (what to create). Labels stay names here; the server resolves
 // them per account.
 
 /** Gmail filter criteria (users.settings.filters). Only the fields Kite writes. */

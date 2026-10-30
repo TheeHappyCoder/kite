@@ -102,7 +102,7 @@ const PdfSignPrefs = z.object({
 /** Seconds a sent message is held so it can be undone (0 = off). */
 export const UNDO_SEND_CHOICES = [0, 5, 10, 20] as const;
 
-/** Days without an answer before a conversation shows in Today's "Waiting on" (lib/replies.ts). */
+/** Days without an answer before a conversation shows in Home's "Waiting on" (lib/replies.ts). */
 export const WAIT_DAY_CHOICES = [2, 3, 5, 7] as const;
 
 const ComposePrefs = z.object({

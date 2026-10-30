@@ -77,7 +77,7 @@ export function useMailList({
   const pendingSelect = useRef<{ id: string; query?: string } | null>(null);
 
   /**
-   * Opens a conversation from Today. It may not be in the current list: live mode loads its
+   * Opens a conversation from Home. It may not be in the current list: live mode loads its
    * mailbox (snoozed, scheduled) or searches for its subject, then selects it when it arrives.
    */
   const openFromToday = useCallback(

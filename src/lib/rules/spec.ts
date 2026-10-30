@@ -409,7 +409,7 @@ export const RuleSchema = z.object({
   actions: z.array(RuleActionSchema).min(1, "Add at least one action").max(12),
   /** Rules below this one don't run on mail it matched. */
   stop: z.boolean().default(false),
-  /** "Also run in Gmail": the user turned on a Gmail filter for this rule (server/gmail-filters.ts). Off by default. */
+  /** "Also run in Gmail": the user turned on a Gmail filter for this rule (server/providers/gmail/filters.ts). Off by default. */
   gmail: z.boolean().default(false),
   /** "Allow AI": the user let this rule send the new email to their AI (draft_reply). Off by default. */
   ai: z.boolean().default(false),
