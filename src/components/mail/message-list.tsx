@@ -622,6 +622,8 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
                   })()}` : ""}`
                 : view.kind === "cleanup" || view.kind === "settings"
                   ? ""
+                : props.query && props.loading
+                  ? <span className="flex items-center gap-1.5"><Spinner size={12} /> Searching for “{props.query}”…</span>
                 : props.query
                   ? `${threads.length} results for “${props.query}”`
                   : `${threads.length} conversations`}
