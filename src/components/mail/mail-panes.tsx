@@ -61,14 +61,15 @@ export function MailPanes({
           </div>
         </PaneBackContext>
       ) : (
+        // The ids name the saved sizes: without them the library keys them by the minimums, which change with the width.
         <PanelGroup direction="horizontal" autoSaveId="kite-panes" className="h-full" style={{ overflow: "visible" }}>
-          <Panel defaultSize={Math.min(listMax, Math.max(listMin, 38))} minSize={listMin} maxSize={listMax} className="pane-on-sky overflow-hidden rounded-2xl">
+          <Panel id="list" order={1} defaultSize={Math.min(listMax, Math.max(listMin, 38))} minSize={listMin} maxSize={listMax} className="pane-on-sky overflow-hidden rounded-2xl">
             {list}
           </Panel>
           <PanelResizeHandle className="group relative w-2">
             <span className="absolute inset-y-1/3 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-white/0 transition-colors group-hover:bg-white/60 group-data-[resize-handle-state=drag]:bg-accent" />
           </PanelResizeHandle>
-          <Panel minSize={detailMin} className="pane-on-sky overflow-hidden rounded-2xl">
+          <Panel id="detail" order={2} minSize={detailMin} className="pane-on-sky overflow-hidden rounded-2xl">
             {detail}
           </Panel>
         </PanelGroup>
