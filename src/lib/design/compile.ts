@@ -1,4 +1,5 @@
 import type { Block, ButtonBlock, ColumnsBlock, Design, DesignTheme, HeadingBlock, ImageBlock, LeafBlock, TextBlock } from "./spec";
+import { escapeHtml } from "../format";
 
 // Compiles a design document to email-safe HTML: nested tables, inline styles, explicit
 // image sizes and no CSS that Outlook's Word engine or Gmail would drop. Every value from
@@ -25,10 +26,6 @@ const TEXT_SIZES = { sm: 12, md: 14, lg: 17 } as const;
 const HEADING_SIZES = { 1: 24, 2: 19, 3: 16 } as const;
 const BLOCK_GAP = 8;
 const SAFE_URL = /^(https?:\/\/|mailto:|tel:)[^\s"'<>]+$/;
-
-export function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-}
 
 function safeUrl(url: string) {
   return SAFE_URL.test(url) ? escapeHtml(url) : "#";

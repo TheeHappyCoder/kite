@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { AiDraftsView } from "@/lib/ai-tasks";
 import type { Thread } from "@/lib/mail/types";
 import { usesAi, RuleSchema } from "@/lib/rules/spec";
 import { AiLimitReached, AiUnavailable, aiConfigured, getAiSettings, modelFor } from "./ai";
@@ -186,17 +187,6 @@ async function runOne(hooks: Hooks) {
 export function resumeAiDrafts() {
   writeState({ ...readState(), failures: 0, retryAt: null, pausedReason: null });
 }
-
-type AiDraftsView = {
-  on: boolean;
-  model: string | null;
-  configured: boolean;
-  pausedReason: string | null;
-  retryAt: string | null;
-  waiting: number;
-  /** The latest jobs, for "why didn't it draft?" */
-  recent: { id: string; ruleName: string; subject: string; status: JobRow["status"]; reason: string | null; at: string }[];
-};
 
 export function aiDraftsView(): AiDraftsView {
   const db = getDb();

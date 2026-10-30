@@ -30,19 +30,22 @@ export type ContactSort = "frequent" | "name";
 /** A name worth showing: not the address again, nor its local part. */
 export const realName = (c: Contact) => (c.name && c.name !== c.email && c.name !== c.email.split("@")[0] && c.name !== "You" ? c.name : "");
 
+/** Counts one appearance of someone in the tally; your own addresses and anything without an address don't count. */
+export function noteContact(people: Map<string, ContactEntry>, own: Set<string>, contact: Contact, date: string, sent: boolean) {
+  const email = contact.email?.trim().toLowerCase();
+  if (!email || own.has(email) || !email.includes("@")) return;
+  const entry = people.get(email) ?? { email, name: "", sent: 0, seen: 0, last: "" };
+  entry.name ||= realName(contact);
+  if (sent) entry.sent++;
+  else entry.seen++;
+  if (date > entry.last) entry.last = date;
+  people.set(email, entry);
+}
+
 /** Contacts from threads (demo mode): `own` are your addresses, lower-cased. */
 export function contactsFrom(threads: Thread[], own: Set<string>): ContactEntry[] {
   const people = new Map<string, ContactEntry>();
-  const note = (contact: Contact, date: string, sent: boolean) => {
-    const email = contact.email?.trim().toLowerCase();
-    if (!email || own.has(email) || !email.includes("@")) return;
-    const entry = people.get(email) ?? { email, name: "", sent: 0, seen: 0, last: "" };
-    entry.name ||= realName(contact);
-    if (sent) entry.sent++;
-    else entry.seen++;
-    if (date > entry.last) entry.last = date;
-    people.set(email, entry);
-  };
+  const note = (contact: Contact, date: string, sent: boolean) => noteContact(people, own, contact, date, sent);
   for (const thread of threads)
     for (const m of thread.messages) {
       if (m.draft) continue;

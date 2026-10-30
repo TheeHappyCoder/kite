@@ -8,6 +8,7 @@
 //! in Explorer is refused, so nothing there touches mail. Turning it off disconnects, unregisters and
 //! deletes the folder with everything downloaded into it.
 
+use crate::origin::encode;
 use std::collections::{HashMap, HashSet};
 use std::ffi::c_void;
 use std::path::{Path, PathBuf};
@@ -368,10 +369,6 @@ fn mark_from_internet(path: &Path, id: &str) -> std::io::Result<()> {
     let mut stream = path.as_os_str().to_owned();
     stream.push(":Zone.Identifier");
     std::fs::write(stream, note)
-}
-
-fn encode(s: &str) -> String {
-    s.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-_.~".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect()
 }
 
 fn create(root: &Path, path: &Path, entry: Option<&Entry>) {

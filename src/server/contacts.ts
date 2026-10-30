@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { Recipient } from "@/lib/mail/compose";
-import { realName, type ContactEntry } from "@/lib/mail/contacts";
+import { noteContact, type ContactEntry } from "@/lib/mail/contacts";
 import type { Contact } from "@/lib/mail/types";
 import { isAutomated, type Acquaintance } from "@/lib/replies";
 import { getDb, listAccounts } from "./db";
@@ -61,16 +61,7 @@ function build(): Built {
   closeThread();
 
   const people = new Map<string, Entry>();
-  const note = (contact: Contact, date: string, sent: boolean) => {
-    const email = contact.email?.trim().toLowerCase();
-    if (!email || own.has(email) || !email.includes("@")) return;
-    const entry = people.get(email) ?? { email, name: "", sent: 0, seen: 0, last: "" };
-    entry.name ||= realName(contact);
-    if (sent) entry.sent++;
-    else entry.seen++;
-    if (date > entry.last) entry.last = date;
-    people.set(email, entry);
-  };
+  const note = (contact: Contact, date: string, sent: boolean) => noteContact(people, own, contact, date, sent);
   for (const row of rows) {
     const from = row.sender ? (JSON.parse(row.sender) as Contact) : null;
     const date = row.date ?? "";

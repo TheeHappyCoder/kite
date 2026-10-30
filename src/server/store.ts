@@ -417,6 +417,11 @@ export function updateLabels(id: string, add: string[], remove: string[]) {
     remove.forEach((l) => labels.delete(l));
     return { ...m, labels: [...labels], unread: labels.has("UNREAD") || undefined };
   });
+  storeThreadLabels(id, thread);
+}
+
+/** A thread's labels, unread and star follow its messages'. */
+function storeThreadLabels(id: string, thread: Thread) {
   const labels = new Set(thread.messages.flatMap((m) => m.labels ?? []));
   thread.unread = labels.has("UNREAD");
   thread.starred = labels.has("STARRED");
@@ -438,12 +443,7 @@ export function updateMessageLabels(id: string, messageIds: string[], add: strin
     remove.forEach((l) => labels.delete(l));
     return { ...m, labels: [...labels], unread: labels.has("UNREAD") || undefined };
   });
-  const labels = new Set(thread.messages.flatMap((m) => m.labels ?? []));
-  thread.unread = labels.has("UNREAD");
-  thread.starred = labels.has("STARRED");
-  getDb()
-    .prepare("UPDATE threads SET labels = ?, data = ? WHERE id = ?")
-    .run(JSON.stringify([...labels]), JSON.stringify(thread), id);
+  storeThreadLabels(id, thread);
 }
 
 /** A thread's slim copy (db.ts `listCopy`: everything but bodies), for lists, search filters and files. */

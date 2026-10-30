@@ -11,6 +11,7 @@ import {
   TextItalicIcon,
 } from "@hugeicons/core-free-icons";
 import { bodyToEditorHtml, bodyToText, escapeInline, escapeLineStart } from "@/lib/mail/body";
+import { escapeHtml } from "@/lib/format";
 import { blurFade } from "@/lib/motion";
 import type { Snippet } from "@/lib/settings";
 import { comboFromEvent, useShortcuts, type ShortcutAction } from "@/lib/shortcuts";
@@ -201,8 +202,6 @@ function exec(command: string, value?: string) {
   document.execCommand(command, false, value);
 }
 
-const escapeAttr = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-
 // ---------------------------------------------------------------------------
 // Editor
 // ---------------------------------------------------------------------------
@@ -362,7 +361,7 @@ export const RichEditor = forwardRef<
       prompt.anchor.setAttribute("href", href);
     } else if (!prompt.range || prompt.range.collapsed) {
       const label = value.trim();
-      exec("insertHTML", `<a href="${escapeAttr(href)}">${escapeAttr(label)}</a> `);
+      exec("insertHTML", `<a href="${escapeHtml(href)}">${escapeHtml(label)}</a> `);
     } else {
       exec("createLink", href);
     }

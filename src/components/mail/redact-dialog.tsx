@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Cancel01Icon, EraserIcon } from "@hugeicons/core-free-icons";
-import { escapeHtml } from "@/lib/design/compile";
+import { escapeHtml } from "@/lib/format";
 import type { Quote } from "@/lib/mail/compose";
 import { holdRemoteImages } from "@/lib/mail/privacy";
 import { phrasePattern, redactHtml, redactText, type Redactions } from "@/lib/mail/redact";

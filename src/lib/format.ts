@@ -8,6 +8,11 @@ export function formatBytes(bytes: number) {
   return `${value.toFixed(1).replace(/\.0$/, "")} ${unit}`;
 }
 
+/** Text made safe to put in HTML, attributes included. */
+export function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
 /** "1 sender", "3 senders". */
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 

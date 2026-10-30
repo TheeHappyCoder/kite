@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { Add01Icon, AiMagicIcon, ArrowDown01Icon, Cancel01Icon, Clock01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import { accountName, type Account } from "@/lib/mail/types";
 import type { AiModel } from "@/lib/ai-pricing";
+import type { AiDraftsView } from "@/lib/ai-tasks";
 import { blurFade } from "@/lib/motion";
 import { gmailFilterFor, type GmailFilterState } from "@/lib/rules/gmail";
 import { MESSAGE_BLANKS, blanksIn, fillBlanks } from "@/lib/rules/prepared";
@@ -139,16 +140,6 @@ export function DescribeRule({ onDraft, onError }: { onDraft: (draft: RuleDraft)
     </div>
   );
 }
-
-type AiDraftsView = {
-  on: boolean;
-  model: string | null;
-  configured: boolean;
-  pausedReason: string | null;
-  retryAt: string | null;
-  waiting: number;
-  recent: { id: string; ruleName: string; subject: string; status: "queued" | "done" | "failed" | "skipped" | "cancelled"; reason: string | null; at: string }[];
-};
 
 const JOB_WORDS = { queued: "waiting", done: "drafted", failed: "failed", skipped: "skipped", cancelled: "called off" } as const;
 

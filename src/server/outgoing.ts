@@ -1,7 +1,8 @@
 import "server-only";
 
 import { format } from "date-fns";
-import { compileHtml, compileText, escapeHtml, FONT_STACKS } from "@/lib/design/compile";
+import { compileHtml, compileText, FONT_STACKS } from "@/lib/design/compile";
+import { escapeHtml } from "@/lib/format";
 import { assetId, designAssets, type Design, type LeafBlock } from "@/lib/design/spec";
 import { bodyImageIds, bodyToHtml, bodyToText, hasMarkup } from "@/lib/mail/body";
 import { MESSAGE_LIMIT_BYTES, type Quote } from "@/lib/mail/compose";

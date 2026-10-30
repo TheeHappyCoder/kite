@@ -18,6 +18,18 @@ export const AI_TASK_INFO: Record<AiTask, { label: string; detail: string }> = {
   test: { label: "Connection test", detail: "Save and test in AI setup." },
 };
 
+/** Rules' "Draft with AI" as Settings shows it (GET /api/ai/drafts). */
+export type AiDraftsView = {
+  on: boolean;
+  model: string | null;
+  configured: boolean;
+  pausedReason: string | null;
+  retryAt: string | null;
+  waiting: number;
+  /** The latest jobs, for "why didn't it draft?" */
+  recent: { id: string; ruleName: string; subject: string; status: "queued" | "done" | "failed" | "skipped" | "cancelled"; reason: string | null; at: string }[];
+};
+
 /** Task -> connected model id. A task not here runs on the default model. */
 export const AiModelChoices = z.partialRecord(z.enum(AI_TASKS), z.string().max(120));
 export type AiModelChoices = z.infer<typeof AiModelChoices>;

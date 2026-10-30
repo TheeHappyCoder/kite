@@ -1,4 +1,4 @@
-import { escapeHtml } from "../design/compile";
+import { escapeHtml } from "../format";
 
 // Message bodies are plain text with light inline markup, the same syntax as kite-design/1
 // text blocks: **bold**, *italic*, [label](https://…). Bodies add lists ("- " and "1. " at
