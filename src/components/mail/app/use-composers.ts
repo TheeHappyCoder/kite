@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { ComposeDraft } from "@/lib/mail/compose";
 import type { AttachContext } from "../../files/attach-picker";
-import { ComposeDock, MAX_COMPOSERS } from "../compose-window";
+import { ComposeDock, MAX_COMPOSERS, savedPage, savePage } from "../compose-window";
 import type { SetToast } from "./util";
 
 /** An open compose window. `slot` is where it opened; `z` orders the stack (highest in front). */
@@ -12,6 +12,8 @@ export type Composer = {
   slot: number;
   z: number;
   minimized: boolean;
+  /** Over the whole app instead of a floating window. */
+  page: boolean;
   key?: string;
   initial?: Partial<ComposeDraft>;
   context?: AttachContext;
@@ -60,7 +62,7 @@ export function useComposers(setToast: SetToast) {
       const used = new Set(composersRef.current.map((c) => c.slot));
       let slot = 0;
       while (used.has(slot)) slot++;
-      const composer: Composer = { id: ++composerSeq.current, slot, z: topZ(composersRef.current), minimized: false, key: options?.key, initial, context };
+      const composer: Composer = { id: ++composerSeq.current, slot, z: topZ(composersRef.current), minimized: false, page: savedPage(), key: options?.key, initial, context };
       updateComposers((cs) => [...cs, composer]);
     },
     [frontComposer, composeFull, updateComposers],
@@ -68,6 +70,15 @@ export function useComposers(setToast: SetToast) {
   const closeComposer = useCallback((id: number) => updateComposers((cs) => cs.filter((c) => c.id !== id)), [updateComposers]);
   const minimizeComposer = useCallback(
     (id: number) => updateComposers((cs) => cs.map((c) => (c.id === id ? { ...c, minimized: true } : c))),
+    [updateComposers],
+  );
+  /** Window to full page and back; the next composer opens at the size chosen last. Escape's step down isn't a choice (`remember` false). */
+  const toggleComposerPage = useCallback(
+    (id: number, remember = true) => {
+      const page = !composersRef.current.find((c) => c.id === id)?.page;
+      if (remember) savePage(page);
+      updateComposers((cs) => cs.map((c) => (c.id === id ? { ...c, page } : c)));
+    },
     [updateComposers],
   );
   /** The minimise shortcut: minimises the composer with focus, else restores the last one in front. */
@@ -85,5 +96,5 @@ export function useComposers(setToast: SetToast) {
     [minimizeComposer, frontComposer],
   );
 
-  return { composers, composeDock, openCompose, closeComposer, minimizeComposer, frontComposer, toggleComposer, composeFull };
+  return { composers, composeDock, openCompose, closeComposer, minimizeComposer, frontComposer, toggleComposer, toggleComposerPage, composeFull };
 }

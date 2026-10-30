@@ -127,7 +127,7 @@ export function MailApp() {
   const openFillSign = useCallback((file: FileRef, options?: { layout?: string }) => setFillSign({ file, layout: options?.layout }), []);
   const [toast, setToast] = useState<Toast | null>(null);
   useToastTimer(toast, setToast);
-  const { composers, composeDock, openCompose, closeComposer, minimizeComposer, frontComposer, toggleComposer, composeFull } = useComposers(setToast);
+  const { composers, composeDock, openCompose, closeComposer, minimizeComposer, frontComposer, toggleComposer, toggleComposerPage, composeFull } = useComposers(setToast);
   /** Screen privacy (shift+p): blurs everything marked data-sensitive while sharing a screen. Not remembered. */
   const [screenPrivate, setScreenPrivate] = useState(false);
   useEffect(() => {
@@ -1493,7 +1493,9 @@ export function MailApp() {
                 // Rank in the stack, so windows stay under dialogs and toasts.
                 z: 30 + composers.filter((o) => o.z < c.z).length,
                 minimized: c.minimized,
+                page: c.page,
                 dock: composeDock,
+                onPage: (remember) => toggleComposerPage(c.id, remember),
                 onFront: () => frontComposer(c.id),
                 onMinimize: () => minimizeComposer(c.id),
                 onRestore: () => frontComposer(c.id, true),

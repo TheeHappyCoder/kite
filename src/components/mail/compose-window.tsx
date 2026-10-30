@@ -12,6 +12,7 @@ import { Tooltip } from "../ui/tooltip";
 export const MAX_COMPOSERS = 4;
 
 const MARGIN = 16;
+const PAGE_MARGIN = 8;
 const GAP = 12;
 const MIN_W = 380;
 const MIN_H = 320;
@@ -36,6 +37,31 @@ function saveSize(w: number, h: number) {
   try {
     localStorage.setItem(SIZE_KEY, JSON.stringify({ w: Math.round(w), h: Math.round(h) }));
   } catch {}
+}
+
+const PAGE_KEY = "kite-compose-page";
+
+/** Whether new composers open full page: the size last chosen, on this computer. */
+export function savedPage() {
+  try {
+    return localStorage.getItem(PAGE_KEY) === "page";
+  } catch {
+    return false;
+  }
+}
+
+export function savePage(page: boolean) {
+  try {
+    if (page) localStorage.setItem(PAGE_KEY, "page");
+    else localStorage.removeItem(PAGE_KEY);
+  } catch {}
+}
+
+/** Full page: the whole app window, with a little of the sky around it (all of a phone's). */
+function pageRect(): Rect {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  return vw < PHONE ? { x: 0, y: 0, w: vw, h: vh } : { x: PAGE_MARGIN, y: PAGE_MARGIN, w: vw - 2 * PAGE_MARGIN, h: vh - 2 * PAGE_MARGIN };
 }
 
 /** Keeps a window inside the viewport, shrinking it when the viewport is smaller (filling a phone's). */
@@ -300,7 +326,8 @@ function DockTab({
   return (
     <motion.div
       style={{ x, y, width: box?.w, height: box?.h, visibility: at ? "visible" : "hidden" }}
-      className="fixed left-0 top-0 z-30 select-none"
+      // Above every composer (30 and up, one per open one), so a full-page one never covers the tabs.
+      className="fixed left-0 top-0 z-[38] select-none"
     >
       <div ref={measure} className="absolute left-1/2 top-1/2 w-max" style={{ transform: `translate(-50%, -50%) rotate(${TAB_TURN[edge]}deg)` }}>
         {/* Rises out of its edge (the tab's own "down" always points at the edge). */}
@@ -387,13 +414,16 @@ const HANDLES: { edges: Edges; cursor: string; className: string }[] = [
 /**
  * A floating compose window: dragged by its title bar, resized from any edge or corner, kept on
  * screen when the viewport changes. Minimised, it stays mounted (drafts keep saving, and it restores
- * where it was) and shows a tab in the dock instead.
+ * where it was) and shows a tab in the dock instead. `page` grows the same window over the whole app
+ * (no dragging or resizing there) and going back puts it where it was: only the frame changes, so the
+ * draft, the editor and any uploads carry on untouched.
  */
 export function ComposeWindow({
   id,
   slot,
   z,
   minimized,
+  page,
   away = false,
   dock,
   tab,
@@ -408,6 +438,7 @@ export function ComposeWindow({
   slot: number;
   z: number;
   minimized: boolean;
+  page: boolean;
   /** Sending: the window steps aside (still mounted, so a failed send brings it back as it was). */
   away?: boolean;
   dock: ComposeDock;
@@ -424,6 +455,9 @@ export function ComposeWindow({
   const w = useMotionValue(DEFAULT.w);
   const h = useMotionValue(DEFAULT.h);
   const slotRef = useRef(slot);
+  const pageRef = useRef(page);
+  /** Where the window goes back to from full page. */
+  const windowRect = useRef<Rect | null>(null);
 
   const rect = (): Rect => ({ x: x.get(), y: y.get(), w: w.get(), h: h.get() });
   const set = (next: Rect) => {
@@ -441,16 +475,27 @@ export function ComposeWindow({
       w.set(next.w);
       h.set(next.h);
     };
-    place(startRect(slotRef.current));
-    const onResize = () => place(fit({ x: x.get(), y: y.get(), w: w.get(), h: h.get() }));
+    windowRect.current = startRect(slotRef.current);
+    place(pageRef.current ? pageRect() : windowRect.current);
+    const onResize = () => place(pageRef.current ? pageRect() : fit({ x: x.get(), y: y.get(), w: w.get(), h: h.get() }));
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [x, y, w, h]);
   useEffect(() => () => dock.remove(id), [dock, id]);
 
+  // Switching size glides there (opening at a size doesn't: that's placed above).
+  useEffect(() => {
+    if (pageRef.current === page) return;
+    pageRef.current = page;
+    if (page) windowRect.current = { x: x.get(), y: y.get(), w: w.get(), h: h.get() };
+    const to = page || !windowRect.current ? pageRect() : fit(windowRect.current);
+    const moves = [animate(x, to.x, spring.moderate), animate(y, to.y, spring.moderate), animate(w, to.w, spring.moderate), animate(h, to.h, spring.moderate)];
+    return () => moves.forEach((m) => m.stop());
+  }, [page, x, y, w, h]);
+
   const drag = (e: React.PointerEvent) => {
     const target = e.target as Element;
-    if (e.button !== 0 || phone() || !target.closest("[data-window-drag]") || target.closest("button, input, select, textarea, a, [role=radio], [role=radiogroup]")) return;
+    if (e.button !== 0 || page || phone() || !target.closest("[data-window-drag]") || target.closest("button, input, select, textarea, a, [role=radio], [role=radiogroup]")) return;
     const start = rect();
     track(
       e,
@@ -507,7 +552,7 @@ export function ComposeWindow({
         <LayoutGroup id={`composer-${id}`}>
           {children}
         </LayoutGroup>
-        {HANDLES.map((handle) => (
+        {page ? null : HANDLES.map((handle) => (
           <div
             key={handle.cursor + handle.className}
             aria-hidden

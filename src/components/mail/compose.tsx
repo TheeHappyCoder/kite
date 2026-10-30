@@ -5,7 +5,9 @@ import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "motion/react";
 import {
   AiMagicIcon,
+  ArrowExpand01Icon,
   ArrowRight01Icon,
+  ArrowShrink01Icon,
   ArrowShrink02Icon,
   Attachment01Icon,
   Briefcase01Icon,
@@ -14,8 +16,10 @@ import {
   EraserIcon,
   Forward01Icon,
   HappyIcon,
+  ImageAdd01Icon,
   MinusSignIcon,
   QuoteDownIcon,
+  SidebarLeftIcon,
   SpellCheckIcon,
 } from "@hugeicons/core-free-icons";
 import { REWRITE_INSTRUCTION_MAX, REWRITE_LABELS, type RewriteHow, type RewriteStyle } from "@/lib/ai-mail";
@@ -41,6 +45,7 @@ import type { Design } from "@/lib/design/spec";
 import { blurFade, springSnappy } from "@/lib/motion";
 import type { Snippet } from "@/lib/settings";
 import { comboFromEvent, useShortcuts } from "@/lib/shortcuts";
+import { useSidebarMode } from "@/lib/layout";
 import { bodyToText } from "@/lib/mail/body";
 import { cn, formatFullDate } from "@/lib/utils";
 import { SignatureSlot } from "../design/signature-slot";
@@ -62,6 +67,19 @@ import { hasRedactions, redactText } from "@/lib/mail/redact";
 const DesignedBody = dynamic(() => import("./designed-body").then((m) => m.DesignedBody), { ssr: false });
 // Forward with parts removed: loads when it opens.
 const RedactDialog = dynamic(() => import("./redact-dialog").then((m) => m.RedactDialog), { ssr: false });
+// The conversation beside a full-page composer.
+const ComposeConversation = dynamic(() => import("./compose-conversation").then((m) => m.ComposeConversation), { ssr: false });
+
+const SIDE_KEY = "kite-compose-side";
+
+/** Whether a full-page reply shows the conversation beside it: on unless the user hid it, on this computer. */
+function savedSide() {
+  try {
+    return localStorage.getItem(SIDE_KEY) !== "hidden";
+  } catch {
+    return true;
+  }
+}
 
 type ComposeFile = {
   key: string;
@@ -130,7 +148,9 @@ export function Compose({
     slot: number;
     z: number;
     minimized: boolean;
+    page: boolean;
     dock: ComposeDock;
+    onPage: (remember?: boolean) => void;
     onFront: () => void;
     onMinimize: () => void;
     onRestore: () => void;
@@ -184,6 +204,16 @@ export function Compose({
   /** Design mode: the body is a design document. Switching back to Write keeps it here for this window. */
   const [designMode, setDesignMode] = useState(() => !!initial?.design);
   const [parkedDesign, setParkedDesign] = useState<Design | undefined>(undefined);
+  // A phone's window already fills the screen: there's no other size to switch to.
+  const phone = useSidebarMode() === "drawer";
+  const [side, setSide] = useState(savedSide);
+  const toggleSide = () => {
+    try {
+      if (side) localStorage.setItem(SIDE_KEY, "hidden");
+      else localStorage.removeItem(SIDE_KEY);
+    } catch {}
+    setSide(!side);
+  };
 
   const editorRef = useRef<RichEditorHandle>(null);
   const ccRef = useRef<HTMLInputElement>(null);
@@ -432,6 +462,7 @@ export function Compose({
       slot={win.slot}
       z={win.z}
       minimized={win.minimized}
+      page={win.page}
       away={sending}
       dock={win.dock}
       tab={{ title, detail: tabDetail }}
@@ -447,6 +478,8 @@ export function Compose({
         if (!e.currentTarget.contains(e.target as Node)) return;
         if (e.key === "Escape" && !e.defaultPrevented) {
           if (confirmDiscard) setConfirmDiscard(false);
+          // One stray key shouldn't end a long email: full page steps down to a window first.
+          else if (win.page && !phone) win.onPage(false);
           else close();
           return;
         }
@@ -468,6 +501,9 @@ export function Compose({
         } else if (action === "attachFromFiles") {
           e.preventDefault();
           setPicking((p) => !p);
+        } else if (action === "pageCompose" && !phone) {
+          e.preventDefault();
+          win.onPage();
         }
       }}
       onDragOver={(e) => {
@@ -485,7 +521,16 @@ export function Compose({
         addFiles([...e.dataTransfer.files]);
       }}
     >
-      <div data-window-drag="" className="flex shrink-0 cursor-grab touch-none select-none items-center gap-3 rounded-t-2xl bg-pane-2 px-4 py-2.5 active:cursor-grabbing max-sm:cursor-default max-sm:touch-auto max-sm:rounded-none max-sm:px-3">
+      <div
+        data-window-drag=""
+        onDoubleClick={(e) => {
+          if (!phone && !(e.target as Element).closest("button, input, [role=radio], [role=radiogroup]")) win.onPage();
+        }}
+        className={cn(
+          "flex shrink-0 touch-none select-none items-center gap-3 rounded-t-2xl px-4 py-2.5 max-sm:cursor-default max-sm:touch-auto max-sm:rounded-none max-sm:px-3",
+          !win.page && "cursor-grab bg-pane-2 active:cursor-grabbing",
+        )}
+      >
         <span className="min-w-0 truncate text-[13px] font-medium">{title}</span>
         <AnimatePresence mode="popLayout" initial={false}>
           {saveState !== "idle" ? (
@@ -495,6 +540,27 @@ export function Compose({
           ) : null}
         </AnimatePresence>
         <ModeSwitch design={designMode} onChange={switchMode} />
+        {win.page && context?.threadId ? (
+          <Tooltip label={side ? "Hide the conversation" : "Show the conversation"} side="top" className="inline-flex max-lg:hidden">
+            <button
+              aria-label={side ? "Hide the conversation" : "Show the conversation"}
+              aria-pressed={side}
+              onClick={toggleSide}
+              className={cn("-mr-2 grid size-7 place-items-center rounded-full text-pane-muted hover:bg-pane-hover hover:text-pane-fg", side && "text-accent")}
+            >
+              <Icon icon={SidebarLeftIcon} size={15} />
+            </button>
+          </Tooltip>
+        ) : null}
+        <Tooltip label={win.page ? "Make it a window" : "Full page"} shortcut="pageCompose" side="top" className="inline-flex max-sm:hidden">
+          <button
+            aria-label={win.page ? "Make it a window" : "Full page"}
+            onClick={() => win.onPage()}
+            className="-mr-2 grid size-7 place-items-center rounded-full text-pane-muted hover:bg-pane-hover hover:text-pane-fg"
+          >
+            <Icon icon={win.page ? ArrowShrink01Icon : ArrowExpand01Icon} size={15} />
+          </button>
+        </Tooltip>
         <Tooltip label="Minimise" shortcut="minimizeCompose" side="top" className="inline-flex">
           <button aria-label="Minimise" onClick={win.onMinimize} className="-mr-2 grid size-7 place-items-center rounded-full text-pane-muted touch:size-10 hover:bg-pane-hover hover:text-pane-fg">
             <Icon icon={MinusSignIcon} size={15} />
@@ -507,6 +573,15 @@ export function Compose({
         </Tooltip>
       </div>
 
+      {/* Always this same tree, whatever the size: the editor and uploads must never remount. */}
+      <div className="flex min-h-0 flex-1">
+      {win.page && side && context?.threadId ? (
+        <aside className="blur-fade-right mb-2 ml-2 w-[42%] max-w-[560px] shrink-0 overflow-hidden rounded-xl bg-pane-2 max-lg:hidden">
+          <ComposeConversation threadId={context.threadId} accountId={draft.accountId} live={live} demoThreads={demoThreads} />
+        </aside>
+      ) : null}
+      {/* Full page reads like a document: no rules between the fields, the subject as its heading. */}
+      <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", win.page && "mx-auto max-w-[760px] px-4 *:border-transparent [&>.blur-fade-down>*]:border-transparent")}>
       {accounts.length > 1 ? (
         <div className="flex min-w-0 items-center gap-3 border-b border-pane-border px-4 py-1.5">
           <span className="w-14 shrink-0 text-[12.5px] text-pane-muted">From</span>
@@ -516,7 +591,7 @@ export function Compose({
             options={accounts.map((a) => ({
               value: a.id,
               label: accountName(a),
-              detail: `${a.email} · ${serviceName(a)}`,
+              detail: accountName(a) === a.email ? serviceName(a) : `${a.email} · ${serviceName(a)}`,
               icon: <AccountFace account={a} className="size-5 text-[8px]" />,
             }))}
             onChange={(accountId) => update({ accountId })}
@@ -576,16 +651,18 @@ export function Compose({
           />
         </div>
       ) : null}
-      <label className="flex items-center gap-3 border-b border-pane-border px-4 py-2">
-        <span className="w-14 text-[12.5px] text-pane-muted">Subject</span>
+      <label className={cn("flex items-center gap-3 border-b border-pane-border px-4", win.page ? "pb-1 pt-4" : "py-2")}>
+        <span className={win.page ? "sr-only" : "w-14 text-[12.5px] text-pane-muted"}>Subject</span>
         <input
           value={draft.subject}
           onChange={(e) => update({ subject: e.target.value.replace(/[\r\n]/g, " ") })}
-          className="flex-1 bg-transparent text-[13px] outline-none"
+          placeholder={win.page ? "Subject" : undefined}
+          className={cn("min-w-0 flex-1 bg-transparent outline-none placeholder:text-pane-muted", win.page ? "text-[22px] font-semibold tracking-tight" : "text-[13px]")}
         />
       </label>
 
-      <div className="min-h-24 flex-1 overflow-y-auto px-4 py-3" onClick={(e) => e.target === e.currentTarget && editorRef.current?.focus()}>
+      {/* Full page: the writing takes the room, and what goes with it (quote, files, signature) sits below. */}
+      <div className={cn("min-h-24 flex-1 overflow-y-auto px-4 py-3", win.page && "flex flex-col")} onClick={(e) => e.target === e.currentTarget && editorRef.current?.focus()}>
         {designMode ? (
           <DesignedBody
             design={draft.design}
@@ -609,7 +686,7 @@ export function Compose({
             snippets={snippets.map((s) => ({ ...s, body: expandSnippet(s.body, draft.to) }))}
             onManageSnippets={onManageSnippets}
             placeholder="Write something… type ; for snippets"
-            className="min-h-[140px] text-[13.5px] leading-6"
+            className={win.page ? "min-h-[140px] flex-1 text-[15px] leading-7" : "min-h-[140px] text-[13.5px] leading-6"}
           />
         )}
 
@@ -695,7 +772,7 @@ export function Compose({
       </AnimatePresence>
 
       <div className="relative flex flex-wrap items-center gap-1 gap-y-1.5 border-t border-pane-border px-3 py-2">
-        {!designMode ? <label className="cursor-pointer rounded-full px-2 py-1 text-xs hover:bg-pane-hover">Insert image<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void uploadAsset(file, { private: true }).then((a) => editorRef.current?.insertImage(a.id)).catch((error: Error) => setNotice(error.message)); }} /></label> : null}
+        {!designMode ? <Tooltip label="Insert image" side="top" className="inline-flex"><label aria-label="Insert image" className="grid size-8 cursor-pointer place-items-center rounded-full text-pane-muted touch:size-10 hover:bg-pane-hover hover:text-pane-fg"><Icon icon={ImageAdd01Icon} size={15} /><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void uploadAsset(file, { private: true }).then((a) => editorRef.current?.insertImage(a.id)).catch((error: Error) => setNotice(error.message)); }} /></label></Tooltip> : null}
         {picking ? (
           <AttachPicker
             live={live}
@@ -832,6 +909,8 @@ export function Compose({
             )}
           </AnimatePresence>
         </div>
+      </div>
+      </div>
       </div>
     </ComposeWindow>
   );

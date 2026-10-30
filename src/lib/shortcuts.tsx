@@ -75,7 +75,8 @@ export type ShortcutAction =
   | "link"
   | "bulletList"
   | "numberList"
-  | "minimizeCompose";
+  | "minimizeCompose"
+  | "pageCompose";
 
 /** Switches to the nth connected account (in the order they were added). */
 type AccountShortcut = `account${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`;
@@ -151,6 +152,7 @@ export const SHORTCUT_DEFINITIONS: Definition[] = [
   { id: "bulletList", label: "Bulleted list", group: "Compose", defaults: ["mod+*"] },
   { id: "numberList", label: "Numbered list", group: "Compose", defaults: ["mod+&"] },
   { id: "minimizeCompose", label: "Minimise / restore message", group: "Compose", defaults: ["mod+shift+m"] },
+  { id: "pageCompose", label: "Message full page / in a window", group: "Compose", defaults: ["mod+shift+f"] },
   { id: "annotateUndo", label: "Undo the last mark", group: "Screenshot", defaults: ["mod+z"] },
   { id: "annotateRedo", label: "Redo", group: "Screenshot", defaults: ["mod+shift+z", "mod+y"] },
   { id: "palette", label: "Command palette", group: "App", defaults: ["mod+k"] },
