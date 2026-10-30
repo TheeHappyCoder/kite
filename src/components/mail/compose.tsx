@@ -575,342 +575,342 @@ export function Compose({
 
       {/* Always this same tree, whatever the size: the editor and uploads must never remount. */}
       <div className="flex min-h-0 flex-1">
-      {win.page && side && context?.threadId ? (
-        <aside className="blur-fade-right mb-2 ml-2 w-[42%] max-w-[560px] shrink-0 overflow-hidden rounded-xl bg-pane-2 max-lg:hidden">
-          <ComposeConversation threadId={context.threadId} accountId={draft.accountId} live={live} demoThreads={demoThreads} />
-        </aside>
-      ) : null}
-      {/* Full page reads like a document: no rules between the fields, the subject as its heading. */}
-      <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", win.page && "mx-auto max-w-[760px] px-4 *:border-transparent [&>.blur-fade-down>*]:border-transparent")}>
-      {accounts.length > 1 ? (
-        <div className="flex min-w-0 items-center gap-3 border-b border-pane-border px-4 py-1.5">
-          <span className="w-14 shrink-0 text-[12.5px] text-pane-muted">From</span>
-          <Select
-            label="From"
-            value={draft.accountId}
-            options={accounts.map((a) => ({
-              value: a.id,
-              label: accountName(a),
-              detail: accountName(a) === a.email ? serviceName(a) : `${a.email} · ${serviceName(a)}`,
-              icon: <AccountFace account={a} className="size-5 text-[8px]" />,
-            }))}
-            onChange={(accountId) => update({ accountId })}
-            className="h-8 min-w-0 pl-1.5 text-[13px]"
+        {win.page && side && context?.threadId ? (
+          <aside className="blur-fade-right mb-2 ml-2 w-[42%] max-w-[560px] shrink-0 overflow-hidden rounded-xl bg-pane-2 max-lg:hidden">
+            <ComposeConversation threadId={context.threadId} accountId={draft.accountId} live={live} demoThreads={demoThreads} />
+          </aside>
+        ) : null}
+        {/* Full page reads like a document: no rules between the fields, the subject as its heading. */}
+        <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", win.page && "mx-auto max-w-[760px] px-4 *:border-transparent [&>.blur-fade-down>*]:border-transparent")}>
+          {accounts.length > 1 ? (
+            <div className="flex min-w-0 items-center gap-3 border-b border-pane-border px-4 py-1.5">
+              <span className="w-14 shrink-0 text-[12.5px] text-pane-muted">From</span>
+              <Select
+                label="From"
+                value={draft.accountId}
+                options={accounts.map((a) => ({
+                  value: a.id,
+                  label: accountName(a),
+                  detail: accountName(a) === a.email ? serviceName(a) : `${a.email} · ${serviceName(a)}`,
+                  icon: <AccountFace account={a} className="size-5 text-[8px]" />,
+                }))}
+                onChange={(accountId) => update({ accountId })}
+                className="h-8 min-w-0 pl-1.5 text-[13px]"
+              />
+            </div>
+          ) : null}
+          <RecipientField
+            label="To"
+            value={draft.to}
+            onChange={(to) => update({ to })}
+            search={searchContacts}
+            onPendingInvalid={(bad) => setPendingInvalid((p) => ({ ...p, to: bad }))}
+            autoFocus={!draft.to.length}
+            trailing={
+              showCc ? null : (
+                <Tooltip label="Add Cc and Bcc" shortcut="ccBcc">
+                  <button
+                    onClick={() => {
+                      setShowCc(true);
+                      setTimeout(() => ccRef.current?.focus());
+                    }}
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[12px] text-pane-muted hover:bg-pane-hover hover:text-pane-fg"
+                  >
+                    Cc Bcc
+                  </button>
+                </Tooltip>
+              )
+            }
           />
-        </div>
-      ) : null}
-      <RecipientField
-        label="To"
-        value={draft.to}
-        onChange={(to) => update({ to })}
-        search={searchContacts}
-        onPendingInvalid={(bad) => setPendingInvalid((p) => ({ ...p, to: bad }))}
-        autoFocus={!draft.to.length}
-        trailing={
-          showCc ? null : (
-            <Tooltip label="Add Cc and Bcc" shortcut="ccBcc">
-              <button
-                onClick={() => {
-                  setShowCc(true);
-                  setTimeout(() => ccRef.current?.focus());
+          {draft.to.length > 1 && !draft.inReplyTo ? (
+            <label className="blur-fade-down flex items-center gap-3 border-b border-pane-border px-4 py-1.5">
+              <span className="min-w-0 flex-1 text-[12px] text-pane-muted">
+                {draft.separately
+                  ? `Each of the ${draft.to.length} gets their own copy${draft.cc.length || draft.bcc.length ? " (Cc and Bcc are left off)" : ""}. Write {first_name} where their name goes.`
+                  : "Send separately: one copy each, with their own name"}
+              </span>
+              <Switch value={!!draft.separately} label="Send separately" size="sm" onChange={(separately) => update({ separately })} />
+            </label>
+          ) : null}
+          {showCc ? (
+            <div className="blur-fade-down">
+              <RecipientField
+                ref={ccRef}
+                label="Cc"
+                value={draft.cc}
+                onChange={(cc) => update({ cc })}
+                search={searchContacts}
+                onPendingInvalid={(bad) => setPendingInvalid((p) => ({ ...p, cc: bad }))}
+              />
+              <RecipientField
+                label="Bcc"
+                value={draft.bcc}
+                onChange={(bcc) => update({ bcc })}
+                search={searchContacts}
+                onPendingInvalid={(bad) => setPendingInvalid((p) => ({ ...p, bcc: bad }))}
+              />
+            </div>
+          ) : null}
+          <label className={cn("flex items-center gap-3 border-b border-pane-border px-4", win.page ? "pb-1 pt-4" : "py-2")}>
+            <span className={win.page ? "sr-only" : "w-14 text-[12.5px] text-pane-muted"}>Subject</span>
+            <input
+              value={draft.subject}
+              onChange={(e) => update({ subject: e.target.value.replace(/[\r\n]/g, " ") })}
+              placeholder={win.page ? "Subject" : undefined}
+              className={cn("min-w-0 flex-1 bg-transparent outline-none placeholder:text-pane-muted", win.page ? "text-[22px] font-semibold tracking-tight" : "text-[13px]")}
+            />
+          </label>
+
+          {/* Full page: the writing takes the room, and what goes with it (quote, files, signature) sits below. */}
+          <div className={cn("min-h-24 flex-1 overflow-y-auto px-4 py-3", win.page && "flex flex-col")} onClick={(e) => e.target === e.currentTarget && editorRef.current?.focus()}>
+            {designMode ? (
+              <DesignedBody
+                design={draft.design}
+                body={draft.body}
+                subject={draft.subject}
+                recipients={{ to: draft.to, cc: draft.cc, bcc: draft.bcc }}
+                sender={accounts.find((a) => a.id === draft.accountId) ?? { name: "", email: "" }}
+                onDesign={(design) => update({ design })}
+                onTemplate={(template) => update({ design: template.design, subject: draft.subject.trim() ? draft.subject : template.subject, ...(template.recipients ? { to: template.recipients.to, cc: template.recipients.cc, bcc: template.recipients.bcc } : {}) })}
+              />
+            ) : (
+              <RichEditor
+                ref={editorRef}
+                initial={draft.body}
+                autoFocus={draft.to.length > 0}
+                onChange={(body) => {
+                  if (body !== draftRef.current.body) update({ body });
                 }}
-                className="shrink-0 rounded-full px-2 py-0.5 text-[12px] text-pane-muted hover:bg-pane-hover hover:text-pane-fg"
+                onFormat={setFormat}
+                onFiles={addFiles}
+                snippets={snippets.map((s) => ({ ...s, body: expandSnippet(s.body, draft.to) }))}
+                onManageSnippets={onManageSnippets}
+                placeholder="Write something… type ; for snippets"
+                className={win.page ? "min-h-[140px] flex-1 text-[15px] leading-7" : "min-h-[140px] text-[13.5px] leading-6"}
+              />
+            )}
+
+            {draft.quote ? (
+              <QuoteCard draft={draft} open={quoteOpen} onToggle={() => setQuoteOpen((o) => !o)} onRemove={() => update({ quote: undefined })} onRedact={() => setRedacting(true)} />
+            ) : null}
+            {draft.quote?.mode === "forward" && redacting ? (
+              <RedactDialog
+                open
+                onClose={() => setRedacting(false)}
+                accountId={draft.accountId}
+                threadId={draft.threadId}
+                quote={draft.quote}
+                subject={draft.subject}
+                live={live}
+                demoThreads={demoThreads}
+                demoThreadId={context?.threadId}
+                onChange={(redact) => {
+                  setDraft((d) => (d.quote ? { ...d, quote: { ...d.quote, redact: hasRedactions(redact) ? redact : undefined } } : d));
+                  touch();
+                }}
+                onSubject={(subject) => update({ subject })}
+              />
+            ) : null}
+
+            {files.length ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {files.map((file, i) => (
+                  <div
+                    key={file.key}
+                    className="blur-fade-up flex items-center gap-2 rounded-xl border border-pane-border py-1.5 pl-1.5 pr-1"
+                    style={{ "--i": i } as React.CSSProperties}
+                  >
+                    <FileThumb
+                      file={{ accountId: draft.accountId, messageId: null, subject: "", attachment: { name: file.name, size: formatBytes(file.bytes), kind: attachmentKind(file.name, file.mimeType), mimeType: file.mimeType } }}
+                      size={15}
+                      className="size-7 shrink-0 overflow-hidden rounded-lg"
+                    />
+                    <span className="min-w-0">
+                      <span className="block max-w-44 truncate text-[12px] font-medium">{file.name}</span>
+                      <span className="block text-[11px] text-pane-muted">{file.status === "uploading" ? "Attaching…" : formatBytes(file.bytes)}</span>
+                    </span>
+                    <Tooltip label="Remove file">
+                      <button
+                        aria-label={`Remove ${file.name}`}
+                        onClick={() => removeFile(file)}
+                        className="grid size-6 place-items-center rounded-full text-pane-muted hover:bg-pane-hover hover:text-pane-fg"
+                      >
+                        <Icon icon={Cancel01Icon} size={12} />
+                      </button>
+                    </Tooltip>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {signature ? (
+              <div key={draft.accountId} className="mt-3">
+                <SignatureSlot design={signature} onRemove={() => update({ signature: false })} />
+              </div>
+            ) : null}
+          </div>
+
+          <AnimatePresence>
+            {aiBusy ? (
+              <motion.div key="ai" {...blurFade({ y: 4, blur: 4 })} className="mx-3 mb-2 flex items-center rounded-xl bg-pane-2 px-3 py-2 text-[12px] text-pane-fg">
+                <Thinking steps={aiBusy} />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+          <AnimatePresence>
+            {notice ? (
+              <motion.div
+                {...blurFade({ y: 4, blur: 4 })}
+                className="mx-3 mb-2 flex items-start gap-2 rounded-xl bg-pane-2 px-3 py-2 text-[12px] leading-snug text-pane-fg"
               >
-                Cc Bcc
+                <span className="flex-1">{notice}</span>
+                <button onClick={() => setNotice(null)} className="font-medium text-accent hover:opacity-80">
+                  OK
+                </button>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
+          <div className="relative flex flex-wrap items-center gap-1 gap-y-1.5 border-t border-pane-border px-3 py-2">
+            {!designMode ? <Tooltip label="Insert image" side="top" className="inline-flex"><label aria-label="Insert image" className="grid size-8 cursor-pointer place-items-center rounded-full text-pane-muted touch:size-10 hover:bg-pane-hover hover:text-pane-fg"><Icon icon={ImageAdd01Icon} size={15} /><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void uploadAsset(file, { private: true }).then((a) => editorRef.current?.insertImage(a.id)).catch((error: Error) => setNotice(error.message)); }} /></label></Tooltip> : null}
+            {picking ? (
+              <AttachPicker
+                live={live}
+                accounts={accounts}
+                draftAccountId={draft.accountId}
+                demoThreads={demoThreads}
+                context={context ?? (draft.threadId ? { accountId: draft.accountId, remoteThreadId: draft.threadId } : undefined)}
+                // Your own addresses would match every message.
+                people={[...draft.to, ...draft.cc, ...draft.bcc].map((r) => r.email).filter((e) => !accounts.some((a) => a.email.toLowerCase() === e.toLowerCase()))}
+                attached={attachedKeys}
+                onAttach={attachFiles}
+                onUpload={() => fileInput.current?.click()}
+                onClose={closePicker}
+              />
+            ) : null}
+            {designMode ? null : (
+              <>
+                <FormatBar editor={editorRef} state={format} />
+                <span className="mx-1 h-5 w-px bg-pane-border" />
+              </>
+            )}
+            <Tooltip label="Attach from your files" shortcut="attachFromFiles" side="top">
+              <button
+                aria-label="Attach from your files"
+                aria-expanded={picking}
+                onMouseDown={(e) => picking && e.stopPropagation()}
+                onClick={() => setPicking((p) => !p)}
+                className={cn("grid size-8 place-items-center rounded-full text-pane-muted touch:size-10 hover:bg-pane-hover hover:text-pane-fg", picking && "bg-pane-hover text-pane-fg")}
+              >
+                <Icon icon={Attachment01Icon} size={15} />
               </button>
             </Tooltip>
-          )
-        }
-      />
-      {draft.to.length > 1 && !draft.inReplyTo ? (
-        <label className="blur-fade-down flex items-center gap-3 border-b border-pane-border px-4 py-1.5">
-          <span className="min-w-0 flex-1 text-[12px] text-pane-muted">
-            {draft.separately
-              ? `Each of the ${draft.to.length} gets their own copy${draft.cc.length || draft.bcc.length ? " (Cc and Bcc are left off)" : ""}. Write {first_name} where their name goes.`
-              : "Send separately: one copy each, with their own name"}
-          </span>
-          <Switch value={!!draft.separately} label="Send separately" size="sm" onChange={(separately) => update({ separately })} />
-        </label>
-      ) : null}
-      {showCc ? (
-        <div className="blur-fade-down">
-          <RecipientField
-            ref={ccRef}
-            label="Cc"
-            value={draft.cc}
-            onChange={(cc) => update({ cc })}
-            search={searchContacts}
-            onPendingInvalid={(bad) => setPendingInvalid((p) => ({ ...p, cc: bad }))}
-          />
-          <RecipientField
-            label="Bcc"
-            value={draft.bcc}
-            onChange={(bcc) => update({ bcc })}
-            search={searchContacts}
-            onPendingInvalid={(bad) => setPendingInvalid((p) => ({ ...p, bcc: bad }))}
-          />
-        </div>
-      ) : null}
-      <label className={cn("flex items-center gap-3 border-b border-pane-border px-4", win.page ? "pb-1 pt-4" : "py-2")}>
-        <span className={win.page ? "sr-only" : "w-14 text-[12.5px] text-pane-muted"}>Subject</span>
-        <input
-          value={draft.subject}
-          onChange={(e) => update({ subject: e.target.value.replace(/[\r\n]/g, " ") })}
-          placeholder={win.page ? "Subject" : undefined}
-          className={cn("min-w-0 flex-1 bg-transparent outline-none placeholder:text-pane-muted", win.page ? "text-[22px] font-semibold tracking-tight" : "text-[13px]")}
-        />
-      </label>
-
-      {/* Full page: the writing takes the room, and what goes with it (quote, files, signature) sits below. */}
-      <div className={cn("min-h-24 flex-1 overflow-y-auto px-4 py-3", win.page && "flex flex-col")} onClick={(e) => e.target === e.currentTarget && editorRef.current?.focus()}>
-        {designMode ? (
-          <DesignedBody
-            design={draft.design}
-            body={draft.body}
-            subject={draft.subject}
-            recipients={{ to: draft.to, cc: draft.cc, bcc: draft.bcc }}
-            sender={accounts.find((a) => a.id === draft.accountId) ?? { name: "", email: "" }}
-            onDesign={(design) => update({ design })}
-            onTemplate={(template) => update({ design: template.design, subject: draft.subject.trim() ? draft.subject : template.subject, ...(template.recipients ? { to: template.recipients.to, cc: template.recipients.cc, bcc: template.recipients.bcc } : {}) })}
-          />
-        ) : (
-          <RichEditor
-            ref={editorRef}
-            initial={draft.body}
-            autoFocus={draft.to.length > 0}
-            onChange={(body) => {
-              if (body !== draftRef.current.body) update({ body });
-            }}
-            onFormat={setFormat}
-            onFiles={addFiles}
-            snippets={snippets.map((s) => ({ ...s, body: expandSnippet(s.body, draft.to) }))}
-            onManageSnippets={onManageSnippets}
-            placeholder="Write something… type ; for snippets"
-            className={win.page ? "min-h-[140px] flex-1 text-[15px] leading-7" : "min-h-[140px] text-[13.5px] leading-6"}
-          />
-        )}
-
-        {draft.quote ? (
-          <QuoteCard draft={draft} open={quoteOpen} onToggle={() => setQuoteOpen((o) => !o)} onRemove={() => update({ quote: undefined })} onRedact={() => setRedacting(true)} />
-        ) : null}
-        {draft.quote?.mode === "forward" && redacting ? (
-          <RedactDialog
-            open
-            onClose={() => setRedacting(false)}
-            accountId={draft.accountId}
-            threadId={draft.threadId}
-            quote={draft.quote}
-            subject={draft.subject}
-            live={live}
-            demoThreads={demoThreads}
-            demoThreadId={context?.threadId}
-            onChange={(redact) => {
-              setDraft((d) => (d.quote ? { ...d, quote: { ...d.quote, redact: hasRedactions(redact) ? redact : undefined } } : d));
-              touch();
-            }}
-            onSubject={(subject) => update({ subject })}
-          />
-        ) : null}
-
-        {files.length ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {files.map((file, i) => (
-              <div
-                key={file.key}
-                className="blur-fade-up flex items-center gap-2 rounded-xl border border-pane-border py-1.5 pl-1.5 pr-1"
-                style={{ "--i": i } as React.CSSProperties}
-              >
-                <FileThumb
-                  file={{ accountId: draft.accountId, messageId: null, subject: "", attachment: { name: file.name, size: formatBytes(file.bytes), kind: attachmentKind(file.name, file.mimeType), mimeType: file.mimeType } }}
-                  size={15}
-                  className="size-7 shrink-0 overflow-hidden rounded-lg"
-                />
-                <span className="min-w-0">
-                  <span className="block max-w-44 truncate text-[12px] font-medium">{file.name}</span>
-                  <span className="block text-[11px] text-pane-muted">{file.status === "uploading" ? "Attaching…" : formatBytes(file.bytes)}</span>
-                </span>
-                <Tooltip label="Remove file">
-                  <button
-                    aria-label={`Remove ${file.name}`}
-                    onClick={() => removeFile(file)}
-                    className="grid size-6 place-items-center rounded-full text-pane-muted hover:bg-pane-hover hover:text-pane-fg"
-                  >
-                    <Icon icon={Cancel01Icon} size={12} />
-                  </button>
-                </Tooltip>
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        {signature ? (
-          <div key={draft.accountId} className="mt-3">
-            <SignatureSlot design={signature} onRemove={() => update({ signature: false })} />
-          </div>
-        ) : null}
-      </div>
-
-      <AnimatePresence>
-        {aiBusy ? (
-          <motion.div key="ai" {...blurFade({ y: 4, blur: 4 })} className="mx-3 mb-2 flex items-center rounded-xl bg-pane-2 px-3 py-2 text-[12px] text-pane-fg">
-            <Thinking steps={aiBusy} />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-      <AnimatePresence>
-        {notice ? (
-          <motion.div
-            {...blurFade({ y: 4, blur: 4 })}
-            className="mx-3 mb-2 flex items-start gap-2 rounded-xl bg-pane-2 px-3 py-2 text-[12px] leading-snug text-pane-fg"
-          >
-            <span className="flex-1">{notice}</span>
-            <button onClick={() => setNotice(null)} className="font-medium text-accent hover:opacity-80">
-              OK
-            </button>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-
-      <div className="relative flex flex-wrap items-center gap-1 gap-y-1.5 border-t border-pane-border px-3 py-2">
-        {!designMode ? <Tooltip label="Insert image" side="top" className="inline-flex"><label aria-label="Insert image" className="grid size-8 cursor-pointer place-items-center rounded-full text-pane-muted touch:size-10 hover:bg-pane-hover hover:text-pane-fg"><Icon icon={ImageAdd01Icon} size={15} /><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void uploadAsset(file, { private: true }).then((a) => editorRef.current?.insertImage(a.id)).catch((error: Error) => setNotice(error.message)); }} /></label></Tooltip> : null}
-        {picking ? (
-          <AttachPicker
-            live={live}
-            accounts={accounts}
-            draftAccountId={draft.accountId}
-            demoThreads={demoThreads}
-            context={context ?? (draft.threadId ? { accountId: draft.accountId, remoteThreadId: draft.threadId } : undefined)}
-            // Your own addresses would match every message.
-            people={[...draft.to, ...draft.cc, ...draft.bcc].map((r) => r.email).filter((e) => !accounts.some((a) => a.email.toLowerCase() === e.toLowerCase()))}
-            attached={attachedKeys}
-            onAttach={attachFiles}
-            onUpload={() => fileInput.current?.click()}
-            onClose={closePicker}
-          />
-        ) : null}
-        {designMode ? null : (
-          <>
-            <FormatBar editor={editorRef} state={format} />
-            <span className="mx-1 h-5 w-px bg-pane-border" />
-          </>
-        )}
-        <Tooltip label="Attach from your files" shortcut="attachFromFiles" side="top">
-          <button
-            aria-label="Attach from your files"
-            aria-expanded={picking}
-            onMouseDown={(e) => picking && e.stopPropagation()}
-            onClick={() => setPicking((p) => !p)}
-            className={cn("grid size-8 place-items-center rounded-full text-pane-muted touch:size-10 hover:bg-pane-hover hover:text-pane-fg", picking && "bg-pane-hover text-pane-fg")}
-          >
-            <Icon icon={Attachment01Icon} size={15} />
-          </button>
-        </Tooltip>
-        {designMode ? null : (
-          <ThreadMenu
-            up
-            items={aiItems}
-            footer={(close) => (
-              <form
-                className="mt-1 border-t border-pane-border px-1 pb-0.5 pt-1.5"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const own = instruction.trim();
-                  if (!own) return;
-                  close();
-                  setInstruction("");
-                  void rewrite({ instruction: own });
-                }}
-              >
-                <label className="flex h-9 items-center gap-2 rounded-xl bg-pane-2 pl-2.5 pr-1 text-[12.5px] focus-within:ring-1 focus-within:ring-accent/40 touch:h-11">
-                  <Icon icon={AiMagicIcon} size={14} className="shrink-0 text-pane-muted" />
-                  <input
-                    value={instruction}
-                    maxLength={REWRITE_INSTRUCTION_MAX}
-                    onChange={(e) => setInstruction(e.target.value)}
-                    onKeyDown={(e) => {
-                      // Escape closes the menu, not the message.
-                      if (e.key === "Escape") {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        close();
-                      }
+            {designMode ? null : (
+              <ThreadMenu
+                up
+                items={aiItems}
+                footer={(close) => (
+                  <form
+                    className="mt-1 border-t border-pane-border px-1 pb-0.5 pt-1.5"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const own = instruction.trim();
+                      if (!own) return;
+                      close();
+                      setInstruction("");
+                      void rewrite({ instruction: own });
                     }}
-                    placeholder={aiTarget && !aiTarget.whole ? "Or say how to rewrite the selection" : "Or say how to rewrite it"}
-                    aria-label="Your own rewrite instruction"
-                    className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-pane-muted"
-                  />
-                  <Tooltip label="Rewrite this way" side="top">
+                  >
+                    <label className="flex h-9 items-center gap-2 rounded-xl bg-pane-2 pl-2.5 pr-1 text-[12.5px] focus-within:ring-1 focus-within:ring-accent/40 touch:h-11">
+                      <Icon icon={AiMagicIcon} size={14} className="shrink-0 text-pane-muted" />
+                      <input
+                        value={instruction}
+                        maxLength={REWRITE_INSTRUCTION_MAX}
+                        onChange={(e) => setInstruction(e.target.value)}
+                        onKeyDown={(e) => {
+                          // Escape closes the menu, not the message.
+                          if (e.key === "Escape") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            close();
+                          }
+                        }}
+                        placeholder={aiTarget && !aiTarget.whole ? "Or say how to rewrite the selection" : "Or say how to rewrite it"}
+                        aria-label="Your own rewrite instruction"
+                        className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-pane-muted"
+                      />
+                      <Tooltip label="Rewrite this way" side="top">
+                        <button
+                          type="submit"
+                          aria-label="Rewrite this way"
+                          disabled={!instruction.trim()}
+                          className="grid size-7 shrink-0 place-items-center rounded-lg text-accent transition-opacity disabled:opacity-40 touch:size-9"
+                        >
+                          <Icon icon={ArrowRight01Icon} size={14} />
+                        </button>
+                      </Tooltip>
+                    </label>
+                  </form>
+                )}
+                trigger={(open, toggle) => (
+                  <Tooltip label="Draft or rewrite with AI" side="top">
                     <button
-                      type="submit"
-                      aria-label="Rewrite this way"
-                      disabled={!instruction.trim()}
-                      className="grid size-7 shrink-0 place-items-center rounded-lg text-accent transition-opacity disabled:opacity-40 touch:size-9"
+                      aria-label="Draft or rewrite with AI"
+                      aria-expanded={open}
+                      disabled={!!aiBusy}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        if (!open) setAiTarget(editorRef.current?.takeSelection() ?? null);
+                        toggle();
+                      }}
+                      className={cn("grid size-8 place-items-center rounded-full text-pane-muted touch:size-10 hover:bg-pane-hover hover:text-accent disabled:opacity-50", open && "bg-pane-hover text-accent")}
                     >
-                      <Icon icon={ArrowRight01Icon} size={14} />
+                      <Icon icon={AiMagicIcon} size={15} />
                     </button>
                   </Tooltip>
-                </label>
-              </form>
+                )}
+              />
             )}
-            trigger={(open, toggle) => (
-              <Tooltip label="Draft or rewrite with AI" side="top">
-                <button
-                  aria-label="Draft or rewrite with AI"
-                  aria-expanded={open}
-                  disabled={!!aiBusy}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    if (!open) setAiTarget(editorRef.current?.takeSelection() ?? null);
-                    toggle();
-                  }}
-                  className={cn("grid size-8 place-items-center rounded-full text-pane-muted touch:size-10 hover:bg-pane-hover hover:text-accent disabled:opacity-50", open && "bg-pane-hover text-accent")}
-                >
-                  <Icon icon={AiMagicIcon} size={15} />
-                </button>
-              </Tooltip>
-            )}
-          />
-        )}
-        <input
-          ref={fileInput}
-          type="file"
-          multiple
-          hidden
-          onChange={(e) => {
-            addFiles([...(e.target.files ?? [])]);
-            e.target.value = "";
-          }}
-        />
-        <div className="ml-auto flex items-center gap-2">
-          <AnimatePresence mode="popLayout" initial={false}>
-            {confirmDiscard ? (
-              <motion.div key="confirm" {...blurFade({ x: 6, blur: 4 })} className="flex items-center gap-1.5 text-[12.5px]">
-                <span className="text-pane-muted">Discard this draft?</span>
-                <button onClick={() => setConfirmDiscard(false)} className="h-7 rounded-full border border-pane-border px-3 hover:bg-pane-hover">
-                  Keep
-                </button>
-                <button onClick={() => void discard()} className="h-7 rounded-full bg-pane-fg px-3 font-medium text-pane">
-                  Discard
-                </button>
-              </motion.div>
-            ) : (
-              <motion.div key="actions" {...blurFade({ x: -6, blur: 4 })} className="flex items-center gap-2">
-                <Tooltip label="Discard draft" side="top">
-                  <button
-                    aria-label="Discard draft"
-                    onClick={() => (isBlank(full) && !savedRef.current ? void discard() : setConfirmDiscard(true))}
-                    className="grid size-8 place-items-center rounded-full text-pane-muted touch:size-10 hover:bg-pane-hover hover:text-pane-fg"
-                  >
-                    <Icon icon={Delete02Icon} size={15} />
-                  </button>
-                </Tooltip>
-                <SendMenu disabled={!canSend} sending={sending} why={whyNot} archive={answers} onSend={(options) => void send(options)} />
-              </motion.div>
-            )}
-          </AnimatePresence>
+            <input
+              ref={fileInput}
+              type="file"
+              multiple
+              hidden
+              onChange={(e) => {
+                addFiles([...(e.target.files ?? [])]);
+                e.target.value = "";
+              }}
+            />
+            <div className="ml-auto flex items-center gap-2">
+              <AnimatePresence mode="popLayout" initial={false}>
+                {confirmDiscard ? (
+                  <motion.div key="confirm" {...blurFade({ x: 6, blur: 4 })} className="flex items-center gap-1.5 text-[12.5px]">
+                    <span className="text-pane-muted">Discard this draft?</span>
+                    <button onClick={() => setConfirmDiscard(false)} className="h-7 rounded-full border border-pane-border px-3 hover:bg-pane-hover">
+                      Keep
+                    </button>
+                    <button onClick={() => void discard()} className="h-7 rounded-full bg-pane-fg px-3 font-medium text-pane">
+                      Discard
+                    </button>
+                  </motion.div>
+                ) : (
+                  <motion.div key="actions" {...blurFade({ x: -6, blur: 4 })} className="flex items-center gap-2">
+                    <Tooltip label="Discard draft" side="top">
+                      <button
+                        aria-label="Discard draft"
+                        onClick={() => (isBlank(full) && !savedRef.current ? void discard() : setConfirmDiscard(true))}
+                        className="grid size-8 place-items-center rounded-full text-pane-muted touch:size-10 hover:bg-pane-hover hover:text-pane-fg"
+                      >
+                        <Icon icon={Delete02Icon} size={15} />
+                      </button>
+                    </Tooltip>
+                    <SendMenu disabled={!canSend} sending={sending} why={whyNot} archive={answers} onSend={(options) => void send(options)} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
         </div>
-      </div>
-      </div>
       </div>
     </ComposeWindow>
   );
