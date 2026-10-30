@@ -30,7 +30,7 @@ jobs:
         run: |
           mkdir _site
           cp docs/*.html docs/*.css docs/*.js docs/*.svg docs/.nojekyll _site/
-          cp -R docs/images docs/kitebar _site/
+          cp -R docs/images docs/kitebar docs/whats-new _site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

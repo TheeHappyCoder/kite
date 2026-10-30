@@ -60,6 +60,18 @@
         "--serve"
       ],
       "port": 3196
+    },
+    {
+      "name": "kite-whats-new",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "C:/Apps/kite",
+        "dev:scratch",
+        "--data=data-scratch-demo",
+        "--port=3106"
+      ],
+      "port": 3106
     }
   ]
 }

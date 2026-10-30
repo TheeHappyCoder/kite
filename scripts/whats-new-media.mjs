@@ -427,6 +427,50 @@ const scenes = {
     await page.waitForTimeout(700);
     await click(page, page.getByRole("button", { name: "Done" }));
   },
+  files: async (page) => {
+    await click(page, threadRow(page, "Contract draft v3"));
+    await page.waitForTimeout(1200);
+    // "3 files" under the subject opens the drawer (so does the paperclip in the toolbar).
+    await click(page, page.getByRole("button", { name: /^\d+ files$/ }));
+    await page.waitForTimeout(900);
+    const drawer = page.getByRole("complementary", { name: "Files in this conversation" });
+    await moveTo(page, drawer.getByRole("button", { name: /Services-Agreement/ }).first());
+    await page.waitForTimeout(900);
+    await click(page, drawer.getByRole("button", { name: /older version/ }).first());
+    await page.waitForTimeout(1200);
+  },
+  buttons: async (page) => {
+    await click(page, page.getByRole("button", { name: "Settings" }).first());
+    await page.waitForTimeout(900);
+    await click(page, page.getByRole("button", { name: "Buttons" }).first());
+    await page.waitForTimeout(1000);
+    // A run before this one saved its changes: start from Kite's layout.
+    for (const reset of await page.getByRole("button", { name: "Reset to Kite’s layout" }).all()) await reset.click();
+    await page.waitForTimeout(400);
+    // Snooze from the tray onto the toolbar, between Archive and Delete.
+    const archive = await page.getByRole("button", { name: /^Archive: drag/ }).first().boundingBox();
+    const del = await page.getByRole("button", { name: /^Delete: drag/ }).first().boundingBox();
+    const between = { x: (archive.x + archive.width + del.x) / 2 + 2, y: archive.y + archive.height / 2 };
+    const tile = await moveTo(page, page.getByRole("button", { name: /^Snooze/ }).first());
+    await page.waitForTimeout(250);
+    await page.mouse.down();
+    await page.mouse.move(tile.x + 8, tile.y - 8, { steps: 4 });
+    await page.mouse.move(between.x, between.y, { steps: 32 });
+    await page.waitForTimeout(450);
+    await page.mouse.up();
+    await page.waitForTimeout(900);
+    // And Screenshot off the bar, back into More.
+    const shot = await moveTo(page, page.getByRole("button", { name: /^Screenshot: drag/ }).first());
+    await page.waitForTimeout(250);
+    await page.mouse.down();
+    await page.mouse.move(shot.x + 6, shot.y + 6, { steps: 4 });
+    await page.mouse.move(shot.x - 40, shot.y + 220, { steps: 28 });
+    await page.waitForTimeout(300);
+    await page.mouse.up();
+    // Off the bar, so no tooltip covers the result.
+    await moveTo(page, { x: 1180, y: 300 });
+    await page.waitForTimeout(1000);
+  },
   print: async (page) => {
     await showPrint(page, "Invoice 42");
     await page.waitForTimeout(300);
