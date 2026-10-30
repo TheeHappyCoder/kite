@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchJson } from "@/lib/fetch-json";
 import { useEffect, useState } from "react";
 import { compileText } from "@/lib/design/compile";
 import type { Design } from "@/lib/design/spec";
@@ -99,16 +100,7 @@ export function tomorrowMorning() {
   return date.toISOString();
 }
 
-export async function postJson<T>(url: string, body: unknown, method = "POST"): Promise<T> {
-  const res = await fetch(url, {
-    method,
-    headers: { "content-type": "application/json" },
-    body: method === "DELETE" ? undefined : JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? "Request failed");
-  return data as T;
-}
+export const postJson = <T,>(url: string, body: unknown, method = "POST") => fetchJson<T>(url, method, method === "DELETE" ? undefined : body, "Request failed");
 
 export function useDebounced<T>(value: T, delay: number) {
   const [debounced, setDebounced] = useState(value);

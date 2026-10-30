@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchJson } from "@/lib/fetch-json";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { Add01Icon, Delete02Icon, Folder01Icon, PencilEdit01Icon, Tag01Icon } from "@hugeicons/core-free-icons";
@@ -15,13 +16,6 @@ import { capitalise } from "@/lib/format";
 // Settings → Labels: each account's own labels/folders, named the way its provider names them,
 // made, renamed and deleted right there in the provider (server/labels.ts). What each provider
 // allows comes from its spec (`manage`); nothing else is offered.
-
-async function send<T>(url: string, method: string, body?: unknown): Promise<T> {
-  const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
-  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new Error(data.error ?? "That didn't go through. Try again.");
-  return data;
-}
 
 type Editing = { accountId: string; id: string | null; kind: LabelKind; name: string };
 
@@ -84,9 +78,9 @@ export function LabelsSection({ accounts, demo, onChanged, onToast }: { accounts
     const name = editing.name.trim();
     if (editing.id) {
       const id = editing.id;
-      void run(() => send("/api/labels", "PATCH", { account: account.id, id, name }), `Renamed to “${name}”`);
+      void run(() => fetchJson("/api/labels", "PATCH", { account: account.id, id, name }), `Renamed to “${name}”`);
     } else {
-      void run(() => send("/api/labels", "POST", { account: account.id, name, kind: editing.kind }), `${capitalise(noun)} “${name}” made in ${serviceName(account)}`);
+      void run(() => fetchJson("/api/labels", "POST", { account: account.id, name, kind: editing.kind }), `${capitalise(noun)} “${name}” made in ${serviceName(account)}`);
     }
   };
 
@@ -221,7 +215,7 @@ export function LabelsSection({ accounts, demo, onChanged, onToast }: { accounts
                           danger
                           busy={busy}
                           onCancel={() => setConfirming(null)}
-                          onConfirm={() => void run(() => send(`/api/labels?account=${encodeURIComponent(account.id)}&id=${encodeURIComponent(label.id)}`, "DELETE"), `Deleted “${label.name}”`)}
+                          onConfirm={() => void run(() => fetchJson(`/api/labels?account=${encodeURIComponent(account.id)}&id=${encodeURIComponent(label.id)}`, "DELETE"), `Deleted “${label.name}”`)}
                         >
                           {error ?? deleteLine(label, spec, service)}
                         </Confirm>

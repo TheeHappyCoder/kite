@@ -5,16 +5,10 @@ import { withSpaces, type ThreadOverride } from "@/lib/mail/overrides";
 import type { MailAction, MailState, View } from "@/lib/mail/store";
 import type { Thread } from "@/lib/mail/types";
 import { placeBeside, placeProblem, siblingsOf, spaceLabel, within, type Space, type SpacePatch } from "@/lib/spaces";
+import { fetchJson } from "@/lib/fetch-json";
 import { postJson, type Reload, type SetToast } from "./util";
 
 const RECENT_KEY = "kite-spaces-recent";
-
-async function send<T>(url: string, method: string, body?: unknown): Promise<T> {
-  const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
-  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new Error(data.error ?? "That didn't go through. Try again.");
-  return data;
-}
 
 type Saved = { spaces: unknown[]; items: unknown[] };
 type Suggestion = { email: string; name: string };
@@ -71,7 +65,7 @@ export function useSpaces({
   const create = useCallback(
     async (name: string, parentId: string | null = null): Promise<Space | null> => {
       try {
-        const res = await send<{ space: Space; spaces: Space[] }>("/api/spaces", "POST", { name, parentId });
+        const res = await fetchJson<{ space: Space; spaces: Space[] }>("/api/spaces", "POST", { name, parentId });
         setSpaces(res.spaces);
         return res.space;
       } catch (error) {
@@ -87,7 +81,7 @@ export function useSpaces({
       const before = spacesRef.current;
       setSpaces(before.map((s) => (s.id === id ? { ...s, ...patch, note: patch.note === undefined ? s.note : patch.note } : s)));
       try {
-        const res = await send<{ spaces: Space[] }>(`/api/spaces/${encodeURIComponent(id)}`, "PATCH", patch);
+        const res = await fetchJson<{ spaces: Space[] }>(`/api/spaces/${encodeURIComponent(id)}`, "PATCH", patch);
         setSpaces(res.spaces);
         return true;
       } catch (error) {
@@ -104,7 +98,7 @@ export function useSpaces({
       const name = nameOf(id);
       const gone = within(spacesRef.current, id);
       try {
-        const res = await send<{ saved: Saved; spaces: Space[] }>(`/api/spaces/${encodeURIComponent(id)}`, "DELETE");
+        const res = await fetchJson<{ saved: Saved; spaces: Space[] }>(`/api/spaces/${encodeURIComponent(id)}`, "DELETE");
         setSpaces(res.spaces);
         // Out of the conversations' copies too, and away from a view that's gone.
         for (const [thread, override] of Object.entries(overridesRef.current)) {
@@ -115,7 +109,7 @@ export function useSpaces({
         setToast({
           message: `Deleted ${name}. Its mail is where it was`,
           onUndo: () =>
-            void send<{ spaces: Space[] }>("/api/spaces", "POST", { restore: res.saved })
+            void fetchJson<{ spaces: Space[] }>("/api/spaces", "POST", { restore: res.saved })
               .then((back) => {
                 setSpaces(back.spaces);
                 reload();
@@ -231,7 +225,7 @@ export function useSpaces({
       const position = new Map(ids.map((id, i) => [id, i]));
       setSpaces(spacesRef.current.map((s) => (position.has(s.id) ? { ...s, position: position.get(s.id)! } : s)));
       try {
-        const res = await send<{ spaces: Space[] }>("/api/spaces", "PUT", { order: ids });
+        const res = await fetchJson<{ spaces: Space[] }>("/api/spaces", "PUT", { order: ids });
         setSpaces(res.spaces);
       } catch {
         setToast({ message: "Couldn't save that order." });
@@ -247,8 +241,8 @@ export function useSpaces({
       const position = new Map(nextOrder.map((s, i) => [s, i]));
       setSpaces(before.map((s) => (s.id === id ? { ...s, parentId, position: position.get(s.id) ?? s.position } : position.has(s.id) ? { ...s, position: position.get(s.id)! } : s)));
       try {
-        if (before.find((s) => s.id === id)?.parentId !== parentId) await send(`/api/spaces/${encodeURIComponent(id)}`, "PATCH", { parentId });
-        const res = await send<{ spaces: Space[] }>("/api/spaces", "PUT", { order: nextOrder });
+        if (before.find((s) => s.id === id)?.parentId !== parentId) await fetchJson(`/api/spaces/${encodeURIComponent(id)}`, "PATCH", { parentId });
+        const res = await fetchJson<{ spaces: Space[] }>("/api/spaces", "PUT", { order: nextOrder });
         setSpaces(res.spaces);
         return true;
       } catch (error) {

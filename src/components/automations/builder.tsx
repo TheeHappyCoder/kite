@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { format } from "date-fns";
 import { Add01Icon, AiMagicIcon, ArrowDown01Icon, Cancel01Icon, Clock01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import { accountName, type Account } from "@/lib/mail/types";
+import { fetchJson } from "@/lib/fetch-json";
 import type { AiModel } from "@/lib/ai-pricing";
 import type { AiDraftsView } from "@/lib/ai-tasks";
 import { blurFade } from "@/lib/motion";
@@ -67,12 +68,7 @@ type Blank = { key: string; label: string };
 type Preview = { key: string; count: number; capped: boolean; subjects: string[]; screensNew: boolean; samples: { subject: string; values: FieldValues }[]; next: string | null };
 type Label = { accountId: string; name: string };
 
-export async function request<T>(url: string, method: string, body?: unknown): Promise<T> {
-  const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? "That didn't work. Try again.");
-  return data as T;
-}
+export const request = <T,>(url: string, method: string, body?: unknown) => fetchJson<T>(url, method, body, "That didn't work. Try again.");
 
 /** One line: "from:shop.co, Sender is new to you → Archive, Add label Receipts". */
 export function summary(rule: RuleView, collections: CollectionSummary[] = []) {

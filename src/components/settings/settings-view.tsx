@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchJson } from "@/lib/fetch-json";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { formatDistanceToNow } from "date-fns";
@@ -223,16 +224,7 @@ type Props = {
   onLockChanged: (on: boolean) => void;
 };
 
-async function request<T>(url: string, method: string, body?: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method,
-    headers: { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? "Request failed");
-  return data as T;
-}
+const request = <T,>(url: string, method: string, body?: unknown) => fetchJson<T>(url, method, body, "Request failed");
 
 export function SettingsView(props: Props) {
   const [active, setActive] = useState<SettingsSection>(() => props.section ?? storedSection() ?? "accounts");

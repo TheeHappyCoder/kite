@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchJson } from "@/lib/fetch-json";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -63,12 +64,7 @@ type Queue = { run: Run; items: QueueItem[]; finished: boolean };
 
 type UnsubscribeResult = { method: "one-click" | "email" | "website" | "none"; done: boolean; url?: string };
 
-async function post<T>(body: unknown, url = "/api/senders", method = "POST"): Promise<T> {
-  const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? "That didn't go through. Try again.");
-  return data as T;
-}
+const post = <T,>(body: unknown, url = "/api/senders", method = "POST") => fetchJson<T>(url, method, body);
 
 const nameOf = (s: Pick<SenderSummary, "name" | "email">) => s.name || s.email;
 
