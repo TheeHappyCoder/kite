@@ -47,6 +47,8 @@ const eslintConfig = defineConfig([
     // `pnpm perf` results.
     "data-scratch/**",
     "perf/results/**",
+    // Local scratch, git-ignored.
+    ".tmp/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
