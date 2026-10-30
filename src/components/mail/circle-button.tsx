@@ -18,6 +18,8 @@ export function CircleButton({
   className,
   iconClassName,
   badge,
+  ghost = false,
+  iconSize = 17,
 }: {
   icon: IconData;
   label: string;
@@ -29,6 +31,10 @@ export function CircleButton({
   iconClassName?: string;
   /** A count in the corner (files in the conversation). */
   badge?: number;
+  /** No ring: a plain icon that fills on hover (the list header's toolbar). */
+  ghost?: boolean;
+  /** For optical balance beside other glyphs (a glyph that fills its box reads bigger). */
+  iconSize?: number;
 }) {
   return (
     <Tooltip label={label} shortcut={shortcut}>
@@ -37,23 +43,24 @@ export function CircleButton({
         aria-busy={status === "busy" || undefined}
         onClick={onClick}
         className={cn(
-          "relative grid size-9 shrink-0 place-items-center rounded-full touch:size-11 border border-pane-border text-pane-fg/80 transition-[background-color,color,transform] duration-150 hover:bg-pane-hover hover:text-pane-fg active:scale-95",
+          "relative grid size-9 shrink-0 place-items-center rounded-full touch:size-11 text-pane-fg/80 transition-[background-color,color,transform] duration-150 hover:bg-pane-hover hover:text-pane-fg active:scale-95",
+          ghost ? "text-pane-muted" : "border border-pane-border",
           active && "border-accent/40 bg-accent-soft text-accent",
           status === "done" && "text-success",
           className,
         )}
       >
         {status === undefined ? (
-          <Icon icon={icon} size={17} className={iconClassName} />
+          <Icon icon={icon} size={iconSize} className={iconClassName} />
         ) : (
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.span key={status ?? "idle"} {...blurFade({ blur: 3, speed: "fast" })} className="grid place-items-center">
               {status === "busy" ? (
                 <Spinner size={16} />
               ) : status === "done" ? (
-                <Icon icon={Tick02Icon} size={17} />
+                <Icon icon={Tick02Icon} size={iconSize} />
               ) : (
-                <Icon icon={icon} size={17} className={iconClassName} />
+                <Icon icon={icon} size={iconSize} className={iconClassName} />
               )}
             </motion.span>
           </AnimatePresence>

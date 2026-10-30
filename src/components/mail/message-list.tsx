@@ -55,6 +55,7 @@ import { Tooltip } from "../ui/tooltip";
 import { InboxTabs } from "./inbox-tabs";
 import type { InboxSide, InboxTab } from "@/lib/mail/sides";
 import { CircleButton } from "./circle-button";
+import { CountBadge } from "../ui/count-badge";
 import { BulkBar, type BulkAction } from "./bulk-panel";
 import { ContactHints, SearchHints } from "./search-hints";
 import { contactToken } from "@/lib/mail/search";
@@ -213,7 +214,11 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
             : VIEW_TITLES[view.mailbox];
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [focused, setFocused] = useState(false);
+  /** The operators and saved searches, opened from the filters button while there's a query. */
+  const [hints, setHints] = useState(false);
   const query = props.query.trim();
+  // Search is an icon in the title row until it's used: it grows into the bar while focused or holding a query.
+  const searching = focused || !!props.query;
 
   // `from:` / `to:` autocomplete: the term at the caret, people for it (looked up once typing
   // pauses), the highlighted one, and a term the user closed with Escape.
@@ -393,8 +398,13 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
 
   return (
     <section className="flex h-full min-w-0 flex-col bg-pane text-pane-fg">
-      <header className="flex flex-col gap-3 px-3.5 pt-3">
-        <div className="flex items-center gap-2 pl-1">
+      <header className="@container/header flex flex-col gap-3 px-3.5 pt-3">
+        {/* Open, search takes the whole row: the title fades out and the buttons fold away, so the bar and its suggestions get the full width. */}
+        <div className="relative flex h-9 items-center pl-1 touch:h-11">
+          <div
+            aria-hidden={searching || undefined}
+            className={cn("flex min-w-0 flex-1 items-center pr-2 transition-[opacity,filter] duration-150", searching && "pointer-events-none absolute inset-y-0 left-1 right-0 opacity-0 blur-[2px]")}
+          >
           {props.switcher && (view.kind === "mailbox" || view.kind === "label" || view.kind === "space") ? (
             <MailboxSwitcher
               title={title}
@@ -413,20 +423,21 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
           ) : (
             <h1 className="flex-1 truncate text-[20px] font-medium tracking-[-0.035em]"><AccentTitle text={title} /></h1>
           )}
-          <CircleButton
-            icon={RefreshIcon}
-            label={props.checking === "busy" ? "Checking for new mail" : props.checking === "done" ? "Up to date" : "Refresh"}
-            shortcut="refresh"
-            status={props.checking}
-            onClick={() => void (pullable ? refresh() : props.onRefresh())}
-          />
-          <CircleButton icon={FilterHorizontalIcon} label="Search filters" active={focused && !props.query} onClick={() => inputRef.current?.focus()} />
-          <CircleButton icon={PencilEdit02Icon} label="New message" shortcut="compose" onClick={props.onCompose} />
-        </div>
-
-        <div className="relative">
-        <label className="flex h-10 items-center gap-2 rounded-full border border-pane-border bg-pane px-3.5 text-[13.5px] transition-colors focus-within:border-accent/60">
-          <Icon icon={Search01Icon} size={16} className="text-pane-muted" />
+          </div>
+          <motion.div
+            initial={false}
+            animate={{ width: searching ? "100%" : 36 }}
+            transition={spring.moderate}
+            className="ml-auto h-full min-w-0 shrink"
+          >
+          <Tooltip label="Search" shortcut="search" disabled={searching} className="flex size-full">
+        <label
+          className={cn(
+            "flex size-full cursor-text items-center gap-2 overflow-hidden rounded-full pl-[9px] text-[13.5px] transition-[border-color,box-shadow,color] duration-150",
+            searching ? "border border-pane-border bg-pane pl-2 pr-2 focus-within:border-accent/60" : "cursor-pointer text-pane-muted hover:bg-pane-hover hover:text-pane-fg",
+          )}
+        >
+          <Icon icon={Search01Icon} size={18} className={cn("shrink-0", searching && "text-pane-muted")} />
           <input
             ref={(node) => {
               inputRef.current = node;
@@ -435,7 +446,10 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
             }}
             value={props.query}
             onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
+            onBlur={() => {
+              setFocused(false);
+              setHints(false);
+            }}
             onChange={(e) => {
               setCaret(e.target.selectionStart);
               props.onQuery(e.target.value);
@@ -456,16 +470,17 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
                 }
               }
               if (e.key === "Escape") {
-                // First Escape closes the suggestions, the next clears the search.
+                // First Escape closes the suggestions (or the filters), the next clears the search and folds it away.
                 if (suggesting) return setDismissed(tokenKey);
+                if (hints) return setHints(false);
                 props.onQuery("");
                 e.currentTarget.blur();
               }
             }}
             placeholder="Search"
-            className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-pane-muted"
+            className={cn("min-w-0 flex-1 bg-transparent outline-none placeholder:text-pane-muted", !searching && "pointer-events-none opacity-0")}
           />
-          {props.query ? (
+          {searching && props.query ? (
             <>
               {query ? (
                 <Tooltip label={savedCurrent ? "Saved. Click to remove" : "Save this search"}>
@@ -484,20 +499,84 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
                 </button>
               </Tooltip>
             </>
-          ) : (
-            <kbd className="tabular-nums text-[11px] text-pane-muted">/</kbd>
-          )}
+          ) : null}
+          {searching ? (
+            <Tooltip label="Search filters">
+              <button
+                aria-label="Search filters"
+                aria-expanded={hints || (focused && !props.query)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={(e) => {
+                  e.preventDefault();
+                  inputRef.current?.focus();
+                  // With no query they're already showing.
+                  if (props.query) setHints((open) => !open);
+                }}
+                className={cn("grid size-6 shrink-0 place-items-center rounded-full transition-colors duration-150 hover:text-pane-fg", hints || (focused && !props.query) ? "bg-accent-soft text-accent" : "text-pane-muted")}
+              >
+                <Icon icon={FilterHorizontalIcon} size={15} />
+              </button>
+            </Tooltip>
+          ) : null}
         </label>
+          </Tooltip>
+          </motion.div>
         {suggesting && token ? (
           <ContactHints token={token} people={people} active={active} onHover={(index) => setActiveFor({ key: tokenKey, index })} onPick={pickPerson} />
-        ) : focused && !props.query ? (
+        ) : focused && (hints || !props.query) ? (
           <SearchHints
             saved={props.savedSearches}
-            onPick={(q) => props.onQuery(q)}
-            onInsert={(text) => props.onQuery(text)}
+            onPick={(q) => {
+              setHints(false);
+              props.onQuery(q);
+            }}
+            onInsert={(text) => {
+              setHints(false);
+              props.onQuery(props.query.trim() ? `${props.query.trim()} ${text}` : text);
+            }}
             onRemove={props.onRemoveSearch}
           />
         ) : null}
+          <motion.div
+            initial={false}
+            animate={searching ? { width: 0, opacity: 0 } : { width: "auto", opacity: 1 }}
+            transition={spring.moderate}
+            aria-hidden={searching || undefined}
+            inert={searching}
+            className="flex shrink-0 items-center gap-2 overflow-hidden pl-2"
+          >
+          <CircleButton
+            ghost
+            iconSize={17}
+            icon={RefreshIcon}
+            label={props.checking === "busy" ? "Checking for new mail" : props.checking === "done" ? "Up to date" : "Refresh"}
+            shortcut="refresh"
+            status={props.checking}
+            onClick={() => void (pullable ? refresh() : props.onRefresh())}
+          />
+          {isInbox && !props.query && props.sideCounts[props.side] ? (
+            <CircleButton
+              ghost
+              iconSize={19}
+              icon={TickDouble02Icon}
+              label={`Mark all read in ${props.tabs.find((s) => s.id === props.side)?.label ?? "this tab"}`}
+              onClick={props.onMarkAllRead}
+              className="blur-fade"
+            />
+          ) : null}
+          {/* The one solid button: an icon on a narrow list, "Compose" once there's room. */}
+          <Tooltip label="New message" shortcut="compose">
+            <button
+              aria-label="New message"
+              onClick={props.onCompose}
+              className="ml-1 flex h-9 min-w-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-pane-fg text-[13px] font-medium text-pane transition-[opacity,transform] duration-150 hover:opacity-90 active:scale-95 touch:h-11 touch:min-w-11 @min-[420px]/header:px-3.5"
+            >
+              {/* The pencil's weight sits top-right of its square: half a pixel down and left looks centred. */}
+              <Icon icon={PencilEdit02Icon} size={18} className="-translate-x-[0.5px] translate-y-[0.5px]" />
+              <span className="hidden @min-[420px]/header:inline">Compose</span>
+            </button>
+          </Tooltip>
+          </motion.div>
         </div>
 
         {props.view.kind === "mailbox" && props.view.mailbox === "trash" && !props.checked.size ? (
@@ -516,19 +595,12 @@ export const MessageList = stableHandlers(forwardRef<HTMLInputElement, Props>(fu
             onClear={props.onClearSelection}
           />
         ) : isInbox && !props.query ? (
-          <div className="flex items-center gap-1.5 pb-1">
-            <div className="min-w-0 flex-1">
-              <InboxTabs tabs={props.tabs} value={props.side} counts={props.sideCounts} onChange={props.onSide} />
-            </div>
-            {props.sideCounts[props.side] ? (
-              <CircleButton
-                icon={TickDouble02Icon}
-                label={`Mark all read in ${props.tabs.find((s) => s.id === props.side)?.label ?? "this tab"}`}
-                onClick={props.onMarkAllRead}
-                className="blur-fade size-[38px]"
-              />
-            ) : null}
-          </div>
+          <InboxTabs
+            tabs={props.tabs}
+            value={props.side}
+            counts={props.sideCounts}
+            onChange={props.onSide}
+          />
         ) : view.kind === "space" && !props.query ? (
           <SpaceHeader
             spaceId={view.spaceId}
@@ -783,7 +855,7 @@ const ThreadRow = memo(function ThreadRow({
         // Only rows that can be on screen fade in (a blur on every row of a long list is expensive),
         // and the browser skips style, layout and paint for rows out of view.
         index < 16 && "blur-fade-up",
-        "group relative flex cursor-default gap-3 rounded-xl px-3 transition-[background-color,border-radius] duration-150 [content-visibility:auto]",
+        "group relative flex cursor-default gap-3 rounded-xl pl-4 pr-3 transition-[background-color,border-radius] duration-150 [content-visibility:auto]",
         compact ? "items-center py-2 [contain-intrinsic-size:auto_44px]" : "py-2.5 [contain-intrinsic-size:auto_76px]",
         // Dividers step aside for the lit row (globals.css), like they do for selected rows.
         "after:absolute after:inset-x-3 after:bottom-0 after:border-b after:border-pane-border/80 last:after:hidden",
@@ -797,6 +869,7 @@ const ThreadRow = memo(function ThreadRow({
               : "",
       )}
     >
+      <UnreadBar unread={!!thread.unread} />
       <div className={cn("relative", !compact && "pt-0.5")}>
         <Tooltip label={checked ? "Deselect" : "Select"} shortcut="select">
           <button
@@ -846,7 +919,6 @@ const ThreadRow = memo(function ThreadRow({
             ) : (
               <span className={cn("text-[12px] tabular-nums", thread.unread ? "font-medium text-accent" : "text-pane-muted")}>{formatListDate(lastMessageDate(thread))}</span>
             )}
-            <UnreadDot unread={!!thread.unread} />
           </span>
         </div>
       ) : (
@@ -861,7 +933,7 @@ const ThreadRow = memo(function ThreadRow({
             </span>
           ) : null}
           {count > 1 ? (
-            <span className="rounded-full bg-pane-hover px-1.5 text-[10.5px] font-medium text-pane-muted">{count}</span>
+            <CountBadge count={count} className="self-center" />
           ) : null}
           {thread.pinned ? <Icon icon={PinIcon} size={12} className="shrink-0 self-center text-accent" /> : null}
           {thread.muted ? <Icon icon={NotificationOff02Icon} size={12} className="shrink-0 self-center text-pane-muted" /> : null}
@@ -869,10 +941,9 @@ const ThreadRow = memo(function ThreadRow({
             <span className={cn("text-[12px] tabular-nums transition-colors duration-200", thread.unread ? "font-medium text-accent" : "text-pane-muted")}>
               {thread.scheduled ? format(new Date(thread.scheduled.sendAt), "EEE HH:mm") : formatListDate(lastMessageDate(thread))}
             </span>
-            <UnreadDot unread={!!thread.unread} />
           </span>
         </div>
-        <div data-sensitive className={cn("truncate text-[13px]", thread.unread ? "font-medium" : "text-pane-fg/85")}>
+        <div data-sensitive className={cn("truncate text-[13px] transition-colors duration-150", thread.unread ? "font-semibold text-accent" : "text-pane-fg")}>
           {thread.subject}
         </div>
         <div data-sensitive className="truncate text-[12.5px] text-pane-muted">
@@ -1136,17 +1207,20 @@ function ListSkeleton() {
   );
 }
 
-/** Unread: an accent dot with a soft halo beside the time. It pops in on a spring and fades out once read. */
-function UnreadDot({ unread }: { unread: boolean }) {
+/**
+ * Unread: a rounded accent line down the row's left edge (with the subject in the accent, Outlook's
+ * way). It grows from the middle on a spring and shrinks away once read.
+ */
+function UnreadBar({ unread }: { unread: boolean }) {
   return (
     <AnimatePresence initial={false}>
       {unread ? (
         <motion.span
           key="unread"
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1, transition: spring.slow }}
-          exit={{ scale: 0.4, opacity: 0, transition: exitFor.moderate }}
-          className="size-2 shrink-0 rounded-full bg-accent shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_18%,transparent)]"
+          initial={{ scaleY: 0, opacity: 0 }}
+          animate={{ scaleY: 1, opacity: 1, transition: spring.slow }}
+          exit={{ scaleY: 0.3, opacity: 0, transition: exitFor.moderate }}
+          className="absolute inset-y-2.5 left-1 w-[3px] rounded-full bg-accent"
         >
           <span className="sr-only">Unread</span>
         </motion.span>

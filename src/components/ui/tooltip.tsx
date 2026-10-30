@@ -176,12 +176,15 @@ export function Tooltip({
   side = "bottom",
   children,
   className,
+  disabled = false,
 }: {
   label: string;
   shortcut?: ShortcutAction;
   side?: Side;
   children: React.ReactNode;
   className?: string;
+  /** Shows nothing (and closes when it turns on): a control that has become something else for now. */
+  disabled?: boolean;
 }) {
   const api = useContext(TooltipContext);
   const id = useId();
@@ -189,13 +192,13 @@ export function Tooltip({
 
   const show = useCallback(() => {
     const el = ref.current;
-    if (!api || !el) return;
+    if (!api || !el || disabled) return;
     const rect = el.getBoundingClientRect();
     let resolved = side;
     if (side === "bottom" && rect.bottom + 40 > window.innerHeight) resolved = "top";
     if (side === "top" && rect.top < 40) resolved = "bottom";
     api.show({ id, label, shortcut, rect, side: resolved });
-  }, [api, id, label, shortcut, side]);
+  }, [api, id, label, shortcut, side, disabled]);
 
   // If the label changes while open (e.g. Star → Unstar), refresh it in place.
   const shownLabel = useRef(label);
@@ -205,6 +208,9 @@ export function Tooltip({
   }, [label, show]);
 
   useEffect(() => () => api?.hide(id, true), [api, id]);
+  useEffect(() => {
+    if (disabled) api?.hide(id, true);
+  }, [api, id, disabled]);
 
   return (
     <span

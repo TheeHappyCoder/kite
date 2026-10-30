@@ -9,6 +9,7 @@ import { useShortcuts, type ShortcutAction } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { Icon, type IconData } from "../icon";
 import { KeyCombo } from "./kbd";
+import { CountBadge } from "./count-badge";
 import { FLUID_ITEM, FluidList } from "./fluid-hover";
 
 export type MenuItem = {
@@ -21,6 +22,8 @@ export type MenuItem = {
   shortcut?: ShortcutAction;
   /** A muted word after the label. */
   detail?: string;
+  /** A count in a badge after the label. */
+  count?: number;
   /** A tick on the right (it's on, or it's in there). */
   checked?: boolean;
   /** Indents it (a pocket under its space). */
@@ -262,6 +265,7 @@ function Rows({
                       {item.label}
                       {item.detail ? <span className="text-pane-muted"> {item.detail}</span> : null}
                     </span>
+                    {item.count ? <CountBadge count={item.count} /> : null}
                     {item.checked ? <Icon icon={Tick02Icon} size={13} className="shrink-0 text-accent" /> : null}
                     {combo ? <KeyCombo combo={combo} keyClassName="bg-pane-2 text-pane-muted" /> : null}
                     {item.submenu ? <Icon icon={ArrowRight01Icon} size={13} className="shrink-0 text-pane-muted" /> : null}
