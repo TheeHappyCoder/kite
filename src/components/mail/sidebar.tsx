@@ -1059,8 +1059,8 @@ function SpaceRow({
 }
 
 /** Naming a space or pocket in place: Enter keeps it, Escape lets it go. */
-function SpaceInput({ depth, initial = "", onDone }: { depth: number; initial?: string; onDone: (name: string | null) => void }) {
-  const [name, setName] = useState(initial);
+function SpaceInput({ depth, onDone }: { depth: number; onDone: (name: string | null) => void }) {
+  const [name, setName] = useState("");
   return (
     <div className="flex h-9 items-center gap-3 rounded-[10px] bg-white/[0.06] px-2.5 touch:h-11" style={{ marginLeft: depth * 14 }}>
       <span className="grid size-[18px] shrink-0 place-items-center">
@@ -1072,7 +1072,7 @@ function SpaceInput({ depth, initial = "", onDone }: { depth: number; initial?: 
         maxLength={80}
         onChange={(e) => setName(e.target.value)}
         onFocus={(e) => e.currentTarget.select()}
-        onBlur={() => onDone(name.trim() && name.trim() !== initial ? name : null)}
+        onBlur={() => onDone(name.trim() ? name : null)}
         onKeyDown={(e) => {
           e.stopPropagation();
           if (e.key === "Enter") onDone(name);

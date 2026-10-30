@@ -64,22 +64,17 @@ export function CollapsedPart({
   label,
   open,
   onToggle,
-  className,
 }: {
   kind: "quote" | "signature";
   label: string;
   open: boolean;
   onToggle: () => void;
-  className?: string;
 }) {
   return (
     <button
       onClick={onToggle}
       aria-expanded={open}
-      className={cn(
-        "flex max-w-full items-center gap-2 rounded-full border border-pane-border px-3 py-1 text-left text-[12px] text-pane-muted transition-colors hover:bg-pane-hover hover:text-pane-fg",
-        className,
-      )}
+      className="flex max-w-full items-center gap-2 rounded-full border border-pane-border px-3 py-1 text-left text-[12px] text-pane-muted transition-colors hover:bg-pane-hover hover:text-pane-fg"
     >
       <Icon icon={kind === "quote" ? LeftToRightBlockQuoteIcon : SignatureIcon} size={14} className="shrink-0" />
       <span className="min-w-0 truncate">{label}</span>

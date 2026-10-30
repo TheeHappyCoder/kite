@@ -77,19 +77,17 @@ export function Row({
   detail,
   control,
   children,
-  tone,
 }: {
   label: React.ReactNode;
   detail?: React.ReactNode;
   control?: React.ReactNode;
   children?: React.ReactNode;
-  tone?: "warning";
 }) {
   return (
     <div data-setting={typeof label === "string" ? label : undefined} className="flex scroll-mt-6 flex-col gap-2.5 px-4 py-3.5">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="min-w-0 flex-1 basis-56">
-          <p className={cn("text-[13px] font-medium", tone === "warning" && "text-warning")}>{label}</p>
+          <p className="text-[13px] font-medium">{label}</p>
           {detail ? (
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.p

@@ -42,7 +42,6 @@ export function CodeInput({
   mask = false,
   label,
   okLabel = "Verified",
-  corner = 12,
   autoFocus = false,
   onSubmit,
   onDone,
@@ -54,7 +53,6 @@ export function CodeInput({
   mask?: boolean;
   label: string;
   okLabel?: string;
-  corner?: number;
   autoFocus?: boolean;
   /** Checks a full row: true fuses it into the capsule, false shakes and clears it. */
   onSubmit: (code: string) => Promise<boolean>;
@@ -67,7 +65,7 @@ export function CodeInput({
   const [focus, setFocus] = useState(false);
   const n = length;
   const rowW = n * W + (n - 1) * G;
-  const r = clamp(corner, 0, H / 2);
+  const r = 12; // the cells' corner
 
   const input = useRef<HTMLInputElement>(null);
   const cells = useRef<(HTMLSpanElement | null)[]>([]);

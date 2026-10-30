@@ -789,7 +789,6 @@ export function TimePicker({
   onChange,
   label,
   trigger,
-  className,
 }: {
   value: string;
   onChange: (time: string) => void;
@@ -797,7 +796,6 @@ export function TimePicker({
   label: string;
   /** Draws the trigger instead of the pill field. */
   trigger?: (props: TriggerProps) => React.ReactNode;
-  className?: string;
 }) {
   const id = useId();
   const pop = usePopover();
@@ -845,7 +843,7 @@ export function TimePicker({
       {trigger ? (
         trigger(props)
       ) : (
-        <Field props={props} icon={Clock01Icon} summary={value} empty={false} className={className}>
+        <Field props={props} icon={Clock01Icon} summary={value} empty={false}>
           {value}
         </Field>
       )}

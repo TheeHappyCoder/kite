@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
-import { PixelLoader, type PixelVariant } from "./pixel-loader";
+import { PixelLoader } from "./pixel-loader";
 
 const ROLL_EASE = [0.4, 0, 0.2, 1] as const;
 
@@ -30,12 +30,10 @@ function Elapsed() {
  */
 export function Thinking({
   steps,
-  variant = "drive",
   timer = true,
   className,
 }: {
   steps: string[];
-  variant?: PixelVariant;
   /** Off inside buttons, so the button doesn't grow as the seconds do. */
   timer?: boolean;
   className?: string;
@@ -53,7 +51,7 @@ export function Thinking({
   return (
     <span className={cn("inline-flex min-w-0 items-center gap-2.5", className)} role="status">
       <span className="sr-only">{steps[0]}…</span>
-      <PixelLoader variant={variant} />
+      <PixelLoader />
       <span aria-hidden className="inline-grid min-w-0 overflow-hidden">
         <span className="invisible col-start-1 row-start-1 truncate">{longest}</span>
         <AnimatePresence mode="popLayout" initial={false}>
