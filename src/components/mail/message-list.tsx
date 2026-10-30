@@ -6,7 +6,6 @@ import { ALL_ACCOUNTS, scopeIds, singleAccount, type AccountScope } from "@/lib/
 import { AnimatePresence, motion } from "motion/react";
 import {
   Archive02Icon,
-  Attachment01Icon,
   Calendar03Icon,
   Cancel01Icon,
   Clock01Icon,
@@ -66,6 +65,7 @@ import { messagePreview } from "@/lib/mail/quotes";
 import { accountSpec, type MailLabel } from "@/lib/mail/providers";
 import type { Provider } from "@/lib/mail/types";
 import { LabelChip, type LabelLookup } from "./labels";
+import { FileTypeIcon } from "../files/file-icon";
 
 import { FLUID_ITEM, FluidList } from "../ui/fluid-hover";
 import { BUTTON_ICONS } from "./button-icons";
@@ -818,7 +818,7 @@ const ThreadRow = memo(function ThreadRow({
   const spec = accountSpec(account);
   const sender =
     thread.messages.find((m) => m.from.name !== "You" && m.from.email !== account?.email)?.from ?? last.from;
-  const hasAttachments = thread.messages.some((m) => m.attachments?.some((a) => !a.inline));
+  const files = thread.messages.flatMap((m) => m.attachments?.filter((a) => !a.inline) ?? []);
   const invite = threadHasInvite(thread);
   const count = thread.messages.length;
   const inSpaces = (thread.spaces ?? []).filter((s) => s !== hideSpace).flatMap((id) => spaces.find((s) => s.id === id) ?? []);
@@ -885,7 +885,13 @@ const ThreadRow = memo(function ThreadRow({
             }}
             className="group/check relative block size-7 rounded-full"
           >
-            <span data-sensitive className="block">
+            {/* Which account it's in: the avatar wears that account's colour as a ring (its name in the tooltip). */}
+            <span
+              data-sensitive
+              title={showAccount && account ? accountName(account) : undefined}
+              style={showAccount && account ? { boxShadow: `0 0 0 2px var(--pane), 0 0 0 3.5px ${account.color}` } : undefined}
+              className={cn("block", compact ? "rounded-[9px]" : "rounded-full")}
+            >
               <Avatar
                 name={sender.name}
                 email={sender.email}
@@ -950,8 +956,15 @@ const ThreadRow = memo(function ThreadRow({
           {messagePreview(last)}
         </div>
 
-        {!screener && (hasAttachments || invite || thread.starred || showAccount || thread.reminder || thread.scheduled || thread.note || actions.labels.length || inSpaces.length) ? (
-          <div className="mt-1 flex items-center gap-1.5 text-[11.5px] text-pane-muted">
+        {!screener && (files.length || invite || thread.starred || thread.reminder || thread.scheduled || thread.note || actions.labels.length || inSpaces.length) ? (
+          <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[11.5px] text-pane-muted">
+            {files.length ? (
+              <span data-sensitive className="flex min-w-0 max-w-[60%] shrink items-center gap-1.5 rounded-lg bg-pane-2 py-1 pl-1 pr-2 text-[11.5px] text-pane-fg/85">
+                <FileTypeIcon name={files[0].name} mimeType={files[0].mimeType} className="h-[22px]" />
+                <span className="truncate">{files[0].name}</span>
+              </span>
+            ) : null}
+            {files.length > 1 ? <CountBadge count={files.length - 1} className="before:content-['+']" /> : null}
             {thread.reminder ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-1.5 py-px text-[10.5px] font-medium text-warning">
                 <Icon icon={AlarmClockIcon} size={11} strokeWidth={2} />
@@ -964,7 +977,6 @@ const ThreadRow = memo(function ThreadRow({
                 {thread.scheduled.remindDays ? `Sends, then nudges in ${thread.scheduled.remindDays}d` : "Scheduled"}
               </span>
             ) : null}
-            {showAccount && account ? <span className="truncate">{accountName(account)}</span> : null}
             {actions.labels.slice(0, 3).map((label) => (
               <LabelChip key={label.id} label={label} spec={spec} onClick={() => actions.onOpenLabel(label.id)} />
             ))}
@@ -985,7 +997,6 @@ const ThreadRow = memo(function ThreadRow({
             ))}
             {inSpaces.length > 2 ? <span className="text-[10.5px]">+{inSpaces.length - 2}</span> : null}
             {invite ? <Icon icon={Calendar03Icon} size={12} aria-label="Invite" /> : null}
-            {hasAttachments ? <Icon icon={Attachment01Icon} size={12} /> : null}
             {thread.note ? <Icon icon={Note01Icon} size={12} className="text-warning" /> : null}
             {thread.starred ? <Icon icon={StarIcon} size={12} className="fill-warning text-warning" /> : null}
           </div>
