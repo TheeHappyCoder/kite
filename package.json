@@ -21,9 +21,11 @@
     "@anthropic-ai/sdk": "^0.133.0",
     "@hugeicons/core-free-icons": "^4.3.5",
     "@hugeicons/react": "^1.1.10",
+    "@jvmr/pptx-to-html": "1.1.2",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.4.0",
+    "docx-preview": "0.4.1",
     "franc": "6.2.0",
     "imapflow": "^2.4.0",
     "modern-screenshot": "^4.7.0",
@@ -38,6 +40,7 @@
     "react-resizable-panels": "^2.1.9",
     "server-only": "^0.0.1",
     "tailwind-merge": "^3.7.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^4.6.5"
   },
   "devDependencies": {

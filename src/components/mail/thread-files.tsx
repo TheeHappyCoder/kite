@@ -5,7 +5,7 @@ import { formatBytes } from "@/lib/format";
 import { useState } from "react";
 import { ArrowDown01Icon, Attachment01Icon, Cancel01Icon, Download04Icon, Target02Icon } from "@hugeicons/core-free-icons";
 import { AnimatePresence, motion } from "motion/react";
-import { canPreview } from "@/lib/mail/attachments";
+import { canPreview, officePreview } from "@/lib/mail/attachments";
 import { fileType, type FileType } from "../files/file-icon";
 import type { Message, Thread } from "@/lib/mail/types";
 import { cn, formatListDate } from "@/lib/utils";
@@ -58,7 +58,7 @@ function groupThreadFiles(thread: Thread): ThreadFile[][] {
 
 function openFile(file: FileRef, onPreview: (file: FileRef) => void) {
   const download = fileUrl(file, true);
-  if (download && !canPreview(file.attachment)) window.location.assign(download);
+  if (download && !canPreview(file.attachment) && !officePreview(file.attachment)) window.location.assign(download);
   else onPreview(file);
 }
 
