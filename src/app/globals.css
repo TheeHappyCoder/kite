@@ -151,6 +151,14 @@
   background-image: var(--sky-image);
   background-size: cover;
 }
+/* A message whose email is wider than the reader's column (--email-grow, set by fitWidth) leaves it,
+   centred, up to the pane's own width. Without the variable it's just the column. */
+.email-grow {
+  --email-width: max(100%, min(var(--email-grow, 100%), 100cqw - 32px));
+  width: var(--email-width);
+  margin-inline: calc((100% - var(--email-width)) / 2);
+}
+
 /* Light moving through the sky behind everything: two banks of cloud drifting very slowly, and a
    fine grain so the gradient reads as sky rather than a flat fill. Stars at night. Decoration only
    (aria-hidden, no pointer events), and still when the system asks for less motion. */

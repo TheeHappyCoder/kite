@@ -936,7 +936,7 @@ function MessageView({
     <article
       data-message-id={message.id}
       data-sensitive
-      className={cn("scroll-mt-4 rounded-xl border border-pane-border transition-shadow duration-500", highlighted && "ring-2 ring-accent/50")}
+      className={cn("email-grow scroll-mt-4 rounded-xl border border-pane-border transition-shadow duration-500", highlighted && "ring-2 ring-accent/50")}
     >
       {/*
         The header folds the message back to one line (its own buttons excepted); the newest message stays open.
@@ -1237,7 +1237,7 @@ const QuickReply = forwardRef<
   return (
     // Floats over the end of the conversation (the text scrolls on underneath and fades out behind it), so it takes no row of its own.
     // The fade leaves the scrollbar alone (`right-3`); only the box itself takes the pointer.
-    <div data-quick-reply className="pointer-events-none absolute bottom-0 left-0 right-3 z-10 bg-linear-to-b from-transparent to-pane to-50% px-4 pb-4 pt-10">
+    <div data-quick-reply className="pointer-events-none absolute bottom-0 left-0 right-3 z-10 bg-linear-to-b from-transparent to-pane to-70% px-4 pb-4 pt-5">
       <div
         onDragOver={(e) => {
           if (!e.dataTransfer.types.includes("Files")) return;

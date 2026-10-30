@@ -33,6 +33,8 @@ export function EmailFrame({ html, loadRemote }: { html: string; loadRemote: boo
   body{padding:2px}
   /* Many newsletters pin html and body to 100% of the frame, which would keep the frame at its first height: these outrank them. */
   html:root,html:root>body{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}
+  /* The frame is always as tall as its content and fitWidth keeps it inside the width: never a scrollbar. */
+  html:root{scrollbar-width:none}
   img{max-width:100%;height:auto}
   table{max-width:100%}
   pre{white-space:pre-wrap}
@@ -89,6 +91,46 @@ function withSlot(frames: Frames, slot: 0 | 1, change: { doc?: string; ready?: b
   return { ...frames, docs, ready, heights };
 }
 
+/** Below this share of its own width, mail is too small to read scaled down, so it's laid out again first. */
+const REFLOW_BELOW = 0.75;
+const REFLOW_ID = "kite-reflow";
+/** Fixed widths (a <td width="661">, a <p style="width:721px">) outrank the frame's max-width rules, and a table grows to hold them. */
+const REFLOW_CSS = `table{width:100%!important}table,td,th,div,p,center{min-width:0!important;max-width:100%!important;white-space:normal!important}td,th,div,p,center{width:auto!important}img{max-width:100%!important;height:auto!important}`;
+
+/**
+ * Keeps mail wider than the frame inside it: first by widening the frame where there's room, then
+ * a little too wide is scaled down as it was designed,
+ * far too wide is laid out again, and whatever still doesn't fit is scaled. Done from here because
+ * mail's scripts never run, and undone first when the width changes, so a wider pane gets the original back.
+ */
+function fitWidth(frame: HTMLIFrameElement) {
+  const doc = frame.contentDocument;
+  let width = frame.clientWidth;
+  if (!doc?.body || !width) return;
+  const root = doc.documentElement;
+  doc.getElementById(REFLOW_ID)?.remove();
+  doc.body.style.removeProperty("zoom");
+  let natural = root.scrollWidth;
+  // A pixel over is rounding (scrollWidth rounds up, clientWidth down), not overflow.
+  if (natural <= width + 1) return;
+  // Where the message may leave the reader's column (.email-grow), it takes the room the pane has first.
+  // Set once: mail that fills its frame measures a little wider each time, so asking again would creep.
+  const host = frame.closest<HTMLElement>(".email-grow");
+  if (host && !host.style.getPropertyValue("--email-grow")) {
+    host.style.setProperty("--email-grow", `${natural + host.offsetWidth - width}px`);
+    width = frame.clientWidth;
+    if (natural <= width + 1) return;
+  }
+  if (width / natural < REFLOW_BELOW) {
+    const style = doc.createElement("style");
+    style.id = REFLOW_ID;
+    style.textContent = REFLOW_CSS;
+    doc.head.append(style);
+    natural = root.scrollWidth;
+  }
+  if (natural > width) doc.body.style.setProperty("zoom", String(width / natural));
+}
+
 function FrameSlot({
   srcDoc,
   active,
@@ -124,12 +166,18 @@ function FrameSlot({
       return Math.max(24, root.scrollHeight > root.clientHeight ? Math.max(box, root.scrollHeight) : box);
     };
     const onLoad = () => {
+      fitWidth(frame);
+      let fitted = frame.clientWidth;
       const h = measure();
       if (h !== null) report.current(h, true);
       const body = frame.contentDocument?.body;
       if (body) {
         highlightSearch(body, latestQuery.current);
         observer = new ResizeObserver(() => {
+          if (frame.clientWidth !== fitted) {
+            fitWidth(frame);
+            fitted = frame.clientWidth;
+          }
           const next = measure();
           if (next !== null) report.current(next, false);
         });
