@@ -295,7 +295,7 @@
 
         function drawString(k) {
           var midX = (flyer.x + k.x) / 2, midY = (flyer.y + k.y) / 2;
-          // The string sags away from the wind, and hums a little with it.
+          // The string sags away from the wind.
           var sag = Math.hypot(k.x - flyer.x, k.y - flyer.y) * 0.13;
           ctx.beginPath();
           ctx.moveTo(flyer.x, flyer.y);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { animate, AnimatePresence, LayoutGroup, motion, useMotionValue } from "motion/react";
 import { Cancel01Icon, DragDropVerticalIcon } from "@hugeicons/core-free-icons";
 import { blurFade, exitFor, spring } from "@/lib/motion";
@@ -10,6 +10,9 @@ import { Tooltip } from "../ui/tooltip";
 
 /** How many compose windows can be open at once (minimised ones count). */
 export const MAX_COMPOSERS = 4;
+
+/** Inside these, a press or double-click on the title bar belongs to the control, not the window. */
+export const WINDOW_CONTROLS = "button, input, select, textarea, a, [role=radio], [role=radiogroup]";
 
 const MARGIN = 16;
 const PAGE_MARGIN = 8;
@@ -459,43 +462,40 @@ export function ComposeWindow({
   /** Where the window goes back to from full page. */
   const windowRect = useRef<Rect | null>(null);
 
-  const rect = (): Rect => ({ x: x.get(), y: y.get(), w: w.get(), h: h.get() });
-  const set = (next: Rect) => {
-    x.set(next.x);
-    y.set(next.y);
-    w.set(next.w);
-    h.set(next.h);
-  };
-
-  // Place once on open (the viewport is only known in the browser), and refit when it changes.
-  useEffect(() => {
-    const place = (next: Rect) => {
+  const rect = useCallback((): Rect => ({ x: x.get(), y: y.get(), w: w.get(), h: h.get() }), [x, y, w, h]);
+  const set = useCallback(
+    (next: Rect) => {
       x.set(next.x);
       y.set(next.y);
       w.set(next.w);
       h.set(next.h);
-    };
+    },
+    [x, y, w, h],
+  );
+
+  // Place once on open (the viewport is only known in the browser), and refit when it changes.
+  useEffect(() => {
     windowRect.current = startRect(slotRef.current);
-    place(pageRef.current ? pageRect() : windowRect.current);
-    const onResize = () => place(pageRef.current ? pageRect() : fit({ x: x.get(), y: y.get(), w: w.get(), h: h.get() }));
+    set(pageRef.current ? pageRect() : windowRect.current);
+    const onResize = () => set(pageRef.current ? pageRect() : fit(rect()));
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [x, y, w, h]);
+  }, [rect, set]);
   useEffect(() => () => dock.remove(id), [dock, id]);
 
   // Switching size glides there (opening at a size doesn't: that's placed above).
   useEffect(() => {
     if (pageRef.current === page) return;
     pageRef.current = page;
-    if (page) windowRect.current = { x: x.get(), y: y.get(), w: w.get(), h: h.get() };
-    const to = page || !windowRect.current ? pageRect() : fit(windowRect.current);
+    if (page) windowRect.current = rect();
+    const to = page ? pageRect() : fit(windowRect.current!);
     const moves = [animate(x, to.x, spring.moderate), animate(y, to.y, spring.moderate), animate(w, to.w, spring.moderate), animate(h, to.h, spring.moderate)];
     return () => moves.forEach((m) => m.stop());
-  }, [page, x, y, w, h]);
+  }, [page, rect, x, y, w, h]);
 
   const drag = (e: React.PointerEvent) => {
     const target = e.target as Element;
-    if (e.button !== 0 || page || phone() || !target.closest("[data-window-drag]") || target.closest("button, input, select, textarea, a, [role=radio], [role=radiogroup]")) return;
+    if (e.button !== 0 || page || phone() || !target.closest("[data-window-drag]") || target.closest(WINDOW_CONTROLS)) return;
     const start = rect();
     track(
       e,

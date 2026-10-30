@@ -12,5 +12,5 @@ export function skyPhase(minutes: number): SkyPhase {
   return "night";
 }
 
-/** The same rule, inline before first paint (keep it in step with skyPhase). */
+/** The same rule, inline before first paint (keep it in step with skyPhase, and with the splash's copy in src-tauri/splash/index.html). */
 export const skyScript = `try{var d=new Date(),m=d.getHours()*60+d.getMinutes();document.documentElement.dataset.sky=m>=300&&m<450?"dawn":m>=450&&m<1020?"day":m>=1020&&m<1140?"golden":"night"}catch(e){}`;

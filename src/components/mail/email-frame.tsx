@@ -98,10 +98,10 @@ const REFLOW_ID = "kite-reflow";
 const REFLOW_CSS = `table{width:100%!important}table,td,th,div,p,center{min-width:0!important;max-width:100%!important;white-space:normal!important}td,th,div,p,center{width:auto!important}img{max-width:100%!important;height:auto!important}`;
 
 /**
- * Keeps mail wider than the frame inside it: first by widening the frame where there's room, then
- * a little too wide is scaled down as it was designed,
- * far too wide is laid out again, and whatever still doesn't fit is scaled. Done from here because
- * mail's scripts never run, and undone first when the width changes, so a wider pane gets the original back.
+ * Keeps mail wider than the frame inside it: first by widening the frame where there's room (once,
+ * and it stays). Then a little too wide is scaled down as it was designed, far too wide is laid out
+ * again, and whatever still doesn't fit is scaled. Done from here because mail's scripts never run.
+ * The scale and new layout are undone first when the width changes, so a wider pane gets the original back.
  */
 function fitWidth(frame: HTMLIFrameElement) {
   const doc = frame.contentDocument;

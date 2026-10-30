@@ -53,7 +53,7 @@ import { AttachPicker, fileKey, type AttachContext } from "../files/attach-picke
 import { FileThumb } from "../files/file-preview";
 import { Icon, type IconData } from "../icon";
 import { Tooltip } from "../ui/tooltip";
-import { ComposeWindow, type ComposeDock } from "./compose-window";
+import { ComposeWindow, WINDOW_CONTROLS, type ComposeDock } from "./compose-window";
 import { RecipientField } from "./recipient-field";
 import { Switch } from "../ui/switch";
 import { FormatBar, RichEditor, type FormatState, type RichEditorHandle } from "./rich-editor";
@@ -456,6 +456,9 @@ export function Compose({
       (!designMode && bodyToText(draft.body).replace(/\s+/g, " ").trim().slice(0, 80)) ||
       (recipients.length ? `To ${recipients.map((r) => r.name || r.email).join(", ")}` : "");
 
+  const sideLabel = side ? "Hide the conversation" : "Show the conversation";
+  const pageLabel = win.page ? "Make it a window" : "Full page";
+
   return (
     <ComposeWindow
       id={win.id}
@@ -524,7 +527,7 @@ export function Compose({
       <div
         data-window-drag=""
         onDoubleClick={(e) => {
-          if (!phone && !(e.target as Element).closest("button, input, [role=radio], [role=radiogroup]")) win.onPage();
+          if (!phone && !(e.target as Element).closest(WINDOW_CONTROLS)) win.onPage();
         }}
         className={cn(
           "flex shrink-0 touch-none select-none items-center gap-3 rounded-t-2xl px-4 py-2.5 max-sm:cursor-default max-sm:touch-auto max-sm:rounded-none max-sm:px-3",
@@ -541,9 +544,9 @@ export function Compose({
         </AnimatePresence>
         <ModeSwitch design={designMode} onChange={switchMode} />
         {win.page && context?.threadId ? (
-          <Tooltip label={side ? "Hide the conversation" : "Show the conversation"} side="top" className="inline-flex max-lg:hidden">
+          <Tooltip label={sideLabel} side="top" className="inline-flex max-lg:hidden">
             <button
-              aria-label={side ? "Hide the conversation" : "Show the conversation"}
+              aria-label={sideLabel}
               aria-pressed={side}
               onClick={toggleSide}
               className={cn("-mr-2 grid size-7 place-items-center rounded-full text-pane-muted hover:bg-pane-hover hover:text-pane-fg", side && "text-accent")}
@@ -552,9 +555,9 @@ export function Compose({
             </button>
           </Tooltip>
         ) : null}
-        <Tooltip label={win.page ? "Make it a window" : "Full page"} shortcut="pageCompose" side="top" className="inline-flex max-sm:hidden">
+        <Tooltip label={pageLabel} shortcut="pageCompose" side="top" className="inline-flex max-sm:hidden">
           <button
-            aria-label={win.page ? "Make it a window" : "Full page"}
+            aria-label={pageLabel}
             onClick={() => win.onPage()}
             className="-mr-2 grid size-7 place-items-center rounded-full text-pane-muted hover:bg-pane-hover hover:text-pane-fg"
           >
