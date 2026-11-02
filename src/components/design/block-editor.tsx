@@ -12,11 +12,8 @@ import {
   HeadingIcon,
   Image01Icon,
   LayoutTwoColumnIcon,
-  Link01Icon,
   MinusSignIcon,
-  TextBoldIcon,
   TextIcon,
-  TextItalicIcon,
   Upload01Icon,
 } from "@hugeicons/core-free-icons";
 import type { DesignAsset } from "@/lib/design/prompt";
@@ -29,6 +26,9 @@ import { ASSET_WARN } from "./assets";
 
 import { FLUID_ITEM, FluidList } from "../ui/fluid-hover";
 import { Spinner } from "../ui/spinner";
+import { DesignTextField } from "./text-field";
+import { inlineToText } from "@/lib/design/inline";
+
 type Kind = Block["type"];
 
 const KINDS: { type: Kind; label: string; icon: IconData }[] = [
@@ -64,7 +64,7 @@ function summary(block: Block): string {
   switch (block.type) {
     case "text":
     case "heading":
-      return block.text.replace(/\*\*|\*|\[([^\]]*)\]\([^)]*\)/g, "$1").split("\n")[0] || "Empty";
+      return (block.type === "text" ? inlineToText(block.text).replace(/ <[^>\n]+>/g, "") : block.text).split("\n")[0] || "Empty";
     case "image":
       return block.alt || (block.src ? "No alt text" : "No image yet");
     case "button":
@@ -228,7 +228,13 @@ function Inspector({ block, onChange, context }: { block: Block; onChange: (bloc
     case "text":
       return (
         <Fields>
-          <RichTextField value={block.text} onChange={(text) => set({ text })} />
+          <DesignTextField
+            value={block.text}
+            onChange={(text) => set({ text })}
+            theme={context.theme}
+            colour={block.color ?? (block.caps ? context.theme.accent : block.size === "sm" ? context.theme.muted : context.theme.text)}
+            size={{ sm: 12, md: 14, lg: 17 }[block.size]}
+          />
           <Row label="Size">
             <Segmented value={block.size} options={[["sm", "Small"], ["md", "Normal"], ["lg", "Large"]]} onChange={(size) => set({ size })} />
           </Row>
@@ -664,48 +670,4 @@ export function Segmented<V extends string>({
 
 function AlignField({ value, onChange }: { value: "left" | "center" | "right"; onChange: (value: "left" | "center" | "right") => void }) {
   return <Segmented value={value} options={[["left", "Left"], ["center", "Centre"], ["right", "Right"]]} onChange={onChange} />;
-}
-
-const MARKUP_TOOLS: { icon: IconData; label: string; wrap: [string, string, string] }[] = [
-  { icon: TextBoldIcon, label: "Bold", wrap: ["**", "**", "bold"] },
-  { icon: TextItalicIcon, label: "Italic", wrap: ["*", "*", "italic"] },
-  { icon: Link01Icon, label: "Link", wrap: ["[", "](https://)", "link text"] },
-];
-
-/** A textarea for inline markup with buttons that wrap the selection. */
-function RichTextField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  const wrap = (before: string, after: string, placeholder: string) => {
-    const el = ref.current;
-    if (!el) return;
-    const { selectionStart: start, selectionEnd: end } = el;
-    const selected = value.slice(start, end) || placeholder;
-    const next = value.slice(0, start) + before + selected + after + value.slice(end);
-    onChange(next);
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(start + before.length, start + before.length + selected.length);
-    });
-  };
-
-
-  return (
-    <div className="rounded-lg border border-pane-border bg-pane-2 focus-within:border-accent/60">
-      <div className="flex items-center gap-0.5 border-b border-pane-border px-1.5 py-1">
-        {MARKUP_TOOLS.map((t) => (
-          <MiniButton key={t.label} icon={t.icon} label={t.label} onClick={() => wrap(...t.wrap)} />
-        ))}
-        <span className="ml-auto pr-1 text-[10.5px] text-pane-muted">**bold** *italic* [link](https://…)</span>
-      </div>
-      <textarea
-        ref={ref}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        rows={3}
-        placeholder="Text"
-        className="block w-full resize-y bg-transparent px-2.5 py-2 text-[12.5px] leading-5 outline-none placeholder:text-pane-muted/80"
-      />
-    </div>
-  );
 }

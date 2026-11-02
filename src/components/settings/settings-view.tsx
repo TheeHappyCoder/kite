@@ -13,7 +13,6 @@ import type { ThemePref } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Icon, type IconData } from "../icon";
 import { KeyCombo } from "../ui/kbd";
-import { SignatureEditor } from "../design/design-editor";
 import { FillSignSection } from "./fill-sign-section";
 import { SnippetsSection } from "./snippets-section";
 import { TemplatesSection } from "./templates-section";
@@ -34,7 +33,8 @@ import { ButtonsSection } from "./buttons-section";
 import { SWIPE_ACTIONS, SWIPE_INFO, type SwipeAction, type SwipeSide } from "@/lib/swipe";
 import { AccentTitle } from "../ui/accent-title";
 import { NAV, type NavItem, PAGES, SEARCH, type SettingsSection, pageIndex } from "./settings-nav";
-import { AccountRow, CalendarAccess, SenderPhotos, SignatureCard } from "./account-row";
+import { AccountRow, CalendarAccess, SenderPhotos } from "./account-row";
+import { SignaturesSection } from "./signatures-section";
 import { DataSection } from "./data-section";
 import { NotificationsSection } from "./notifications-section";
 
@@ -107,9 +107,6 @@ export function SettingsView(props: Props) {
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  // Kept after closing so the editor can animate out.
-  const [editing, setEditing] = useState<Account | null>(null);
-  const [editorOpen, setEditorOpen] = useState(false);
 
   useEffect(() => {
     if (props.demo) return;
@@ -274,20 +271,12 @@ export function SettingsView(props: Props) {
       case "signatures":
         return (
           <Page icon={SignatureIcon} title="Signatures" description="Added below new messages and replies, with fallbacks for every mail app.">
-            <Group title="Signatures" bare>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,18rem),1fr))] gap-3">
-                {props.accounts.map((account) => (
-                  <SignatureCard
-                    key={account.id}
-                    account={account}
-                    design={preferences.signatures[account.id]}
-                    onEdit={() => {
-                      setEditing(account);
-                      setEditorOpen(true);
-                    }}
-                  />
-                ))}
-              </div>
+            <Group description="Make as many as you like. Pick one for new messages and one for replies; switch in any message." bare>
+              <SignaturesSection
+                accounts={props.accounts}
+                signatures={preferences.signatures}
+                onSave={(accountId, set) => props.onPreferences({ signatures: { [accountId]: set } })}
+              />
             </Group>
           </Page>
         );
@@ -353,6 +342,18 @@ export function SettingsView(props: Props) {
                 detail="Bubbles with only the new text. Switch any conversation from the reader."
                 value={preferences.chatView}
                 onChange={(chatView) => void props.onPreferences({ chatView })}
+              />
+              <ToggleRow
+                label="Always show quoted text"
+                detail="Open the earlier messages a reply or forward carries, instead of folding them."
+                value={preferences.reader.quoted}
+                onChange={(quoted) => void props.onPreferences({ reader: { quoted } })}
+              />
+              <ToggleRow
+                label="Always show signatures"
+                detail="Open each sender's signature, instead of folding it."
+                value={preferences.reader.signatures}
+                onChange={(signatures) => void props.onPreferences({ reader: { signatures } })}
               />
             </Group>
             <TranslateGroup preferences={preferences} onPreferences={props.onPreferences} />
@@ -580,17 +581,6 @@ export function SettingsView(props: Props) {
         </AnimatePresence>
       </div>
 
-      {editing ? (
-        <SignatureEditor
-          key={editing.id}
-          open={editorOpen}
-          account={editing}
-          initial={preferences.signatures[editing.id] ?? null}
-          onSave={(design) => props.onPreferences({ signatures: { [editing.id]: design } })}
-          onRemove={() => props.onPreferences({ signatures: { [editing.id]: null } })}
-          onClose={() => setEditorOpen(false)}
-        />
-      ) : null}
     </section>
   );
 }

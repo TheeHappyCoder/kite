@@ -10,7 +10,7 @@ import type { MailAction } from "@/lib/mail/store";
 import { threadKey } from "@/lib/mail/threads";
 import type { Account, Thread } from "@/lib/mail/types";
 import type { PreparedReply } from "@/lib/rules/prepared";
-import type { Preferences } from "@/lib/settings";
+import { signatureFor, type Preferences } from "@/lib/settings";
 import type { AttachContext } from "../../files/attach-picker";
 import type { CloseResult } from "../compose";
 import type { SendOptions } from "../send-menu";
@@ -151,7 +151,7 @@ export function useSending({
                 from: { name: "You", email: account.email },
                 to: draft.to.map((r) => ({ name: r.name ?? r.email, email: r.email })),
                 date: new Date().toISOString(),
-                body: demoBody(text, withSignature ? preferences.signatures[account.id] : undefined).split(/\n{2,}/),
+                body: demoBody(text, signatureFor(preferences.signatures, account.id, { signature: withSignature, threadId: selected.id })).split(/\n{2,}/),
               },
             ],
           },
@@ -272,7 +272,7 @@ export function useSending({
           to: draft.to.map((r) => ({ name: r.name ?? r.email, email: r.email })),
           cc: draft.cc.length ? draft.cc.map((r) => ({ name: r.name ?? r.email, email: r.email })) : undefined,
           date: new Date().toISOString(),
-          body: demoBody(draft.design ? escapeMarkup(compileText(draft.design)) : draft.body, draft.signature ? preferences.signatures[account.id] : undefined).split(/\n{2,}/),
+          body: demoBody(draft.design ? escapeMarkup(compileText(draft.design)) : draft.body, signatureFor(preferences.signatures, account.id, draft)).split(/\n{2,}/),
         },
       ],
     };

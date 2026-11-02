@@ -10,6 +10,7 @@ import type { OutgoingMessage } from "./mail/types";
 import { mailOf } from "./providers/registry";
 import { htmlToText, OutgoingError, renderOutgoing } from "./outgoing";
 import { getPreferences } from "./settings";
+import { signatureFor } from "@/lib/settings";
 import { queryThreads } from "./store";
 import { syncThread } from "./sync";
 import { removeUploads, saveUpload } from "./uploads";
@@ -31,7 +32,7 @@ export function outgoingFromDraft(account: AccountRow, draft: ComposeDraft): Out
     threadId: draft.threadId,
     inReplyTo: draft.inReplyTo,
     references: draft.references,
-    signature: draft.signature ? getPreferences().signatures[account.id] : undefined,
+    signature: signatureFor(getPreferences().signatures, account.id, draft),
     attachments: draft.attachments,
     quote: draft.quote,
   };

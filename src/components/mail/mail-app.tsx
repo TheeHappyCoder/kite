@@ -11,7 +11,7 @@ import type { Space } from "@/lib/spaces";
 import type { Account, Thread } from "@/lib/mail/types";
 import { threadKey } from "@/lib/mail/threads";
 import { inDesktopApp } from "@/lib/desktop";
-import { applyPatch, DEFAULT_PREFERENCES, type Preferences, type PreferencesPatch } from "@/lib/settings";
+import { applyPatch, DEFAULT_PREFERENCES, signatureFor, type Preferences, type PreferencesPatch } from "@/lib/settings";
 import { rememberView, startViewFor } from "@/lib/start-view";
 import { useTheme } from "@/lib/theme";
 import type { OnboardingStart } from "../onboarding";
@@ -23,6 +23,7 @@ import { useCleanup } from "./use-cleanup";
 import { CommandPalette } from "./command-palette";
 import { TranslateContext } from "./translate";
 import { PrivacyContext, type PrivacyPolicy } from "./privacy-chip";
+import { FoldContext } from "./fold";
 import type { FileRef } from "../files/file-preview";
 import { FillSignContext } from "../files/fill-sign";
 import { useFileOrigin, type FileLookup, type FileMode } from "../files/file-origin";
@@ -974,7 +975,7 @@ export function MailApp() {
       onToggleChat={toggleChat}
       unseen={selected && state.unseen?.threadId === selected.id ? state.unseen.ids : undefined}
       account={accounts.find((a) => a.id === selected?.accountId)}
-      signature={selected ? preferences.signatures[selected.accountId] : undefined}
+      signature={selected ? signatureFor(preferences.signatures, selected.accountId, { signature: true, threadId: selected.id }) : undefined}
       onArchive={() => actions.archive()}
       onDelete={() => actions.remove()}
       onSpam={() => actions.spam()}
@@ -1054,6 +1055,7 @@ export function MailApp() {
   return (
     <FillSignContext value={openFillSign}>
       <PrivacyContext value={privacyPolicy}>
+      <FoldContext value={preferences.reader}>
       <TranslateContext value={translateSettings}>
       <AiUsageContext value={openAiUsage}>
       <FirstSyncContext value={firstSyncs}>
@@ -1529,6 +1531,7 @@ export function MailApp() {
       </FirstSyncContext>
       </AiUsageContext>
       </TranslateContext>
+      </FoldContext>
       </PrivacyContext>
     </FillSignContext>
   );

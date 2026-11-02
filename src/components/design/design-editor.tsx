@@ -40,6 +40,7 @@ function issues(error: { issues: { path: PropertyKey[]; message: string }[] }) {
 export function SignatureEditor({
   open,
   account,
+  name,
   initial,
   onSave,
   onRemove,
@@ -47,6 +48,8 @@ export function SignatureEditor({
 }: {
   open: boolean;
   account: Account;
+  /** The signature's name, when the account has several. */
+  name?: string;
   initial: Design | null;
   onSave: (design: Design) => Promise<void>;
   onRemove: () => Promise<void>;
@@ -56,12 +59,12 @@ export function SignatureEditor({
     <DesignEditor
       open={open}
       kind="signature"
-      title={`Signature for ${account.email}`}
+      title={name ? `“${name}” for ${account.email}` : `Signature for ${account.email}`}
       description="Added under new messages and replies. Images travel inside each email, so nothing needs hosting."
       sender={{ name: account.name, email: account.email }}
       initial={initial}
       saveLabel="Save signature"
-      remove={{ label: "Remove signature", confirm: "Remove this signature? New messages won't have one.", run: onRemove }}
+      remove={{ label: "Delete signature", confirm: "Delete this signature? Messages that start with it will have none until you pick another.", run: onRemove }}
       start={(pick, ai, upload) => (
         <Templates who={{ name: account.name || account.email.split("@")[0], email: account.email }} onPick={pick} onAi={ai} onUpload={upload} />
       )}

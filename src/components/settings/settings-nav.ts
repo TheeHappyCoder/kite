@@ -59,6 +59,8 @@ export const SEARCH: { section: SettingsSection | "shortcuts"; label: string; wo
   { section: "compose", label: "Waiting on", words: "reply tracking follow up nudge no answer days today" },
   { section: "compose", label: "Snippets", words: "text shortcut ; canned replies" },
   { section: "signatures", label: "Signatures", words: "sign off footer logo" },
+  { section: "appearance", label: "Always show quoted text", words: "quotes forwarded fyi see below earlier messages expand fold collapse history" },
+  { section: "appearance", label: "Always show signatures", words: "signature expand fold collapse sign off" },
   { section: "templates", label: "Brand kit", words: "logo colours font designed email" },
   { section: "templates", label: "Templates", words: "designed email" },
   { section: "fillSign", label: "Your signature", words: "pdf fill sign draw" },

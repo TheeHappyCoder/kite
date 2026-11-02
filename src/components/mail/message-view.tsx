@@ -12,6 +12,7 @@ import { PrivacyChip, useCleanHtml, useMessagePrivacy } from "./privacy-chip";
 import { useMessageTranslation, type Translated } from "./translate";
 import { type FileRef } from "../files/file-preview";
 import { htmlToText, messagePreview, paragraphs, splitMessage, unwrap } from "@/lib/mail/quotes";
+import { useFold } from "./fold";
 import { CollapsedPart, ExpandedText, forkParent, replyingLabel, quoteLabel, shortDate, signatureLabel } from "./quote-card";
 import { MessageFiles, messageFiles } from "./thread-files";
 import { InviteCard } from "./invite-card";
@@ -285,8 +286,9 @@ function MessageBody({
   /** The new text translated (shown instead of the original); the signature and quotes stay as written. */
   translated?: Translated | null;
 }) {
-  const [showQuoted, setShowQuoted] = useState(false);
-  const [showSignature, setShowSignature] = useState(false);
+  const fold = useFold();
+  const [showQuoted, setShowQuoted] = useState(fold.quoted);
+  const [showSignature, setShowSignature] = useState(fold.signatures);
   const fresh = translated && "html" in translated ? translated.html : split.html?.fresh;
   const html = useCleanHtml(split.html ? fresh + (showSignature ? split.html.signature : "") + (showQuoted ? split.html.quoted : "") : "");
   const text = split.text;

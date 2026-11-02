@@ -43,12 +43,12 @@ import { accountName, type Account, type FileItem, type Thread } from "@/lib/mai
 import { serviceName } from "@/lib/mail/providers";
 import type { Design } from "@/lib/design/spec";
 import { blurFade, springSnappy } from "@/lib/motion";
-import type { Snippet } from "@/lib/settings";
+import { signatureFor, signatureIdFor, type Preferences, type Snippet } from "@/lib/settings";
 import { comboFromEvent, useShortcuts } from "@/lib/shortcuts";
 import { useSidebarMode } from "@/lib/layout";
 import { bodyToText } from "@/lib/mail/body";
 import { cn, formatFullDate } from "@/lib/utils";
-import { SignatureSlot } from "../design/signature-slot";
+import { AddSignature, SignatureSlot } from "../design/signature-slot";
 import { AttachPicker, fileKey, type AttachContext } from "../files/attach-picker";
 import { FileThumb } from "../files/file-preview";
 import { Icon, type IconData } from "../icon";
@@ -164,7 +164,7 @@ export function Compose({
   defaultAccountId: string;
   initial?: Partial<ComposeDraft>;
   /** Signature per account id, added to new drafts. */
-  signatures: Record<string, Design>;
+  signatures: Preferences["signatures"];
   snippets: Snippet[];
   searchContacts: (query: string) => Promise<Recipient[]>;
   /** The window closes at once; `pending` settles when a last draft save finishes. */
@@ -233,7 +233,9 @@ export function Compose({
     draftRef.current = full;
   });
 
-  const signature = draft.signature ? signatures[draft.accountId] : undefined;
+  const signatureSet = signatures[draft.accountId];
+  const signatureId = signatureIdFor(signatureSet, draft);
+  const signature = signatureFor(signatures, draft.accountId, draft);
   const uploading = files.some((f) => f.status === "uploading");
   const hasRecipients = draft.to.length + draft.cc.length + draft.bcc.length > 0;
   const hasContent = (designMode ? !!draft.design : !!draft.body.trim()) || ready.length > 0 || draft.quote?.mode === "forward";
@@ -748,7 +750,17 @@ export function Compose({
 
             {signature ? (
               <div key={draft.accountId} className="mt-3">
-                <SignatureSlot design={signature} onRemove={() => update({ signature: false })} />
+                <SignatureSlot
+                  design={signature}
+                  onRemove={() => update({ signature: false })}
+                  list={signatureSet?.list}
+                  current={signatureId}
+                  onPick={(id) => update({ signatureId: id })}
+                />
+              </div>
+            ) : signatureSet?.list.length ? (
+              <div className="mt-2">
+                <AddSignature list={signatureSet.list} onPick={(id) => update({ signature: true, signatureId: id })} />
               </div>
             ) : null}
           </div>

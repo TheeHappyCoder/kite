@@ -56,8 +56,9 @@ export const ComposeDraft = z.object({
   body: z.string().max(200_000).default(""),
   /** A designed email: sent instead of `body` (the signature and any quote still follow). */
   design: Design.optional(),
-  /** Add the account's signature. */
+  /** Add a signature: `signatureId` (one of the account's), else the account's choice for new mail or replies (lib/settings.ts signatureFor). */
   signature: z.boolean().default(true),
+  signatureId: z.string().max(24).nullable().optional(),
   attachments: z.array(AttachmentRef).max(50).default([]),
   threadId: z.string().regex(REMOTE_ID).optional(),
   inReplyTo: z.string().max(1000).refine((s) => !/[\r\n]/.test(s)).optional(),

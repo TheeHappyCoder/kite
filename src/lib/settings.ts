@@ -45,8 +45,56 @@ function patchOf<S extends Record<string, z.ZodDefault<z.ZodType>>>(schema: z.Zo
   return z.object(shape) as unknown as z.ZodType<Partial<z.infer<z.ZodObject<S>>>>;
 }
 
-/** Signatures are design documents, one per account id. */
-const Signatures = z.record(z.string(), Design);
+/** One signature: a design document with a name the user picks it by. */
+export const Signature = z.object({
+  id: z.string().regex(/^[a-z0-9]{1,24}$/),
+  name: z.string().trim().min(1).max(60),
+  design: Design,
+});
+export type Signature = z.infer<typeof Signature>;
+
+/** An account's signatures, and which one new messages and replies (and forwards) start with; null = none. */
+export const AccountSignatures = z.object({
+  list: z.array(Signature).max(20),
+  newMail: z.string().nullable(),
+  replies: z.string().nullable(),
+});
+export type AccountSignatures = z.infer<typeof AccountSignatures>;
+
+/**
+ * Signatures per account id. Released builds (0.2.7 and before) stored one design per account;
+ * it becomes that account's only signature, used for both, so an update keeps it.
+ */
+const Signatures = z.preprocess(
+  (value) =>
+    value && typeof value === "object"
+      ? Object.fromEntries(
+          Object.entries(value).map(([id, set]) =>
+            set && typeof set === "object" && "blocks" in set ? [id, { list: [{ id: "main", name: "Signature", design: set }], newMail: "main", replies: "main" }] : [id, set],
+          ),
+        )
+      : value,
+  z.record(z.string(), AccountSignatures),
+);
+
+/** The signature a message starts with: its own pick (`signatureId`), else the account's choice for new mail or replies. */
+export function signatureFor(
+  signatures: Record<string, AccountSignatures>,
+  accountId: string,
+  draft: { signature: boolean; signatureId?: string | null; threadId?: string; quote?: unknown },
+): Design | undefined {
+  if (!draft.signature) return undefined;
+  const set = signatures[accountId];
+  const id = signatureIdFor(set, draft);
+  return set?.list.find((s) => s.id === id)?.design;
+}
+
+/** Which of an account's signatures a message uses (whether or not it's switched on). */
+export function signatureIdFor(set: AccountSignatures | undefined, draft: { signatureId?: string | null; threadId?: string; quote?: unknown }) {
+  if (!set) return null;
+  const id = draft.signatureId ?? (draft.threadId || draft.quote ? set.replies : set.newMail);
+  return set.list.some((s) => s.id === id) ? id : null;
+}
 
 /** Reusable text typed with ";trigger" in the compose body. The body is markup (see mail/body.ts). */
 export const Snippet = z.object({
@@ -104,6 +152,14 @@ export const UNDO_SEND_CHOICES = [0, 5, 10, 20] as const;
 
 /** Days without an answer before a conversation shows in Home's "Waiting on" (lib/replies.ts). */
 export const WAIT_DAY_CHOICES = [2, 3, 5, 7] as const;
+
+/** The reader: what a message shows before you open its folded parts. */
+const ReaderPrefs = z.object({
+  /** Quoted history (the earlier messages a reply or forward carries) open instead of folded. */
+  quoted: z.boolean().default(false),
+  /** Signatures open instead of folded. */
+  signatures: z.boolean().default(false),
+});
 
 const ComposePrefs = z.object({
   /** Undo send: Send holds the message this many seconds. Scheduled sends aren't held. */
@@ -170,6 +226,7 @@ export const Preferences = z.object({
   calendar: z.boolean().default(false),
   /** Open conversations as chat bubbles by default (each thread can still switch). */
   chatView: z.boolean().default(false),
+  reader: ReaderPrefs.default(ReaderPrefs.parse({})),
   /** Where Kite opens: the screen you were on last (kept on this computer), or always Home or the Inbox. */
   startView: z.enum(START_VIEWS).default("last"),
   /** What swiping a message-list row does, per direction (touch screens). */
@@ -177,7 +234,7 @@ export const Preferences = z.object({
   /** Which actions sit on the reader's toolbar and the list's hover row (lib/buttons.ts); the rest are in More. */
   buttons: ButtonPrefs.default(DEFAULT_BUTTONS),
   notifications: NotificationPrefs.default(NotificationPrefs.parse({})),
-  /** Signature per account id. */
+  /** Signatures per account id: the list, and which one new mail and replies start with. */
   signatures: Signatures.default({}),
   snippets: Snippets.default([]),
   savedSearches: SavedSearches.default([]),
@@ -201,17 +258,19 @@ export type NotificationKind = "desktop" | "codes" | "scheduled" | "meetings";
 
 export const DEFAULT_PREFERENCES: Preferences = Preferences.parse({});
 
-/** A partial update: top-level keys replace, `swipe`, `notifications`, `desktop`, `bar`, `pdfSign`, `compose`, `privacy` and `signatures` merge. A null signature removes it. */
+/** A partial update: top-level keys replace, `swipe`, `notifications`, `desktop`, `bar`, `pdfSign`, `compose`, `privacy` and `signatures` merge (an account's set is replaced whole; null removes it). */
 export const PreferencesPatch = z.object({
   senderPhotos: z.boolean().optional(),
   calendar: z.boolean().optional(),
   chatView: z.boolean().optional(),
+  reader: patchOf(ReaderPrefs).optional(),
   startView: z.enum(START_VIEWS).optional(),
   swipe: patchOf(SwipePrefs).optional(),
   /** Replaces the whole layout. */
   buttons: ButtonPrefs.optional(),
   notifications: patchOf(NotificationPrefs).optional(),
-  signatures: z.record(z.string(), Design.nullable()).optional(),
+  /** Replaces an account's whole set; null removes them all. */
+  signatures: z.record(z.string(), AccountSignatures.nullable()).optional(),
   /** Replaces the whole list. */
   snippets: Snippets.optional(),
   /** Replaces the whole list. */
@@ -244,11 +303,11 @@ export type StorageInfo = {
   accounts: { id: string; threads: number; syncedAt: string | null; error: string | null }[];
 };
 
-/** Applies a patch: `notifications`, `desktop` and `signatures` merge key by key; a null signature removes it. */
+/** Applies a patch: `notifications`, `desktop` and `signatures` merge key by key; a null set of signatures removes it. */
 export function applyPatch(current: Preferences, patch: PreferencesPatch): Preferences {
   const signatures = { ...current.signatures };
-  for (const [id, design] of Object.entries(patch.signatures ?? {})) {
-    if (design) signatures[id] = design;
+  for (const [id, set] of Object.entries(patch.signatures ?? {})) {
+    if (set) signatures[id] = set;
     else delete signatures[id];
   }
   const aiModels: AiModelChoices = { ...current.aiModels };
@@ -260,6 +319,7 @@ export function applyPatch(current: Preferences, patch: PreferencesPatch): Prefe
     senderPhotos: patch.senderPhotos ?? current.senderPhotos,
     calendar: patch.calendar ?? current.calendar,
     chatView: patch.chatView ?? current.chatView,
+    reader: { ...current.reader, ...patch.reader },
     startView: patch.startView ?? current.startView,
     swipe: { ...current.swipe, ...patch.swipe },
     buttons: patch.buttons ?? current.buttons,

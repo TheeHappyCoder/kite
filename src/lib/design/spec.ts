@@ -17,7 +17,7 @@ const ImageSource = z
 /** Where a link or button goes. */
 const LinkTarget = z.string().regex(/^(https?:\/\/|mailto:|tel:)\S+$/, "Links must start with https://, mailto: or tel:");
 
-/** Inline markup: **bold**, *italic*, [label](https://…) and line breaks. Nothing else is interpreted. */
+/** Inline markup (lib/design/inline.ts): **bold**, *italic*, [label](https://…), {#hex|coloured text}, line breaks and \ escapes. Nothing else is interpreted. */
 const richText = z.string().min(1).max(2000);
 
 export const TextBlock = z.object({

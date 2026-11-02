@@ -33,7 +33,7 @@ const KIND_RULES: Record<DesignKind, string[]> = {
 
 const CATALOGUE = `Blocks (the "type" field picks one):
 - text: { "type": "text", "text": "…", "size": "sm"|"md"|"lg", "color"?: "#rrggbb", "align"?: "left"|"center"|"right", "bold"?: boolean, "caps"?: boolean (a small-capitals label in the accent colour, e.g. "FOUNDER · COMPANY") }
-  Inline markup inside "text" only: **bold**, *italic*, [label](https://…), [label](mailto:…), [label](tel:…), and \\n for line breaks. No HTML.
+  Inline markup inside "text" only: **bold**, *italic*, [label](https://…), [label](mailto:…), [label](tel:…), {#16a34a|text in a colour} (any 6-digit hex; it can hold bold and links), and \\n for line breaks. No HTML.
 - heading: { "type": "heading", "text": "…", "level": 1|2|3, "color"?, "align"? }
 - image: { "type": "image", "src": "asset:<id>" or "https://…", "alt": "required description", "width": px (16–600), "href"?: link, "radius"?: px, "align"? }
 - button: { "type": "button", "label": "…", "href": "https://…", "color"?: background, "textColor"?, "align"? }

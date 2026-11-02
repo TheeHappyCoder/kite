@@ -1,5 +1,6 @@
 import type { Block, ButtonBlock, ColumnsBlock, Design, DesignTheme, HeadingBlock, ImageBlock, LeafBlock, TextBlock } from "./spec";
 import { escapeHtml } from "../format";
+import { inlineToHtml, inlineToText } from "./inline";
 
 // Compiles a design document to email-safe HTML: nested tables, inline styles, explicit
 // image sizes and no CSS that Outlook's Word engine or Gmail would drop. Every value from
@@ -31,34 +32,12 @@ function safeUrl(url: string) {
   return SAFE_URL.test(url) ? escapeHtml(url) : "#";
 }
 
-const LINK = /\[([^\]\n]+)\]\(((?:https?:\/\/|mailto:|tel:)[^\s)]+)\)/g;
-
-/** Inline markup to HTML: **bold**, *italic*, [label](url), line breaks. */
+/** Inline markup to HTML (lib/design/inline.ts): links in the accent, or in the colour of the run they sit in. */
 function inlineHtml(text: string, theme: DesignTheme) {
-  const links: string[] = [];
-  // Pull links out first so their URLs aren't touched by the emphasis rules.
-  let html = text.replace(LINK, (_, label: string, url: string) => {
-    links.push(`<a href="${safeUrl(url)}" style="color:${theme.accent};text-decoration:underline">${escapeHtml(label)}</a>`);
-    return `\u0000${links.length - 1}\u0000`;
+  return inlineToHtml(text, {
+    link: (href, label, colour) => `<a href="${href}" style="color:${colour ?? theme.accent};text-decoration:underline">${label}</a>`,
+    colour: (hex, inner) => `<span style="color:${hex}">${inner}</span>`,
   });
-  html = escapeHtml(html)
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
-    .replace(/\r?\n/g, "<br>");
-  return html.replace(/\u0000(\d+)\u0000/g, (_, i: string) => links[Number(i)]);
-}
-
-/** Inline markup to plain text: links become "label <url>". */
-function inlineText(text: string) {
-  return text
-    .replace(LINK, (_, label: string, url: string) => {
-      const bare = url.replace(/^(mailto:|tel:)/, "");
-      const digits = (s: string) => s.replace(/\D/g, "");
-      const same = label === url || label === bare || (url.startsWith("tel:") && digits(label) === digits(bare));
-      return same ? label : `${label} <${bare}>`;
-    })
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1$2");
 }
 
 function textBlock(block: TextBlock, theme: DesignTheme) {
@@ -164,7 +143,7 @@ export function compileHtml(design: Design, options: CompileOptions) {
 function leafText(block: LeafBlock): string | null {
   switch (block.type) {
     case "text":
-      return inlineText(block.text);
+      return inlineToText(block.text);
     case "heading":
       return block.text;
     case "image":

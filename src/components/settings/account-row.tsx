@@ -9,8 +9,6 @@ import { blurFade } from "@/lib/motion";
 import { type StorageInfo } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { Icon } from "../icon";
-import type { Design } from "@/lib/design/spec";
-import { DesignPreview } from "../design/design-preview";
 import { AccountFace } from "../mail/account-face";
 import { AccountLook } from "./account-look";
 import { signInCompany } from "@/lib/mail/connect";
@@ -266,36 +264,6 @@ function GoogleLink({ account, onError }: { account: Account; onError: (message:
           Connect Google
         </a>
       )}
-    </div>
-  );
-}
-
-export function SignatureCard({ account, design, onEdit }: { account: Account; design: Design | undefined; onEdit: () => void }) {
-  return (
-    <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-pane-border">
-      <div className="flex min-w-0 items-center gap-2.5 px-3.5 py-3">
-        <AccountFace account={account} className="size-6 text-[10px]" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-medium">{accountName(account)}</p>
-          <p className="truncate text-[11.5px] text-pane-muted">{account.email}</p>
-        </div>
-        <button onClick={onEdit} className={buttonClass}>
-          {design ? "Edit" : "Design"}
-        </button>
-      </div>
-      <button
-        onClick={onEdit}
-        className="group block min-h-24 flex-1 border-t border-pane-border bg-pane-2/60 p-2 text-left transition-colors hover:bg-pane-hover"
-        aria-label={`${design ? "Edit" : "Design a"} signature for ${account.email}`}
-      >
-        {design ? (
-          <DesignPreview design={design} className="pointer-events-none" />
-        ) : (
-          <span className="grid h-full min-h-20 place-items-center rounded-lg border border-dashed border-pane-border text-[12px] text-pane-muted transition-colors group-hover:text-pane-fg">
-            No signature yet
-          </span>
-        )}
-      </button>
     </div>
   );
 }
