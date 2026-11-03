@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { AlarmClockIcon, Archive02Icon, ArrowDown01Icon, MailSend01Icon, TimeScheduleIcon } from "@hugeicons/core-free-icons";
 import { addDays, addHours, format, nextMonday, setHours, setMinutes, startOfMinute } from "date-fns";
-import { blurFade } from "@/lib/motion";
+import { blurFade, springSnappy } from "@/lib/motion";
 import { useShortcuts } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { Icon } from "../icon";
 import { Spinner } from "../ui/spinner";
 import { KeyCombo } from "../ui/kbd";
+import { FLUID_ITEM, FluidList } from "../ui/fluid-hover";
 import { Tooltip } from "../ui/tooltip";
 
 /** `archive`: once it's sent (or scheduled), the conversation it answers leaves the Inbox. */
@@ -41,6 +42,9 @@ function readRemind() {
 }
 
 /** Send button with a menu for Send and archive (replies), sending later and asking for a follow-up nudge. */
+/** One menu row: a single line, the label giving way (truncated) before the time or keys do. */
+const ROW = "flex h-9 w-full items-center gap-2.5 whitespace-nowrap rounded-xl px-2.5 text-left text-[13px] transition-colors duration-150 touch:h-11";
+
 export function SendMenu({
   disabled,
   sending = false,
@@ -62,6 +66,7 @@ export function SendMenu({
   const shortcuts = useShortcuts();
   const sendArchiveKeys = shortcuts.primary("sendArchive");
   const [open, setOpen] = useState(false);
+  const remindPill = useId();
   const [remindDays, setRemindDays] = useState(readRemind);
   const ref = useRef<HTMLDivElement>(null);
   const options = useMemo(() => (open ? laterOptions() : []), [open]);
@@ -139,49 +144,63 @@ export function SendMenu({
         {open ? (
           <motion.div
             {...blurFade({ y: 6, blur: 6 })}
-            className="absolute bottom-10 right-0 z-30 w-64 overflow-hidden rounded-2xl border border-pane-border bg-pane p-1.5 text-pane-fg shadow-2xl"
+            role="menu"
+            className="absolute bottom-10 right-0 z-30 w-[18rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-pane-border bg-pane p-1 text-pane-fg shadow-menu"
           >
             {archive ? (
               <>
-                <button
-                  onClick={() => send(undefined, true)}
-                  className="blur-fade-up flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] hover:bg-pane-hover touch:h-11"
-                >
-                  <Icon icon={Archive02Icon} size={15} className="text-pane-muted" />
-                  <span className="flex-1">Send and archive</span>
-                  {sendArchiveKeys ? <KeyCombo combo={sendArchiveKeys} /> : null}
-                </button>
-                <div role="separator" className="mx-1 my-1 h-px bg-pane-border" />
+                <FluidList tone="pane" className="flex flex-col">
+                  <button {...FLUID_ITEM} role="menuitem" onClick={() => send(undefined, true)} className={ROW}>
+                    <Icon icon={Archive02Icon} size={16} className="shrink-0 text-pane-muted" />
+                    <span className="min-w-0 flex-1 truncate">Send and archive</span>
+                    {sendArchiveKeys ? <KeyCombo combo={sendArchiveKeys} className="shrink-0" keyClassName="bg-pane-2 text-pane-muted" /> : null}
+                  </button>
+                </FluidList>
+                <div role="separator" className="mx-2 my-1 h-px bg-pane-border" />
               </>
             ) : null}
-            <div className="px-2.5 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-pane-muted">Send later</div>
-            {options.map((option, i) => (
-              <button
-                key={option.label}
-                onClick={() => send(option.date)}
-                className="blur-fade-up flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] hover:bg-pane-hover touch:h-11"
-                style={{ "--i": i } as React.CSSProperties}
-              >
-                <Icon icon={TimeScheduleIcon} size={15} className="text-pane-muted" />
-                <span className="flex-1">{option.label}</span>
-                <span className="text-[12px] tabular-nums text-pane-muted">{format(option.date, "EEE HH:mm")}</span>
-              </button>
-            ))}
-            <div className="mt-1 border-t border-pane-border px-2.5 pb-1.5 pt-2.5">
-              <div className="flex items-center gap-1.5 text-[12px] text-pane-muted">
-                <Icon icon={AlarmClockIcon} size={14} /> Remind me if nobody replies
+            <div className="px-2.5 pb-1 pt-2 text-[11px] font-medium uppercase tracking-[0.08em] text-pane-muted">Send later</div>
+            <FluidList tone="pane" className="flex flex-col">
+              {options.map((option, i) => (
+                <button
+                  key={option.label}
+                  {...FLUID_ITEM}
+                  role="menuitem"
+                  onClick={() => send(option.date)}
+                  className={cn(ROW, "blur-fade-up")}
+                  style={{ "--i": i } as React.CSSProperties}
+                >
+                  <Icon icon={TimeScheduleIcon} size={16} className="shrink-0 text-pane-muted" />
+                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                  <span className="shrink-0 text-[12px] tabular-nums text-pane-muted">{format(option.date, "EEE HH:mm")}</span>
+                </button>
+              ))}
+            </FluidList>
+            <div role="separator" className="mx-2 my-1 h-px bg-pane-border" />
+            <div className="px-2.5 pb-2 pt-1.5">
+              <div className="flex items-center gap-2 whitespace-nowrap text-[12px] text-pane-muted">
+                <Icon icon={AlarmClockIcon} size={14} className="shrink-0" />
+                <span className="truncate">Remind me if nobody replies</span>
               </div>
-              <div className="mt-2 flex gap-1 rounded-full bg-pane-2 p-[3px]">
+              <div className="mt-2 flex rounded-full bg-pane-2 p-[3px]">
                 {REMIND_CHOICES.map((days) => (
                   <button
                     key={days}
                     onClick={() => chooseRemind(days)}
+                    aria-pressed={remindDays === days}
                     className={cn(
-                      "h-6 flex-1 rounded-full text-[11.5px] font-medium transition-colors",
-                      remindDays === days ? "bg-pane-raised text-pane-fg shadow-[0_0_0_1px_var(--pane-border)]" : "text-pane-muted hover:text-pane-fg",
+                      "relative h-6 flex-1 whitespace-nowrap rounded-full text-[11.5px] transition-colors duration-150 touch:h-9",
+                      remindDays === days ? "font-semibold text-pane-fg" : "font-medium text-pane-muted hover:text-pane-fg",
                     )}
                   >
-                    {days === 0 ? "Off" : days === 7 ? "1 week" : `${days} day${days > 1 ? "s" : ""}`}
+                    {remindDays === days ? (
+                      <motion.span
+                        layoutId={`${remindPill}-remind`}
+                        transition={springSnappy}
+                        className="absolute inset-0 rounded-full bg-pane-raised shadow-[0_0_0_1px_var(--pane-border),0_1px_2px_rgb(0_0_0/0.06)]"
+                      />
+                    ) : null}
+                    <span className="relative">{days === 0 ? "Off" : days === 7 ? "1 week" : `${days} day${days > 1 ? "s" : ""}`}</span>
                   </button>
                 ))}
               </div>
