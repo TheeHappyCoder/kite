@@ -18,8 +18,8 @@ export function labelKey(accountId: string, id: string) {
   return `${accountId}\u0000${id}`;
 }
 
-/** A label's mark: a folder icon for folders, its colour dot for tags. */
-function LabelMark({ label, size }: { label: MailLabel; size: "chip" | "row" }) {
+/** A label's mark: a folder icon for folders, its colour dot for tags (a short bar on the list's shelf). */
+function LabelMark({ label, size }: { label: MailLabel; size: "chip" | "shelf" | "row" }) {
   if (label.kind === "folder") {
     return (
       <span className="shrink-0" style={label.color ? { color: label.color } : undefined}>
@@ -27,20 +27,47 @@ function LabelMark({ label, size }: { label: MailLabel; size: "chip" | "row" }) 
       </span>
     );
   }
-  return <span className={cn("shrink-0 rounded-full", size === "chip" ? "size-1.5" : "size-2")} style={{ background: label.color ?? "var(--pane-muted)" }} />;
+  return (
+    <span
+      className={cn("shrink-0 rounded-full", size === "chip" ? "size-1.5" : size === "shelf" ? "h-3.5 w-1" : "size-2")}
+      style={{ background: label.color ?? "var(--pane-muted)" }}
+    />
+  );
 }
 
-/** A label as a small pill: its colour (when the provider stores one) or folder icon, and its last name part. */
-export function LabelChip({ label, spec, onClick, className }: { label: MailLabel; spec: ProviderSpec; onClick?: () => void; className?: string }) {
+/** The list row's shelf: files, labels and spaces as cards of one height and corner. */
+export const SHELF_CARD = "inline-flex h-[30px] shrink-0 items-center gap-1.5 rounded-[10px] bg-pane-2 px-2.5 text-[12px] text-pane-fg/85";
+
+/**
+ * A label as a small pill (`pill`, the reader) or a card on the list row's shelf (`shelf`): its
+ * colour (when the provider stores one) or folder icon, and its last name part.
+ */
+export function LabelChip({
+  label,
+  spec,
+  onClick,
+  className,
+  look = "pill",
+}: {
+  label: MailLabel;
+  spec: ProviderSpec;
+  onClick?: () => void;
+  className?: string;
+  look?: "pill" | "shelf";
+}) {
   const content = (
     <>
-      <LabelMark label={label} size="chip" />
+      <LabelMark label={label} size={look === "shelf" ? "shelf" : "chip"} />
       <span className="truncate">{leafName(label, spec)}</span>
     </>
   );
   const classes = cn(
-    "inline-flex max-w-[140px] items-center gap-1 rounded-full border border-pane-border px-1.5 py-px text-[10.5px] font-medium text-pane-muted",
-    onClick && "transition-colors hover:border-accent/50 hover:text-pane-fg",
+    look === "shelf"
+      ? cn(SHELF_CARD, "max-w-[160px] shrink", onClick && "transition-colors hover:bg-pane-border hover:text-pane-fg")
+      : cn(
+          "inline-flex max-w-[140px] items-center gap-1 rounded-full border border-pane-border px-1.5 py-px text-[10.5px] font-medium text-pane-muted",
+          onClick && "transition-colors hover:border-accent/50 hover:text-pane-fg",
+        ),
     className,
   );
   const title = label.kind === "folder" ? `In ${label.name}` : label.name;

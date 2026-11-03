@@ -30,6 +30,7 @@ import {
   Mail01Icon,
   MailOpen01Icon,
   MoreHorizontalIcon,
+  Attachment01Icon,
 } from "@hugeicons/core-free-icons";
 import { THREAD_DRAG, spaceLabel, spacePeople, type Space } from "@/lib/spaces";
 import { threadFiles } from "@/lib/mail/attachments";
@@ -64,7 +65,7 @@ import { GoogleLogo, MicrosoftLogo } from "../brand-logos";
 import { messagePreview } from "@/lib/mail/quotes";
 import { accountSpec, type MailLabel } from "@/lib/mail/providers";
 import type { Provider } from "@/lib/mail/types";
-import { LabelChip, type LabelLookup } from "./labels";
+import { LabelChip, SHELF_CARD, type LabelLookup } from "./labels";
 import { FileTypeIcon } from "../files/file-icon";
 
 import { FLUID_ITEM, FluidList } from "../ui/fluid-hover";
@@ -909,6 +910,19 @@ const ThreadRow = memo(function ThreadRow({
             >
               {checked ? <Icon icon={Tick02Icon} size={15} strokeWidth={2.5} /> : null}
             </span>
+            {/* Starred: a badge on the avatar, so a starred row needs no extra line. It steps aside for the checkbox. */}
+            {thread.starred ? (
+              <span
+                role="img"
+                aria-label="Starred"
+                className={cn(
+                  "pointer-events-none absolute -bottom-1 -right-1 grid size-[15px] place-items-center rounded-full bg-pane shadow-[0_1px_2px_rgb(0_0_0/0.14)] transition-opacity duration-150",
+                  checked || selecting ? "opacity-0" : "group-hover/check:opacity-0",
+                )}
+              >
+                <Icon icon={StarIcon} size={10} className="fill-warning text-warning" />
+              </span>
+            ) : null}
           </button>
         </Tooltip>
       </div>
@@ -958,31 +972,39 @@ const ThreadRow = memo(function ThreadRow({
           {messagePreview(last)}
         </div>
 
-        {!screener && (files.length || invite || thread.starred || thread.reminder || thread.scheduled || thread.note || actions.labels.length || inSpaces.length) ? (
-          <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[11.5px] text-pane-muted">
+        {/* The shelf: files, labels and spaces as cards of one height. The star sits on the avatar, so it never needs a line of its own. */}
+        {!screener && (files.length || invite || thread.reminder || thread.scheduled || thread.note || actions.labels.length || inSpaces.length) ? (
+          <div className="mt-1.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[12px] text-pane-muted">
             {files.length ? (
-              <span data-sensitive className="flex min-w-0 max-w-[60%] shrink items-center gap-1.5 rounded-lg bg-pane-2 py-1 pl-1 pr-2 text-[11.5px] text-pane-fg/85">
+              <span data-sensitive className={cn(SHELF_CARD, "min-w-0 max-w-[60%] shrink pl-1")}>
                 <FileTypeIcon name={files[0].name} mimeType={files[0].mimeType} className="h-[22px]" />
                 <span className="truncate">{files[0].name}</span>
+                {files.length > 1 ? (
+                  <>
+                    <span aria-hidden className="ml-0.5 h-4 w-px shrink-0 bg-pane-border" />
+                    <span title={`${files.length} files`} className="flex shrink-0 items-center gap-1 pl-0.5 font-medium text-pane-muted">
+                      <Icon icon={Attachment01Icon} size={13} />+{files.length - 1}
+                    </span>
+                  </>
+                ) : null}
               </span>
             ) : null}
-            {files.length > 1 ? <CountBadge count={files.length - 1} className="before:content-['+']" /> : null}
             {thread.reminder ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-1.5 py-px text-[10.5px] font-medium text-warning">
-                <Icon icon={AlarmClockIcon} size={11} strokeWidth={2} />
+              <span className={cn(SHELF_CARD, "bg-warning/15 font-medium text-warning")}>
+                <Icon icon={AlarmClockIcon} size={13} strokeWidth={2} />
                 No reply in {Math.max(1, differenceInCalendarDays(new Date(), new Date(thread.reminder.sentAt)))}d
               </span>
             ) : null}
             {thread.scheduled ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-1.5 py-px text-[10.5px] font-medium text-accent">
-                <Icon icon={TimeScheduleIcon} size={11} strokeWidth={2} />
+              <span className={cn(SHELF_CARD, "bg-accent-soft font-medium text-accent")}>
+                <Icon icon={TimeScheduleIcon} size={13} strokeWidth={2} />
                 {thread.scheduled.remindDays ? `Sends, then nudges in ${thread.scheduled.remindDays}d` : "Scheduled"}
               </span>
             ) : null}
             {actions.labels.slice(0, 3).map((label) => (
-              <LabelChip key={label.id} label={label} spec={spec} onClick={() => actions.onOpenLabel(label.id)} />
+              <LabelChip key={label.id} look="shelf" label={label} spec={spec} onClick={() => actions.onOpenLabel(label.id)} />
             ))}
-            {actions.labels.length > 3 ? <span className="text-[10.5px]">+{actions.labels.length - 3}</span> : null}
+            {actions.labels.length > 3 ? <CountBadge count={actions.labels.length - 3} className="shrink-0 before:content-['+']" /> : null}
             {inSpaces.slice(0, 2).map((space) => (
               <button
                 key={space.id}
@@ -991,16 +1013,15 @@ const ThreadRow = memo(function ThreadRow({
                   e.stopPropagation();
                   rowActions.openSpace(space.id);
                 }}
-                className="inline-flex max-w-[140px] items-center gap-1 rounded-full border border-pane-border px-1.5 py-px text-[10.5px] font-medium text-pane-muted transition-colors hover:border-accent/50 hover:text-pane-fg"
+                className={cn(SHELF_CARD, "min-w-0 max-w-[180px] shrink pl-2 transition-colors hover:bg-pane-border hover:text-pane-fg")}
               >
-                <SpaceDot space={space} className="size-1.5" />
-                <span className="truncate">{space.name}</span>
+                <SpaceMark space={space} path={spaceLabel(spaces, space.id)} />
+                <span className="truncate">{spaceLabel(spaces, space.id)}</span>
               </button>
             ))}
-            {inSpaces.length > 2 ? <span className="text-[10.5px]">+{inSpaces.length - 2}</span> : null}
-            {invite ? <Icon icon={Calendar03Icon} size={12} aria-label="Invite" /> : null}
-            {thread.note ? <Icon icon={Note01Icon} size={12} className="text-warning" /> : null}
-            {thread.starred ? <Icon icon={StarIcon} size={12} className="fill-warning text-warning" /> : null}
+            {inSpaces.length > 2 ? <CountBadge count={inSpaces.length - 2} className="shrink-0 before:content-['+']" /> : null}
+            {invite ? <Icon icon={Calendar03Icon} size={13} aria-label="Invite" className="shrink-0" /> : null}
+            {thread.note ? <Icon icon={Note01Icon} size={13} className="shrink-0 text-warning" /> : null}
           </div>
         ) : null}
 
@@ -1082,6 +1103,16 @@ function hoverButton(
     case "mute":
       return { label: thread.muted ? "Unmute" : "Mute", icon: thread.muted ? Notification02Icon : NotificationOff02Icon, shortcut: "mute", run: actions.onMute };
   }
+}
+
+/** A space on the row's shelf: its logo, else a small square in its colour with the first letter of its path. */
+function SpaceMark({ space, path }: { space: Space; path: string }) {
+  if (space.logo) return <SpaceDot space={space} logo logoClassName="size-3.5 rounded-[4px]" />;
+  return (
+    <span aria-hidden className="grid size-3.5 shrink-0 place-items-center rounded-[4px] text-[9px] font-bold text-white" style={{ background: space.color }}>
+      {path.trim().charAt(0).toUpperCase()}
+    </span>
+  );
 }
 
 function RowAction({
