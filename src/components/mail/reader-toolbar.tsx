@@ -5,14 +5,11 @@ import { type Thread } from "@/lib/mail/types";
 import { cn } from "@/lib/utils";
 import { CircleButton } from "./circle-button";
 import { BUTTON_ICONS } from "./button-icons";
-import { BUTTON_INFO, DIVIDER, MENU_ORDER, tidySlots, type ButtonAction, type ToolbarSlot } from "@/lib/buttons";
+import { BUTTON_INFO, DIVIDER, MENU_ORDER, TOOLBAR_SIZES, fitToolbar, tidySlots, type ButtonAction, type ToolbarLayout, type ToolbarSlot } from "@/lib/buttons";
 import { type ThreadMenuItem } from "./thread-menu";
 import { accountSpec } from "@/lib/mail/providers";
 import { capitalise } from "@/lib/format";
 import type { Props } from "./reader";
-
-/** Below this width the reader's toolbar keeps triage only; the rest moves into More. */
-export const NARROW_READER = 520;
 
 /** A conversation action as the reader shows it now: on a button or in More. */
 type ReaderAction = ThreadMenuItem & { active?: boolean; badge?: number; iconClassName?: string };
@@ -87,9 +84,25 @@ export function readerActions(props: Props, thread: Thread, fileCount: number): 
 }
 
 /** A group up to its first divider. */
-export function firstGroup(slots: ToolbarSlot[]) {
-  const cut = slots.indexOf(DIVIDER);
-  return cut > 0 ? slots.slice(0, cut) : slots;
+/** How finely the toolbar measures its room (useWidthStep): a re-render per step of a resize, not per pixel. */
+export const TOOLBAR_STEP = 12;
+
+/**
+ * The toolbar as it fits in the header's `width` (its content box): room off for Back (with its
+ * line), More, and the subject's least width while it's up there; null (not measured yet) = all of it.
+ */
+export function toolbarFor(
+  bar: ToolbarLayout,
+  acts: Partial<Record<ButtonAction, ReaderAction>>,
+  width: number | null,
+  { back, subject }: { back: boolean; subject: boolean },
+): ToolbarLayout {
+  if (width === null) return bar;
+  const touch = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+  const button = touch ? TOOLBAR_SIZES.touchButton : TOOLBAR_SIZES.button;
+  const { gap, divider } = TOOLBAR_SIZES;
+  const taken = (back ? button + gap + divider + gap : 0) + (subject ? TOOLBAR_SIZES.subject : 0) + gap + button;
+  return fitToolbar(bar, (action) => !!acts[action], width - taken, button);
 }
 
 /** More: every action that applies and isn't on the toolbar, in BUTTON_INFO's groups (a divider between). */

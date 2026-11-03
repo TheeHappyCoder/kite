@@ -10,7 +10,7 @@ import { Avatar } from "./avatar";
 import { Tooltip } from "../ui/tooltip";
 import { CircleButton } from "./circle-button";
 import { usePaneBack } from "./mail-panes";
-import { useNarrowerThan } from "@/lib/layout";
+import { useWidthStep } from "@/lib/layout";
 import { SearchQuery, useSearchHighlight } from "./search-highlight";
 import { type SendOptions } from "./send-menu";
 import type { Design } from "@/lib/design/spec";
@@ -31,7 +31,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { blurFade } from "@/lib/motion";
 import { FirstSyncState, useFirstSync } from "./first-sync";
 import { AiErrorText } from "../ai-usage-link";
-import { NARROW_READER, ToolbarGroup, firstGroup, moreItems, readerActions } from "./reader-toolbar";
+import { TOOLBAR_STEP, ToolbarGroup, moreItems, readerActions, toolbarFor } from "./reader-toolbar";
 import { QuickReply } from "./quick-reply";
 import { MessageView, NewDivider, type Person, firstName, isSelf } from "./message-view";
 import { ThreadBanner } from "./thread-banner";
@@ -115,19 +115,16 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
   const firstSync = useFirstSync();
   const { thread } = props;
   const [preview, setPreview] = useState<FileRef | null>(null);
-  // One pane at a time: Back returns to the list. A narrow reader moves reply all, forward, chat
-  // view and People into More.
+  // One pane at a time: Back returns to the list. Buttons that don't fit the toolbar fold into More (toolbarFor).
   const back = usePaneBack();
-  const [sectionRef, narrowReader] = useNarrowerThan<HTMLElement>(NARROW_READER);
   const highlightRef = useRef<HTMLElement | null>(null);
-  const readerRef = useCallback((node: HTMLElement | null) => { highlightRef.current = node; sectionRef(node); }, [sectionRef]);
+  const readerRef = useCallback((node: HTMLElement | null) => { highlightRef.current = node; }, []);
   useSearchHighlight(highlightRef, props.searchQuery ?? "", thread?.id ?? "");
-  const narrow = narrowReader === true;
   // Once the subject scrolls out of view it shows in the toolbar instead (kept per conversation, so a new one starts at the top).
   const [titleGone, setTitleGone] = useState<string | null>(null);
   const subjectInBar = !!thread && titleGone === thread.id;
-  // With the subject up there the toolbar keeps only triage, Star and More (the rest moves into More), so the subject has room.
-  const compact = narrow || subjectInBar;
+  // The toolbar's own width, in steps: buttons fold into More only when they don't fit (fitToolbar).
+  const [headerRef, headerWidth] = useWidthStep<HTMLElement>(TOOLBAR_STEP);
   // The files drawer jumps to a message through the conversation's own `jump`.
   const fileCount = thread ? thread.messages.reduce((n, m) => n + messageFiles(m, thread).length, 0) : 0;
   const jumpRef = useRef<((messageId: string) => void) | null>(null);
@@ -157,10 +154,8 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
   }
 
   const acts = readerActions(props, thread, fileCount);
-  // Narrow, or with the subject in the bar: the left group up to its first divider and the right group's first two.
-  const toolbar = compact
-    ? { left: firstGroup(props.buttons.toolbar.left), right: props.buttons.toolbar.right.slice(0, 2) }
-    : props.buttons.toolbar;
+  // Every button the user placed while it fits; with the subject in the bar it keeps room for that too.
+  const toolbar = toolbarFor(props.buttons.toolbar, acts, headerWidth, { back: !!back, subject: subjectInBar });
   const placed = new Set([...toolbar.left, ...toolbar.right]);
   const more = moreItems(acts, placed);
 
@@ -176,6 +171,7 @@ export const Reader = forwardRef<RichEditorHandle, Props>(function Reader(props,
           e.preventDefault();
           setCustomise({ x: e.clientX, y: e.clientY });
         }}
+        ref={headerRef}
         className="flex items-center gap-1.5 border-b border-pane-border px-4 py-3 @max-[520px]:px-3"
       >
         {back ? (

@@ -100,3 +100,39 @@ export function tidySlots(slots: ToolbarSlot[]): ToolbarSlot[] {
   if (out[out.length - 1] === DIVIDER) out.pop();
   return out;
 }
+
+/** The reader toolbar's sizes in px (CircleButton, its gap, a divider with its margins), for `fitToolbar`. */
+export const TOOLBAR_SIZES = { button: 36, touchButton: 44, gap: 6, divider: 13, subject: 140 } as const;
+
+export type ToolbarLayout = { left: ToolbarSlot[]; right: ToolbarSlot[] };
+
+/**
+ * The user's toolbar as it fits in `room` px (whatever else the row holds already taken off): every
+ * button while there's room, then one at a time into More from the end: the right group past its
+ * first two, then the left group past its first divider, then the right group's last two. It never
+ * folds below the left group's first part and the right group's first two. `has` says which actions
+ * apply to this conversation (the rest take no room).
+ */
+export function fitToolbar(bar: ToolbarLayout, has: (action: ButtonAction) => boolean, room: number, button: number = TOOLBAR_SIZES.button): ToolbarLayout {
+  const shown = (slots: ToolbarSlot[]) => tidySlots(slots.filter((s) => s === DIVIDER || has(s)));
+  const left = shown(bar.left);
+  const right = shown(bar.right);
+  const buttons = (slots: ToolbarSlot[]) => slots.filter((s): s is ButtonAction => s !== DIVIDER);
+  const cut = left.indexOf(DIVIDER);
+  const leftCore = buttons(cut > 0 ? left.slice(0, cut) : left);
+  const rightCore = buttons(right).slice(0, 2);
+  const core = [...leftCore, ...rightCore];
+  // Kept longest: the core; the first to go: the end of the right group.
+  const priority = [...core, ...buttons(left).filter((a) => !leftCore.includes(a)), ...buttons(right).slice(2)];
+  const shape = (keep: Set<ToolbarSlot>): ToolbarLayout => ({
+    left: tidySlots(left.filter((s) => s === DIVIDER || keep.has(s))),
+    right: tidySlots(right.filter((s) => s === DIVIDER || keep.has(s))),
+  });
+  const width = (layout: ToolbarLayout) =>
+    [...layout.left, ...layout.right].reduce((w, s) => w + (s === DIVIDER ? TOOLBAR_SIZES.divider : button) + TOOLBAR_SIZES.gap, 0);
+  for (let n = priority.length; n > core.length; n--) {
+    const layout = shape(new Set(priority.slice(0, n)));
+    if (width(layout) <= room) return layout;
+  }
+  return shape(new Set(core));
+}

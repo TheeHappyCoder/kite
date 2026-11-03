@@ -9,6 +9,8 @@ import {
   DIVIDER,
   HOVER_ACTIONS,
   HOVER_MAX,
+  TOOLBAR_SIZES,
+  fitToolbar,
   onToolbar,
   tidySlots,
   type ButtonAction,
@@ -16,8 +18,10 @@ import {
   type HoverAction,
   type ToolbarSlot,
 } from "@/lib/buttons";
+import { useWidthStep } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import { Icon } from "../icon";
+import { CircleButton } from "../mail/circle-button";
 import { Avatar } from "../mail/avatar";
 import { BUTTON_ICONS } from "../mail/button-icons";
 import { setButtonDragImage } from "../mail/drag-image";
@@ -156,6 +160,8 @@ function ToolbarEditor({ toolbar, onChange }: { toolbar: ButtonPrefs["toolbar"];
         </Tooltip>
       </div>
       </div>
+
+      <ScrolledPreview toolbar={toolbar} />
 
       {/* The tray: dropping a bar button here takes it off the bar. */}
       <div
@@ -310,6 +316,47 @@ function HoverEditor({ hover, onChange }: { hover: HoverAction[]; onChange: (hov
 const DRAGGED = "border border-dashed border-pane-muted/60 bg-transparent opacity-40";
 
 /** Tile and tooltip names, shorter than the menu's. */
+/**
+ * The bar once a conversation scrolls down and its subject moves up into it, at this page's width:
+ * what doesn't fit beside the subject waits in More (fitToolbar, as the reader does).
+ */
+function ScrolledPreview({ toolbar }: { toolbar: ButtonPrefs["toolbar"] }) {
+  const [ref, width] = useWidthStep<HTMLDivElement>(12);
+  const { button, gap } = TOOLBAR_SIZES;
+  const fit = width === null ? toolbar : fitToolbar(toolbar, () => true, width - TOOLBAR_SIZES.subject - gap - button);
+  const kept = new Set([...fit.left, ...fit.right]);
+  const folded = [...toolbar.left, ...toolbar.right].filter((s): s is ButtonAction => s !== DIVIDER && !kept.has(s));
+  const row = (slots: ToolbarSlot[]) =>
+    slots.map((slot, i) =>
+      slot === DIVIDER ? (
+        <span key={`d${i}`} className="mx-1.5 h-5 w-px shrink-0 bg-pane-border" />
+      ) : (
+        <CircleButton key={slot} icon={BUTTON_ICONS[slot]} label={BUTTON_INFO[slot].label} onClick={() => {}} />
+      ),
+    );
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[12px] text-pane-muted">When you scroll down a conversation, its subject moves up into the bar</p>
+      <div aria-hidden className="pointer-events-none rounded-2xl border border-pane-border bg-pane px-3 py-2.5">
+        <div ref={ref} className="flex min-w-0 items-center gap-1.5">
+          {row(fit.left)}
+          <span className="mx-1.5 h-5 w-px shrink-0 bg-pane-border" />
+          <p className="min-w-0 flex-1 truncate px-1.5 text-[14px] font-semibold tracking-tight">Braai on Saturday? Bring whoever you like</p>
+          {row(fit.right)}
+          <span className="grid size-9 shrink-0 place-items-center rounded-full text-pane-muted">
+            <Icon icon={MoreHorizontalIcon} size={17} />
+          </span>
+        </div>
+      </div>
+      <p className="text-[11.5px] text-pane-muted">
+        {folded.length
+          ? `At this width ${folded.map(shortName).join(", ")} ${folded.length === 1 ? "waits" : "wait"} in More until there's room again. A wider window shows them.`
+          : "Every button fits beside the subject at this width."}
+      </p>
+    </div>
+  );
+}
+
 function shortName(action: ButtonAction) {
   const short: Partial<Record<ButtonAction, string>> = {
     snooze: "Snooze",

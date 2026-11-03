@@ -91,6 +91,22 @@ export function useWidth<T extends HTMLElement>() {
 }
 
 /**
+ * An element's width rounded down to `step` px (null until it's on screen): re-renders only when it
+ * crosses a step, for layouts that only need to know roughly how much room there is.
+ */
+export function useWidthStep<T extends HTMLElement>(step: number) {
+  const [el, setEl] = useState<T | null>(null);
+  const [width, setWidth] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => setWidth(Math.floor(entry.contentRect.width / step) * step));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [el, step]);
+  return [setEl, width] as const;
+}
+
+/**
  * Whether an element is narrower than `px` (null until it's on screen). Re-renders only when the
  * answer flips, not on every pixel of a resize: use it instead of `useWidth` when a threshold is
  * all the component needs.
