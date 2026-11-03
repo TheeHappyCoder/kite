@@ -99,13 +99,11 @@ export function SendMenu({
 
   return (
     <div ref={ref} className="relative flex items-center">
+      {/* A texture accent pill (globals.css). Off, it keeps its shape (a quiet pill), so it reads as "not yet" rather than missing. */}
       <div
-        className={cn(
-          "flex items-center overflow-hidden rounded-full transition-[background-color,color] duration-150",
-          // Off, it keeps its shape (a quiet pill), so it reads as "not yet" rather than missing.
-          disabled && !sending ? "bg-pane-2 text-pane-muted shadow-[inset_0_0_0_1px_var(--pane-border)]" : "bg-accent text-accent-fg",
-          sending && "cursor-progress",
-        )}
+        data-variant="accent"
+        data-off={(disabled && !sending) || undefined}
+        className={cn("texture flex items-center overflow-hidden rounded-full", sending && "cursor-progress")}
       >
         <Tooltip label={sending ? "Sending" : (why ?? (remindDays ? `Send · nudge in ${remindDays}d if no reply` : "Send"))} side="top">
           <button

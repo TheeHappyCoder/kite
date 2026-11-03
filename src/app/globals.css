@@ -685,3 +685,96 @@ body {
     opacity: 0;
   }
 }
+
+/* Texture buttons (ui/texture-button.tsx, CircleButton): one element that reads as a pressed object:
+   a soft top-to-bottom gradient, a hairline edge, a lip of light on top and a small drop. Variants
+   only swap the variables, so every button is the same object in both themes. In the components layer,
+   so a utility (`text-success`) still wins. */
+@layer components {
+.texture {
+  --tx-top: #ffffff;
+  --tx-bottom: #f3f3f4;
+  --tx-hover: #f9f9f9;
+  --tx-edge: rgb(0 0 0 / 0.12);
+  --tx-shine: rgb(255 255 255 / 0.95);
+  --tx-drop: rgb(0 0 0 / 0.07);
+  --tx-fg: var(--pane-fg);
+  color: var(--tx-fg);
+  background-image: linear-gradient(to bottom, var(--tx-top), var(--tx-bottom));
+  box-shadow: 0 0 0 1px var(--tx-edge), inset 0 1px 0 var(--tx-shine), 0 1px 2px var(--tx-drop);
+  transition: transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+}
+.texture:hover:not(:disabled, [data-off]) {
+  --tx-bottom: var(--tx-hover);
+}
+.texture:active:not(:disabled, [data-off]) {
+  transform: translateY(0.5px);
+  box-shadow: 0 0 0 1px var(--tx-edge), inset 0 1px 2px var(--tx-drop);
+}
+[data-theme="dark"] .texture {
+  --tx-top: #2f3034;
+  --tx-bottom: #242529;
+  --tx-hover: #2a2b2f;
+  --tx-edge: rgb(0 0 0 / 0.7);
+  --tx-shine: rgb(255 255 255 / 0.08);
+  --tx-drop: rgb(0 0 0 / 0.4);
+}
+.texture[data-variant="primary"] {
+  --tx-top: #45464b;
+  --tx-bottom: #1d1e21;
+  --tx-hover: #2a2b2f;
+  --tx-edge: rgb(0 0 0 / 0.75);
+  --tx-shine: rgb(255 255 255 / 0.18);
+  --tx-drop: rgb(0 0 0 / 0.22);
+  --tx-fg: #ffffff;
+}
+[data-theme="dark"] .texture[data-variant="primary"] {
+  --tx-top: #ffffff;
+  --tx-bottom: #dcdcde;
+  --tx-hover: #ececed;
+  --tx-edge: #000;
+  --tx-shine: #fff;
+  --tx-drop: rgb(0 0 0 / 0.5);
+  --tx-fg: #1f2023;
+}
+.texture[data-variant="accent"] {
+  --tx-top: color-mix(in srgb, var(--accent) 78%, white);
+  --tx-bottom: var(--accent);
+  --tx-hover: color-mix(in srgb, var(--accent) 88%, white);
+  --tx-edge: color-mix(in srgb, var(--accent) 55%, black);
+  --tx-shine: rgb(255 255 255 / 0.35);
+  --tx-drop: color-mix(in srgb, var(--accent) 35%, transparent);
+  --tx-fg: var(--accent-fg);
+}
+.texture[data-variant="danger"] {
+  --tx-top: color-mix(in srgb, var(--danger) 78%, white);
+  --tx-bottom: var(--danger);
+  --tx-hover: color-mix(in srgb, var(--danger) 88%, white);
+  --tx-edge: color-mix(in srgb, var(--danger) 55%, black);
+  --tx-shine: rgb(255 255 255 / 0.35);
+  --tx-drop: color-mix(in srgb, var(--danger) 35%, transparent);
+  --tx-fg: #fff;
+}
+[data-theme="dark"] .texture[data-variant="accent"],
+[data-theme="dark"] .texture[data-variant="danger"] {
+  --tx-edge: #000;
+}
+/* Pressed in (a toggle that's on): the face sinks, the accent shows. */
+.texture[aria-pressed="true"] {
+  --tx-top: var(--accent-soft);
+  --tx-bottom: var(--accent-soft);
+  --tx-hover: var(--accent-soft);
+  --tx-fg: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent), inset 0 1px 2px var(--tx-drop);
+}
+/* Off (`data-off` on a group like Send's split pill): a flat, quiet face that keeps its shape. */
+.texture:disabled,
+.texture[data-off] {
+  --tx-top: var(--pane-2);
+  --tx-bottom: var(--pane-2);
+  --tx-fg: var(--pane-muted);
+  --tx-shine: transparent;
+  --tx-drop: transparent;
+  --tx-edge: var(--pane-border);
+}
+}

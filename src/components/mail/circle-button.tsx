@@ -41,11 +41,14 @@ export function CircleButton({
       <button
         aria-label={label}
         aria-busy={status === "busy" || undefined}
+        // A ringed button is a texture button (globals.css): pressed in while it's on.
+        aria-pressed={!ghost && active ? true : undefined}
         onClick={onClick}
         className={cn(
-          "relative grid size-9 shrink-0 place-items-center rounded-full touch:size-11 text-pane-fg/80 transition-[background-color,color,transform] duration-150 hover:bg-pane-hover hover:text-pane-fg active:scale-95",
-          ghost ? "text-pane-muted" : "border border-pane-border",
-          active && "border-accent/40 bg-accent-soft text-accent",
+          "relative grid size-9 shrink-0 place-items-center rounded-full touch:size-11",
+          ghost
+            ? cn("text-pane-muted transition-[background-color,color,transform] duration-150 hover:bg-pane-hover hover:text-pane-fg active:scale-95", active && "bg-accent-soft text-accent")
+            : "texture",
           status === "done" && "text-success",
           className,
         )}
