@@ -666,8 +666,8 @@ export function Compose({
             />
           </label>
 
-          {/* Full page: the writing takes the room, and what goes with it (quote, files, signature) sits below. */}
-          <div className={cn("min-h-24 flex-1 overflow-y-auto px-4 py-3", win.page && "flex flex-col")} onClick={(e) => e.target === e.currentTarget && editorRef.current?.focus()}>
+          {/* The writing takes the room, and what goes with it (quote, files, signature) sits at the foot. */}
+          <div className="flex min-h-24 flex-1 flex-col overflow-y-auto px-4 py-3" onClick={(e) => e.target === e.currentTarget && editorRef.current?.focus()}>
             {designMode ? (
               <DesignedBody
                 design={draft.design}
@@ -691,7 +691,7 @@ export function Compose({
                 snippets={snippets.map((s) => ({ ...s, body: expandSnippet(s.body, draft.to) }))}
                 onManageSnippets={onManageSnippets}
                 placeholder="Write something… type ; for snippets"
-                className={win.page ? "min-h-[140px] flex-1 text-[15px] leading-7" : "min-h-[140px] text-[13.5px] leading-6"}
+                className={cn("min-h-[140px] flex-1", win.page ? "text-[15px] leading-7" : "text-[13.5px] leading-6")}
               />
             )}
 
