@@ -41,7 +41,7 @@ const CATALOGUE = `Blocks (the "type" field picks one):
 - spacer: { "type": "spacer", "height": px (4–80) }
 - columns: { "type": "columns", "columns": [ { "width"?: percent, "blocks": [ …any block except columns… ] }, … ] (2 or 3 columns), "gap"?: px, "valign"?: "top"|"middle"|"bottom", "rule"?: "#rrggbb" (a thin vertical line between the columns) }
 
-Document: { "version": "${DESIGN_VERSION}", "theme": { "font": "sans"|"serif", "text": "#rrggbb", "muted": "#rrggbb", "accent": "#rrggbb" }, "blocks": [ … ], "text"?: "plain-text version (optional, generated if omitted)" }`;
+Document: { "version": "${DESIGN_VERSION}", "theme": { "font": "sans"|"serif", "text": "#rrggbb", "muted": "#rrggbb", "accent": "#rrggbb", "look"?: "modern"|"classic" (modern: quiet links in the text colour, labels in the muted colour, tighter type; prefer it) }, "blocks": [ … ], "text"?: "plain-text version (optional, generated if omitted)" }`;
 
 const RULES = [
   "Reply with ONE JSON object and nothing else: no explanation, no code fences.",

@@ -63,3 +63,20 @@ describe("several signatures per account", () => {
     expect(signatureFor(signatures, "acc", { signature: true })?.blocks[0]).toMatchObject({ text: "long" });
   });
 });
+
+describe("the modern look", () => {
+  const modern = (text: string, extra = {}) =>
+    compileHtml(Design.parse({ theme: { look: "modern" }, blocks: [{ type: "text", text, ...extra }] }), { image: (s) => s });
+
+  it("leaves designs saved without a look exactly as they were", () => {
+    const saved = Design.parse({ blocks: [{ type: "text", text: "[site](https://a.example)", caps: true }] });
+    expect(saved.theme.look).toBe("classic");
+    expect(compileHtml(saved, { image: (s) => s })).toContain("color:#5b4ff0;text-decoration:underline");
+    expect(compileHtml(saved, { image: (s) => s })).toContain("font-size:14px;line-height:21px;color:#5b4ff0;text-align:left;font-weight:400;text-transform:uppercase;letter-spacing:0.08em;");
+  });
+
+  it("writes quiet links in the text's own colour and labels in the muted colour", () => {
+    expect(modern("[site](https://a.example)", { size: "sm" })).toContain('<a href="https://a.example" style="color:#6f6f7a;text-decoration:none">site</a>');
+    expect(modern("Founder", { caps: true })).toContain("font-size:11px;line-height:16px;color:#6f6f7a");
+  });
+});

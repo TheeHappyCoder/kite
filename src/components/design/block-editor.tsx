@@ -19,6 +19,7 @@ import {
 import type { DesignAsset } from "@/lib/design/prompt";
 import { assetId, type Block, type ColumnsBlock, type DesignTheme, type LeafBlock } from "@/lib/design/spec";
 import { blurFade, springSnappy } from "@/lib/motion";
+import { textColour, textSize } from "@/lib/design/compile";
 import { cn } from "@/lib/utils";
 import { Icon, type IconData } from "../icon";
 import { Tooltip } from "../ui/tooltip";
@@ -232,8 +233,8 @@ function Inspector({ block, onChange, context }: { block: Block; onChange: (bloc
             value={block.text}
             onChange={(text) => set({ text })}
             theme={context.theme}
-            colour={block.color ?? (block.caps ? context.theme.accent : block.size === "sm" ? context.theme.muted : context.theme.text)}
-            size={{ sm: 12, md: 14, lg: 17 }[block.size]}
+            colour={textColour(block, context.theme)}
+            size={textSize(block, context.theme)}
           />
           <Row label="Size">
             <Segmented value={block.size} options={[["sm", "Small"], ["md", "Normal"], ["lg", "Large"]]} onChange={(size) => set({ size })} />

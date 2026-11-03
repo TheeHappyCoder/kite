@@ -308,8 +308,9 @@ export function DesignTextField({
             exec("insertText", e.clipboardData.getData("text/plain"));
             read();
           }}
-          style={{ fontFamily: FONT_STACKS[theme.font], color: colour, fontSize: size, lineHeight: 1.5, ["--link" as string]: theme.accent }}
-          className="min-h-[68px] whitespace-pre-wrap break-words px-2.5 py-2 outline-none [&_a]:text-[var(--link)] [&_a]:underline"
+          // Links as they'll go: underlined in the accent (classic) or quiet in the text's colour (modern).
+          style={{ fontFamily: FONT_STACKS[theme.font], color: colour, fontSize: size, lineHeight: 1.5, ["--link" as string]: theme.look === "modern" ? colour : theme.accent }}
+          className={cn("min-h-[68px] whitespace-pre-wrap break-words px-2.5 py-2 outline-none [&_a]:text-[var(--link)]", theme.look === "modern" ? "[&_a]:no-underline" : "[&_a]:underline")}
         />
         {!value.trim() ? <span className="pointer-events-none absolute left-2.5 top-2 text-[12.5px] text-[#9a9aa3]">{placeholder}</span> : null}
       </div>

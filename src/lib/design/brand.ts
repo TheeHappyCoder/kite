@@ -43,7 +43,7 @@ export const MAX_TEMPLATES = 50;
 /** The design theme the brand kit sets; colours it leaves out keep the defaults. */
 function brandTheme(brand: BrandKit): DesignTheme {
   const base = DesignTheme.parse({});
-  return { font: brand.font, accent: brand.accent ?? base.accent, text: brand.text ?? base.text, muted: brand.muted ?? base.muted };
+  return { font: brand.font, accent: brand.accent ?? base.accent, text: brand.text ?? base.text, muted: brand.muted ?? base.muted, look: base.look };
 }
 
 /** A new designed email: the brand's logo and theme, a heading and a paragraph to replace. */

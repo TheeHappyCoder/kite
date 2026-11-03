@@ -26,29 +26,64 @@ export const FONT_STACKS: Record<DesignTheme["font"], string> = {
 const TEXT_SIZES = { sm: 12, md: 14, lg: 17 } as const;
 const HEADING_SIZES = { 1: 24, 2: 19, 3: 16 } as const;
 const BLOCK_GAP = 8;
+// The modern look (DesignTheme.look): a little smaller and tighter, so a signature reads as one piece.
+const MODERN_TEXT_SIZES = { sm: 12, md: 14, lg: 16 } as const;
+const MODERN_HEADING_SIZES = { 1: 22, 2: 17, 3: 15 } as const;
+const MODERN_GAP = 3;
+
+const modern = (theme: DesignTheme) => theme.look === "modern";
+const gapOf = (theme: DesignTheme) => (modern(theme) ? MODERN_GAP : BLOCK_GAP);
+
+/** A text block's size in px, for the compiler and the editor's text field. */
+export function textSize(block: Pick<TextBlock, "size" | "caps">, theme: DesignTheme) {
+  if (!modern(theme)) return TEXT_SIZES[block.size];
+  return block.caps ? 11 : MODERN_TEXT_SIZES[block.size];
+}
+
+/** A text block's colour: a label takes the accent (classic) or the muted colour (modern); other small text is quiet. */
+export function textColour(block: Pick<TextBlock, "color" | "size" | "caps">, theme: DesignTheme) {
+  if (block.color) return block.color;
+  if (block.caps) return modern(theme) ? theme.muted : theme.accent;
+  return block.size === "sm" ? theme.muted : theme.text;
+}
 const SAFE_URL = /^(https?:\/\/|mailto:|tel:)[^\s"'<>]+$/;
 
 function safeUrl(url: string) {
   return SAFE_URL.test(url) ? escapeHtml(url) : "#";
 }
 
-/** Inline markup to HTML (lib/design/inline.ts): links in the accent, or in the colour of the run they sit in. */
-function inlineHtml(text: string, theme: DesignTheme) {
+/**
+ * Inline markup to HTML (lib/design/inline.ts): links in the accent, or in the colour of the run they
+ * sit in. Modern: in the text's own colour (`base`), not underlined.
+ */
+function inlineHtml(text: string, theme: DesignTheme, base?: string) {
   return inlineToHtml(text, {
-    link: (href, label, colour) => `<a href="${href}" style="color:${colour ?? theme.accent};text-decoration:underline">${label}</a>`,
+    link: (href, label, colour) =>
+      modern(theme)
+        ? `<a href="${href}" style="color:${colour ?? base ?? theme.text};text-decoration:none">${label}</a>`
+        : `<a href="${href}" style="color:${colour ?? theme.accent};text-decoration:underline">${label}</a>`,
     colour: (hex, inner) => `<span style="color:${hex}">${inner}</span>`,
   });
 }
 
 function textBlock(block: TextBlock, theme: DesignTheme) {
-  // A label (caps) takes the accent; other small text is quiet.
-  const color = block.color ?? (block.caps ? theme.accent : block.size === "sm" ? theme.muted : theme.text);
+  const color = textColour(block, theme);
+  if (modern(theme)) {
+    const size = textSize(block, theme);
+    const caps = block.caps ? "text-transform:uppercase;letter-spacing:0.07em;" : "";
+    const weight = block.caps ? 500 : block.bold ? 600 : 400;
+    return `<div style="margin:0;font-size:${size}px;line-height:${Math.round(size * 1.45)}px;color:${color};text-align:${block.align};font-weight:${weight};${caps}">${inlineHtml(block.text, theme, color)}</div>`;
+  }
   const size = TEXT_SIZES[block.size];
   const caps = block.caps ? "text-transform:uppercase;letter-spacing:0.08em;" : "";
   return `<div style="margin:0;font-size:${size}px;line-height:${Math.round(size * 1.5)}px;color:${color};text-align:${block.align};font-weight:${block.bold ? 700 : 400};${caps}">${inlineHtml(block.text, theme)}</div>`;
 }
 
 function headingBlock(block: HeadingBlock, theme: DesignTheme) {
+  if (modern(theme)) {
+    const size = MODERN_HEADING_SIZES[block.level];
+    return `<h${block.level} style="margin:0;font-size:${size}px;line-height:${Math.round(size * 1.25)}px;font-weight:600;letter-spacing:-0.01em;color:${block.color ?? theme.text};text-align:${block.align}">${escapeHtml(block.text)}</h${block.level}>`;
+  }
   const size = HEADING_SIZES[block.level];
   return `<h${block.level} style="margin:0;font-size:${size}px;line-height:${Math.round(size * 1.25)}px;font-weight:700;color:${block.color ?? theme.text};text-align:${block.align}">${escapeHtml(block.text)}</h${block.level}>`;
 }
@@ -66,9 +101,10 @@ function imageBlock(block: ImageBlock, theme: DesignTheme, options: CompileOptio
 function buttonBlock(block: ButtonBlock, theme: DesignTheme, options: CompileOptions) {
   const bg = block.color ?? theme.accent;
   const fg = block.textColor ?? "#ffffff";
-  const radius = options.outlook ? "" : "border-radius:6px;";
+  const radius = options.outlook ? "" : modern(theme) ? "border-radius:8px;" : "border-radius:6px;";
   const align = block.align === "left" ? "" : ` align="${block.align}"`;
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"${align} style="border-collapse:separate"><tr><td bgcolor="${bg}" style="${radius}background:${bg}"><a href="${safeUrl(block.href)}" style="display:inline-block;padding:9px 18px;font-size:14px;line-height:20px;font-weight:600;color:${fg};text-decoration:none;${radius}">${escapeHtml(block.label)}</a></td></tr></table>`;
+  const face = modern(theme) ? "padding:7px 14px;font-size:13px;line-height:18px;font-weight:500;" : "padding:9px 18px;font-size:14px;line-height:20px;font-weight:600;";
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"${align} style="border-collapse:separate"><tr><td bgcolor="${bg}" style="${radius}background:${bg}"><a href="${safeUrl(block.href)}" style="display:inline-block;${face}color:${fg};text-decoration:none;${radius}">${escapeHtml(block.label)}</a></td></tr></table>`;
 }
 
 function leafHtml(block: LeafBlock, theme: DesignTheme, options: CompileOptions) {
@@ -82,7 +118,7 @@ function leafHtml(block: LeafBlock, theme: DesignTheme, options: CompileOptions)
     case "button":
       return buttonBlock(block, theme, options);
     case "divider":
-      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px solid ${block.color ?? "#e3e3e8"};font-size:1px;line-height:1px">&nbsp;</td></tr></table>`;
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px solid ${block.color ?? (modern(theme) ? "#ececf0" : "#e3e3e8")};font-size:1px;line-height:1px">&nbsp;</td></tr></table>`;
     case "spacer":
       return `<div style="height:${block.height}px;line-height:${block.height}px;font-size:1px">&nbsp;</div>`;
   }
@@ -97,7 +133,7 @@ function stack(blocks: LeafBlock[], theme: DesignTheme, options: CompileOptions,
   const rows = blocks
     .map((block, i) => {
       const last = i === blocks.length - 1;
-      const pad = last || block.type === "spacer" ? 0 : BLOCK_GAP;
+      const pad = last || block.type === "spacer" ? 0 : gapOf(theme);
       const mark = options.marks && path ? ` data-kite-part="${path}.${i}"` : "";
       return `<tr${mark}><td align="${alignOf(block)}" style="padding:0 0 ${pad}px 0">${leafHtml(block, theme, options)}</td></tr>`;
     })
@@ -111,11 +147,18 @@ function columnsHtml(block: ColumnsBlock, theme: DesignTheme, options: CompileOp
   const share = flexible ? Math.max(10, Math.floor((100 - fixed) / flexible)) : 0;
   const cells = block.columns
     .map((column, i) => {
-      const width = column.width ?? share;
       const pad = i < block.columns.length - 1 ? block.gap : 0;
       // A rule between columns: a left border on every column after the first, with the gap on both sides.
       const rule = block.rule && i > 0 ? `border-left:1px solid ${block.rule};padding-left:${block.gap}px;` : "";
-      return `<td width="${width}%" valign="${block.valign}" style="padding:0 ${pad}px 0 0;${rule}">${stack(column.blocks, theme, options, "100%", index === undefined ? undefined : `${index}.${i}`)}</td>`;
+      // Modern: a column of pictures is exactly as wide as they are (a percentage of a table that
+      // shrinks to fit squeezed a photo to a dot), and the rest take what's left.
+      const pictures = modern(theme) && column.blocks.length > 0 && column.blocks.every((b) => b.type === "image");
+      const width = pictures
+        ? ` width="${Math.max(...column.blocks.map((b) => (b.type === "image" ? b.width : 0)))}"`
+        : modern(theme) && block.columns.some((c) => c.blocks.length > 0 && c.blocks.every((b) => b.type === "image"))
+          ? ""
+          : ` width="${column.width ?? share}%"`;
+      return `<td${width} valign="${block.valign}" style="padding:0 ${pad}px 0 0;${rule}">${stack(column.blocks, theme, options, "100%", index === undefined ? undefined : `${index}.${i}`)}</td>`;
     })
     .join("");
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tr>${cells}</tr></table>`;
@@ -131,7 +174,7 @@ export function compileHtml(design: Design, options: CompileOptions) {
   const rows = design.blocks
     .map((block, i) => {
       const last = i === design.blocks.length - 1;
-      const pad = last || block.type === "spacer" ? 0 : BLOCK_GAP;
+      const pad = last || block.type === "spacer" ? 0 : gapOf(theme);
       const align = block.type === "columns" ? "left" : alignOf(block);
       const mark = options.marks ? ` data-kite-block="${i}"` : "";
       return `<tr${mark}><td align="${align}" style="padding:0 0 ${pad}px 0">${blockHtml(block, theme, options, i)}</td></tr>`;

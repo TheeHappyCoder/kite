@@ -99,6 +99,12 @@ export const DesignTheme = z.object({
   muted: hex.default("#6f6f7a"),
   /** Links and buttons. */
   accent: hex.default("#5b4ff0"),
+  /**
+   * `classic`: underlined links in the accent, labels in the accent (what every design saved before
+   * `modern` existed keeps). `modern`: quiet links in the text's own colour, labels in the muted
+   * colour, tighter type, softer buttons and lines.
+   */
+  look: z.enum(["classic", "modern"]).default("classic"),
 });
 
 export const Design = z.object({

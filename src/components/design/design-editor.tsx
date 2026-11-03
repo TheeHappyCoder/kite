@@ -447,6 +447,13 @@ function StyleFields({ theme, onChange }: { theme: DesignTheme; onChange: (patch
   const [custom, setCustom] = useState(!current);
   return (
     <div className="flex flex-col gap-3">
+      <Row label="Look">
+        <Segmented
+          value={theme.look}
+          options={[["modern", "Modern"], ["classic", "Classic"]]}
+          onChange={(look) => onChange({ look })}
+        />
+      </Row>
       <div className="grid grid-cols-2 gap-2">
         {(["sans", "serif"] as const).map((font) => (
           <button
@@ -478,10 +485,11 @@ function StyleFields({ theme, onChange }: { theme: DesignTheme; onChange: (patch
                   setCustom(false);
                   onChange(p.theme);
                 }}
-                className={cn("flex h-8 items-center gap-0.5 rounded-full border px-1.5 transition-colors duration-150", on ? "border-accent" : "border-pane-border hover:border-pane-muted")}
+                className={cn("flex h-8 items-center rounded-full border px-1.5 transition-colors duration-150", on ? "border-accent bg-accent-soft/50" : "border-pane-border hover:border-pane-muted")}
               >
-                <span className="size-4 rounded-full" style={{ background: p.theme.text }} />
-                <span className="size-4 rounded-full" style={{ background: p.theme.accent }} />
+                {[p.theme.text, p.theme.muted, p.theme.accent].map((colour, i) => (
+                  <span key={i} className="-ml-1 size-4 rounded-full ring-2 ring-pane first:ml-0" style={{ background: colour }} />
+                ))}
               </button>
             </Tooltip>
           );
@@ -534,31 +542,33 @@ function Templates({
     [name, email],
   );
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-5">
+      <Section title="Start from a design" note="Your name and address are already in.">
+        <div className="grid grid-cols-1 gap-3">
+          {cards.map(({ t, design, images }, i) => (
+            <button
+              key={t.id}
+              onClick={() => onPick(design)}
+              className="blur-fade-up group flex flex-col rounded-[18px] bg-pane-2 p-1.5 text-left shadow-[inset_0_0_0_1px_var(--pane-border)] transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_45%,transparent),0_12px_28px_-16px_rgb(10_30_70/0.35)] active:translate-y-0"
+              style={{ "--i": i } as React.CSSProperties}
+            >
+              {/* The design on a sheet of paper, as someone will see it under your mail. */}
+              <div className="pointer-events-none rounded-xl bg-white px-5 py-5 shadow-[0_0_0_1px_rgb(0_0_0/0.05),0_1px_2px_rgb(0_0_0/0.06)]">
+                <DesignPreview design={design} images={images} className="p-0" />
+              </div>
+              <div className="flex items-baseline gap-2 px-2.5 pb-1 pt-2">
+                <span className="text-[12.5px] font-medium">{t.name}</span>
+                <span className="min-w-0 truncate text-[11.5px] text-pane-muted">{t.note}</span>
+                <span className="ml-auto shrink-0 text-[11.5px] font-medium text-accent opacity-0 transition-opacity duration-150 group-hover:opacity-100">Use this</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </Section>
       <Section title="Already have one?">
         <Ready who={who} onPick={onPick} onUpload={onUpload} />
       </Section>
-      <Section title="Or design one" note="Your name and address are already in.">
-      <div className="grid grid-cols-1 gap-2.5">
-        {cards.map(({ t, design, images }, i) => (
-          <button
-            key={t.id}
-            onClick={() => onPick(design)}
-            className="blur-fade-up group flex flex-col overflow-hidden rounded-2xl border border-pane-border text-left transition-[border-color,box-shadow] duration-150 hover:border-accent/60 hover:shadow-[0_8px_24px_-12px_rgb(10_30_70/0.25)]"
-            style={{ "--i": i } as React.CSSProperties}
-          >
-            <div className="pointer-events-none bg-white px-4 py-3.5">
-              <DesignPreview design={design} images={images} className="p-0" />
-            </div>
-            <div className="flex items-baseline gap-2 border-t border-pane-border bg-pane-2 px-4 py-2">
-              <span className="text-[12.5px] font-medium">{t.name}</span>
-              <span className="truncate text-[11.5px] text-pane-muted">{t.note}</span>
-            </div>
-          </button>
-        ))}
-      </div>
-      </Section>
-      <button onClick={onAi} className="mt-1 text-left text-[12.5px] font-medium text-accent hover:opacity-80">
+      <button onClick={onAi} className="text-left text-[12.5px] font-medium text-accent hover:opacity-80">
         Or describe it to your AI →
       </button>
     </div>
