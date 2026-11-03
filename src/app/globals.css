@@ -741,8 +741,8 @@ body {
   --tx-top: color-mix(in srgb, var(--accent) 78%, white);
   --tx-bottom: var(--accent);
   --tx-hover: color-mix(in srgb, var(--accent) 88%, white);
-  --tx-edge: color-mix(in srgb, var(--accent) 55%, black);
-  --tx-shine: rgb(255 255 255 / 0.35);
+  --tx-edge: color-mix(in srgb, var(--accent) 85%, black);
+  --tx-shine: rgb(255 255 255 / 0.22);
   --tx-drop: color-mix(in srgb, var(--accent) 35%, transparent);
   --tx-fg: var(--accent-fg);
 }
@@ -750,14 +750,10 @@ body {
   --tx-top: color-mix(in srgb, var(--danger) 78%, white);
   --tx-bottom: var(--danger);
   --tx-hover: color-mix(in srgb, var(--danger) 88%, white);
-  --tx-edge: color-mix(in srgb, var(--danger) 55%, black);
-  --tx-shine: rgb(255 255 255 / 0.35);
+  --tx-edge: color-mix(in srgb, var(--danger) 85%, black);
+  --tx-shine: rgb(255 255 255 / 0.22);
   --tx-drop: color-mix(in srgb, var(--danger) 35%, transparent);
   --tx-fg: #fff;
-}
-[data-theme="dark"] .texture[data-variant="accent"],
-[data-theme="dark"] .texture[data-variant="danger"] {
-  --tx-edge: #000;
 }
 /* Pressed in (a toggle that's on): the face sinks, the accent shows. */
 .texture[aria-pressed="true"] {
